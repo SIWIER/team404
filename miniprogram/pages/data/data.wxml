@@ -1,0 +1,8 @@
+<view class="card center" style="padding:100rpx 20rpx;">
+  <view style="font-size:100rpx;">🚧</view>
+  <view style="font-weight:800;font-size:36rpx;margin:24rpx 0 12rpx;">数据统计与分析（开发中）</view>
+  <view class="muted">后端接口 /api/data/stats 已就绪：找回记录、高频地点、房间热力、趋势图与智能洞察即将上线。</view>
+  <view class="btn-row" style="justify-content:center;">
+    <view class="btn ghost" bindtap="goHome">← 返回首页</view>
+  </view>
+</view>

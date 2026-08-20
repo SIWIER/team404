@@ -1,5 +1,6 @@
 node_modules/
-data/
+# 仅忽略仓库根目录的 data/（SQLite 数据目录）；源码里叫 data 的模块目录不受影响
+/data/
 .env
 *.log
 # 微信开发者工具的个人本地配置（每人一份，不入库）
