@@ -1,0 +1,8 @@
+<view class="card center" style="padding:100rpx 20rpx;">
+  <view style="font-size:100rpx;">🚧</view>
+  <view style="font-weight:800;font-size:36rpx;margin:24rpx 0 12rpx;">硬件设备接入（开发中）</view>
+  <view class="muted">后端接口已就绪（REST + WebSocket 实时推送）；小程序版将支持设备卡片、定位/呼唤指令与实时事件流。</view>
+  <view class="btn-row" style="justify-content:center;">
+    <view class="btn ghost" bindtap="goHome">← 返回首页</view>
+  </view>
+</view>

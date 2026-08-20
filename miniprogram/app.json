@@ -1,0 +1,19 @@
+{
+  "pages": [
+    "pages/auth/auth",
+    "pages/home/home",
+    "pages/reason/reason",
+    "pages/data/data",
+    "pages/hardware/hardware",
+    "pages/profile/profile"
+  ],
+  "window": {
+    "navigationBarTitleText": "找眼镜助手",
+    "navigationBarBackgroundColor": "#3d7bfd",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#eef3fb",
+    "backgroundTextStyle": "light"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

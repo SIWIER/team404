@@ -1,0 +1,10 @@
+.auth-wrap { padding-top: 12vh; }
+.logo { text-align: center; font-size: 100rpx; margin-bottom: 12rpx; }
+.title { text-align: center; font-size: 48rpx; font-weight: 800; }
+.sub { text-align: center; color: #7b8794; font-size: 26rpx; margin: 8rpx 0 40rpx; }
+.tabs { display: flex; background: #eef1f6; border-radius: 16rpx; padding: 6rpx; margin-bottom: 32rpx; }
+.tab { flex: 1; text-align: center; padding: 16rpx; border-radius: 12rpx; font-weight: 700; color: #7b8794; font-size: 28rpx; }
+.tab.on { background: #fff; color: #3d7bfd; box-shadow: 0 4rpx 10rpx rgba(0,0,0,.06); }
+.remember { display: flex; align-items: center; gap: 12rpx; font-size: 26rpx; color: #7b8794; margin-bottom: 24rpx; }
+.btn-main { margin-top: 12rpx; }
+.demo-tip { text-align: center; font-size: 22rpx; margin-top: 20rpx; }

@@ -1,0 +1,107 @@
+/* app.wxss — 全局样式 */
+page {
+  background: #eef3fb;
+  color: #1f2b3a;
+  font-size: 30rpx;
+  font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+.card {
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 32rpx;
+  margin: 24rpx;
+  box-shadow: 0 10rpx 30rpx rgba(40, 60, 110, 0.1);
+}
+
+.page-title { font-size: 44rpx; font-weight: 800; margin: 24rpx 32rpx 4rpx; }
+.page-sub { color: #7b8794; font-size: 26rpx; margin: 0 32rpx 24rpx; }
+.muted { color: #7b8794; }
+.hint { font-size: 24rpx; color: #7b8794; margin-top: 8rpx; }
+
+.btn {
+  background: linear-gradient(135deg, #3d7bfd, #6a5cff);
+  color: #fff; font-size: 30rpx; font-weight: 700;
+  border-radius: 18rpx; padding: 22rpx 36rpx; text-align: center;
+  box-shadow: 0 8rpx 20rpx rgba(61, 123, 253, 0.28);
+}
+.btn.ghost { background: #fff; color: #3d7bfd; border: 1rpx solid #e3e9f2; box-shadow: none; }
+.btn.good { background: linear-gradient(135deg, #22b07d, #16a6c9); box-shadow: 0 8rpx 20rpx rgba(34,176,125,.25); }
+.btn.warn { background: linear-gradient(135deg, #ff7a59, #ff9f43); box-shadow: 0 8rpx 20rpx rgba(255,122,89,.25); }
+.btn.sm { padding: 14rpx 24rpx; font-size: 26rpx; border-radius: 14rpx; }
+.btn[disabled] { opacity: .5; }
+.btn-row { display: flex; gap: 16rpx; flex-wrap: wrap; margin-top: 24rpx; }
+
+.input {
+  background: #fbfdff; border: 1rpx solid #e3e9f2; border-radius: 16rpx;
+  padding: 20rpx 24rpx; font-size: 30rpx; width: 100%; box-sizing: border-box;
+}
+.field { margin-bottom: 24rpx; }
+.field label { display: block; font-size: 24rpx; color: #7b8794; margin-bottom: 10rpx; font-weight: 600; }
+.err-msg { color: #e85d75; font-size: 24rpx; margin: 8rpx 0; }
+.empty { text-align: center; color: #7b8794; padding: 48rpx 20rpx; font-size: 26rpx; }
+
+/* 选项（问答） */
+.opts { display: flex; flex-wrap: wrap; gap: 16rpx; }
+.opt {
+  border: 2rpx solid #e3e9f2; background: #fff; border-radius: 18rpx;
+  padding: 22rpx 24rpx; text-align: center; font-size: 28rpx; font-weight: 600;
+}
+.opt.active { border-color: #3d7bfd; background: #e8f0ff; color: #3d7bfd; }
+.opt .emoji { display: block; font-size: 40rpx; margin-bottom: 6rpx; }
+
+/* 推理结果 */
+.result-top {
+  display: flex; align-items: center; gap: 20rpx;
+  background: linear-gradient(135deg, #eef4ff, #f6f0ff);
+  border-radius: 20rpx; padding: 28rpx; margin-bottom: 20rpx;
+}
+.result-top .big { font-size: 60rpx; }
+.rt-name { font-weight: 800; font-size: 34rpx; }
+.rt-conf { color: #7b8794; font-size: 24rpx; margin-top: 4rpx; }
+.engine-tag {
+  display: inline-block; font-size: 20rpx; padding: 4rpx 14rpx; border-radius: 999rpx;
+  background: #eef1f6; color: #7b8794; margin-left: 10rpx;
+}
+.summary-box {
+  background: #fff8ea; border: 1rpx solid #ffe0a8; color: #7a5b16;
+  border-radius: 18rpx; padding: 24rpx; font-size: 28rpx; line-height: 1.7; margin-bottom: 20rpx;
+}
+.rank-item {
+  display: flex; align-items: center; gap: 16rpx; padding: 22rpx;
+  border: 1rpx solid #e3e9f2; border-radius: 18rpx; margin-bottom: 16rpx; background: #fff;
+}
+.rank-num { font-weight: 800; color: #3d7bfd; width: 40rpx; }
+.rank-main { flex: 1; }
+.rank-name { font-weight: 700; font-size: 30rpx; }
+.rank-room { color: #7b8794; font-size: 22rpx; }
+.rank-bar { height: 12rpx; border-radius: 999rpx; background: #e3e9f2; margin-top: 10rpx; overflow: hidden; }
+.rank-bar .fill { height: 100%; background: linear-gradient(90deg, #3d7bfd, #6a5cff); }
+.rank-pct { font-weight: 800; color: #3d7bfd; }
+.reasons { font-size: 22rpx; color: #7b8794; margin-top: 8rpx; line-height: 1.5; }
+.found-btn { background: linear-gradient(135deg,#22b07d,#16a6c9); color:#fff; font-size:24rpx; padding:12rpx 20rpx; border-radius: 14rpx; }
+
+/* 菜单 */
+.menu-grid { display: flex; flex-wrap: wrap; gap: 20rpx; margin: 0 24rpx; }
+.menu-card {
+  width: calc(50% - 10rpx); box-sizing: border-box; background: #fff;
+  border-radius: 24rpx; padding: 30rpx; box-shadow: 0 10rpx 30rpx rgba(40,60,110,.1);
+}
+.menu-card .ico { font-size: 60rpx; }
+.menu-card .t { font-weight: 800; font-size: 32rpx; margin: 16rpx 0 8rpx; }
+.menu-card .d { color: #7b8794; font-size: 24rpx; line-height: 1.5; }
+.menu-card .badge {
+  float: right; font-size: 20rpx; font-weight: 700; padding: 4rpx 14rpx;
+  border-radius: 999rpx; color: #fff; background: #3d7bfd;
+}
+.menu-card .badge.gray { background: #b8c2cf; }
+
+.tag-list { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 10rpx; }
+.tag { font-size: 22rpx; font-weight: 600; padding: 8rpx 18rpx; border-radius: 999rpx; background: #eaf1ff; color: #3d7bfd; }
+
+.progress { display: flex; gap: 8rpx; margin: 0 32rpx 24rpx; }
+.progress .step { flex: 1; height: 10rpx; border-radius: 999rpx; background: #e3e9f2; }
+.progress .step.done { background: linear-gradient(90deg, #3d7bfd, #6a5cff); }
+.progress .step.cur { background: #9db9ff; }
+
+.ans-row { display: flex; justify-content: space-between; padding: 14rpx 0; border-bottom: 1rpx solid #eef1f6; font-size: 28rpx; }

@@ -1,0 +1,148 @@
+<!-- 加载 -->
+<view wx:if="{{phase === 'loading' || phase === 'inferring'}}" class="card center" style="padding:80rpx 20rpx;">
+  <view style="font-size:80rpx;">{{phase === 'loading' ? '📋' : '🤔'}}</view>
+  <view style="font-weight:800;font-size:34rpx;margin-top:20rpx;">
+    {{phase === 'loading' ? '正在准备问题清单…' : '正在推理…'}}
+  </view>
+  <view class="muted" style="font-size:24rpx;margin-top:12rpx;">
+    {{phase === 'inferring' ? '结合生活常识、逻辑推理与你的历史数据（大模型不可用会自动回退内置引擎）' : ''}}
+  </view>
+</view>
+
+<!-- 问答向导 -->
+<block wx:if="{{phase === 'questions'}}">
+  <view class="page-title">🔍 引导推理 · 找眼镜</view>
+  <view class="page-sub">第 {{step + 1}} 问，帮你回忆关键线索</view>
+  <view class="progress">
+    <view class="step {{item.cls}}" wx:for="{{progress}}" wx:key="index"></view>
+  </view>
+  <view class="card">
+    <view class="q-text">{{question.q}}</view>
+
+    <!-- 单选 -->
+    <view class="opts" wx:if="{{question.type === 'choice'}}">
+      <view class="opt {{item.active ? 'active' : ''}}" wx:for="{{question.opts}}" wx:key="label"
+            data-val="{{item.label}}" bindtap="pickChoice">
+        <view class="emoji">{{item.emoji}}</view>
+        <view>{{item.label}}</view>
+      </view>
+    </view>
+
+    <!-- 多选 -->
+    <view class="opts" wx:elif="{{question.type === 'multi'}}">
+      <view class="opt {{item.active ? 'active' : ''}}" wx:for="{{question.opts}}" wx:key="label"
+            data-val="{{item.label}}" bindtap="toggleMulti">
+        <view class="emoji">{{item.emoji}}</view>
+        <view>{{item.label}}{{item.active ? ' ✓' : ''}}</view>
+      </view>
+    </view>
+
+    <!-- 文本 -->
+    <block wx:elif="{{question.type === 'text'}}">
+      <textarea class="input" style="min-height:160rpx;" placeholder="例如：昨晚睡前还在刷手机…"
+                value="{{textAnswer}}" bindinput="onTextInput"></textarea>
+    </block>
+
+    <view class="btn-row">
+      <view class="btn ghost sm" wx:if="{{step > 0}}" bindtap="prevStep">← 上一步</view>
+      <view class="btn sm" wx:if="{{question.type === 'multi' || question.type === 'text'}}" bindtap="nextStep">
+        {{question.type === 'multi' ? multiLabel : (textAnswer ? '下一步 →' : '跳过 →')}}
+      </view>
+    </view>
+  </view>
+</block>
+
+<!-- 确认 -->
+<block wx:if="{{phase === 'confirm'}}">
+  <view class="page-title">🔍 引导推理 · 找眼镜</view>
+  <view class="page-sub">线索已收集，确认后开始推理</view>
+  <view class="card">
+    <view class="ans-row" wx:for="{{confirmList}}" wx:key="q">
+      <view class="muted">{{item.q}}</view>
+      <view style="font-weight:700;">{{item.a}}</view>
+    </view>
+  </view>
+  <view class="btn-row" style="padding:0 32rpx;">
+    <view class="btn ghost" bindtap="restart">↺ 重新填写</view>
+    <view class="btn" bindtap="confirmInfer">🧠 开始推理</view>
+  </view>
+</block>
+
+<!-- 结果 -->
+<block wx:if="{{phase === 'result'}}">
+  <view class="page-title">🔍 推理结果</view>
+  <view class="page-sub">分析结果 <text class="engine-tag">{{engineTag}}</text></view>
+
+  <view class="card">
+    <view class="result-top">
+      <view class="big">🎯</view>
+      <view>
+        <view class="rt-name">最可能在：{{result.topLocation}} <text class="muted" style="font-size:24rpx;">（{{result.topRoom}}）</text></view>
+        <view class="rt-conf">置信度约 {{result.confidence}}%{{result.timeHint ? ' · ' + result.timeHint : ''}}</view>
+      </view>
+    </view>
+
+    <view class="summary-box">💡 {{result.summary}}</view>
+
+    <view class="rank-item" wx:for="{{ranked}}" wx:key="name">
+      <view class="rank-num">{{index + 1}}</view>
+      <view class="rank-main">
+        <view class="rank-name">{{item.name}} <text class="rank-room">· {{item.room}}</text></view>
+        <view class="rank-bar"><view class="fill" style="width:{{item.pct > 100 ? 100 : item.pct}}%;"></view></view>
+        <view class="reasons" wx:if="{{item.reasons.length}}">
+          <view wx:for="{{item.reasons}}" wx:for-item="r" wx:key="*this">· {{r}}</view>
+        </view>
+      </view>
+      <view style="text-align:right;">
+        <view class="rank-pct">{{item.pct}}%</view>
+        <view class="found-btn" data-loc="{{item.name}}" data-room="{{item.room}}" bindtap="foundIt">在这里找到了 ✓</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 设备协助 -->
+  <view class="card">
+    <view style="font-weight:700;margin-bottom:16rpx;">📡 设备协助</view>
+    <block wx:if="{{devices.locator || devices.nfc}}">
+      <view class="btn-row" style="margin-top:0;">
+        <view class="btn warn sm" wx:if="{{devices.locator}}" data-id="{{devices.locator.id}}" data-cmd="locate" bindtap="deviceAction">📡 定位器扫描</view>
+        <view class="btn good sm" wx:if="{{devices.nfc}}" data-id="{{devices.nfc.id}}" data-cmd="ping" bindtap="deviceAction">🔊 近场呼唤</view>
+        <view class="btn ghost sm" bindtap="reinfer">🔄 重新推理</view>
+      </view>
+      <view class="muted" style="font-size:24rpx;margin-top:12rpx;" wx:if="{{devOut}}">{{devOut}}</view>
+      <view class="hint">定位器扫描后会把"最近定位报告"作为强证据注入推理。</view>
+    </block>
+    <block wx:else>
+      <view class="muted">💡 你还没有接入硬件设备——没有设备也不影响，内置推理已给出候选；接入定位器后可用实时信号作强证据。</view>
+    </block>
+  </view>
+
+  <view class="card">
+    <view style="font-weight:700;margin-bottom:16rpx;">还是没找到？</view>
+    <view class="btn-row" style="margin-top:0;">
+      <view class="btn ghost" bindtap="restart">↺ 换个思路重新回答</view>
+      <view class="btn warn" bindtap="saveNotFound">📝 记录本次未找到</view>
+    </view>
+  </view>
+</block>
+
+<!-- 找到 -->
+<view wx:if="{{phase === 'found'}}" class="card center" style="padding:80rpx 20rpx;">
+  <view style="font-size:100rpx;">🎉</view>
+  <view style="font-weight:800;font-size:40rpx;margin:24rpx 0 12rpx;">找到啦！就在「{{foundLoc}}」</view>
+  <view class="muted">本次找回用时约 {{durSec}} 秒，记录已保存，个人数据已更新。</view>
+  <view class="btn-row" style="justify-content:center;">
+    <view class="btn" bindtap="goHome">🏠 返回首页</view>
+  </view>
+</view>
+
+<!-- 未找到 -->
+<view wx:if="{{phase === 'notfound'}}" class="card center" style="padding:80rpx 20rpx;">
+  <view style="font-size:100rpx;">🤗</view>
+  <view style="font-weight:800;font-size:40rpx;margin:24rpx 0 12rpx;">别着急，这次没找到也没关系</view>
+  <view class="muted">未找到的情况已记录，系统会持续学习你的习惯。</view>
+  <view class="btn-row" style="justify-content:center;">
+    <view class="btn" bindtap="restart">↺ 换个思路再试</view>
+    <view class="btn ghost" bindtap="goHome">🏠 返回首页</view>
+  </view>
+</view>

@@ -1,0 +1,20 @@
+{
+  "description": "找眼镜助手微信小程序（后端复用 find-my-glasses-pro 服务）",
+  "packOptions": { "ignore": [], "include": [] },
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": true,
+    "checkInvalidKey": true,
+    "checkSiteMap": true,
+    "uploadWithSourceMap": true,
+    "compileHotReLoad": true
+  },
+  "compileType": "miniprogram",
+  "libVersion": "3.4.10",
+  "appid": "touristappid",
+  "projectname": "find-my-glasses-mp",
+  "condition": {}
+}

@@ -1,0 +1,2 @@
+.center { text-align: center; }
+.q-text { font-weight: 800; font-size: 32rpx; line-height: 1.5; margin-bottom: 24rpx; }

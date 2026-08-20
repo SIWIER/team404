@@ -1,0 +1,72 @@
+<view wx:if="{{user}}">
+  <view class="page-title">你好，{{user.nickname}} 👋</view>
+  <view class="page-sub">这是你的专属智能体，选择一项功能开始吧。</view>
+
+  <view class="card">
+    <view class="profile-head">
+      <view class="avatar">{{avatar}}</view>
+      <view class="profile-main">
+        <view class="p-name">{{user.profile.agentName}}</view>
+        <view class="muted" style="font-size:24rpx;">{{user.profile.agentStyle}}</view>
+        <view class="muted" style="font-size:22rpx;margin-top:4rpx;">账号 {{user.username}} · 注册于 {{createdAt}}</view>
+      </view>
+      <view class="btn ghost sm" bindtap="goProfile">✏️ 编辑</view>
+    </view>
+
+    <view class="divider"></view>
+    <view class="muted" style="font-size:24rpx;font-weight:600;">生活习惯</view>
+    <view class="tag-list">
+      <view class="tag" wx:for="{{habits}}" wx:key="*this">{{item}}</view>
+      <view wx:if="{{!habits.length}}" class="muted" style="font-size:22rpx;">暂无生活习惯记录</view>
+    </view>
+    <view class="muted" style="font-size:24rpx;font-weight:600;margin-top:16rpx;">常用放眼镜地点</view>
+    <view class="tag-list">
+      <view class="tag" wx:for="{{favs}}" wx:key="n">📍 {{item.n}}</view>
+      <view wx:if="{{!favs.length}}" class="muted" style="font-size:22rpx;">暂无常用地点</view>
+    </view>
+
+    <block wx:if="{{placedCount}}">
+      <view class="muted" style="font-size:24rpx;font-weight:600;margin-top:16rpx;">🏠 家庭户型图</view>
+      <view class="floor">
+        <view class="floor-row" wx:for="{{floorRows}}" wx:for-item="row" wx:key="index" style="grid-template-columns: repeat({{row.cols}}, 1fr);">
+          <view class="floor-cell {{item.empty ? 'empty' : ''}}" wx:for="{{row.cells}}" wx:for-item="item" wx:key="index">
+            {{item.e}} {{item.n}}
+          </view>
+        </view>
+      </view>
+      <view class="hint">相邻格 = 相邻房间，影响推理的距离权重（画像页可拖拽调整）</view>
+    </block>
+    <view wx:elif="{{layoutCount}}" class="muted" style="font-size:22rpx;margin-top:16rpx;">户型未摆放：去画像页拖拽房间到网格中</view>
+  </view>
+
+  <view class="menu-grid">
+    <view class="menu-card" bindtap="go" data-url="reason">
+      <view class="badge">智能引导</view>
+      <view class="ico">🔍</view>
+      <view class="t">引导推理找眼镜</view>
+      <view class="d">一问一答，回忆场景，AI 结合常识与你的历史数据推理位置。</view>
+    </view>
+    <view class="menu-card" bindtap="go" data-url="data">
+      <view class="badge gray">开发中</view>
+      <view class="ico">📊</view>
+      <view class="t">数据统计与分析</view>
+      <view class="d">找回记录、高频地点、房间热力（小程序版开发中）。</view>
+    </view>
+    <view class="menu-card" bindtap="go" data-url="hardware">
+      <view class="badge gray">开发中</view>
+      <view class="ico">📡</view>
+      <view class="t">硬件设备接入</view>
+      <view class="d">定位器/近场呼唤器（小程序版开发中）。</view>
+    </view>
+    <view class="menu-card" bindtap="go" data-url="profile">
+      <view class="badge gray">开发中</view>
+      <view class="ico">🧠</view>
+      <view class="t">个性化智能体</view>
+      <view class="d">生活习惯、常用地点、户型图拖拽（小程序版开发中）。</view>
+    </view>
+  </view>
+
+  <view style="padding: 40rpx; text-align: center;">
+    <view class="btn ghost" bindtap="logout">退出登录</view>
+  </view>
+</view>

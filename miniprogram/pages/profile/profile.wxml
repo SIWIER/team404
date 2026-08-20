@@ -1,0 +1,8 @@
+<view class="card center" style="padding:100rpx 20rpx;">
+  <view style="font-size:100rpx;">🚧</view>
+  <view style="font-weight:800;font-size:36rpx;margin:24rpx 0 12rpx;">个性化智能体（开发中）</view>
+  <view class="muted">画像编辑、家庭布局与户型图拖拽（movable-view 实现）即将上线；后端接口已就绪。</view>
+  <view class="btn-row" style="justify-content:center;">
+    <view class="btn ghost" bindtap="goHome">← 返回首页</view>
+  </view>
+</view>

@@ -1,0 +1,54 @@
+<view class="auth-wrap">
+  <view class="logo">👓</view>
+  <view class="title">找眼镜助手</view>
+  <view class="sub">在家里没戴眼镜，也能帮你把眼镜找回来</view>
+
+  <view class="card">
+    <view class="tabs">
+      <view class="tab {{tab === 'login' ? 'on' : ''}}" bindtap="setTab" data-tab="login">登录</view>
+      <view class="tab {{tab === 'reg' ? 'on' : ''}}" bindtap="setTab" data-tab="reg">注册</view>
+    </view>
+
+    <block wx:if="{{tab === 'login'}}">
+      <view class="field">
+        <label>用户名</label>
+        <input class="input" placeholder="如 xiaoming" value="{{username}}" data-k="username" bindinput="onInput" />
+      </view>
+      <view class="field">
+        <label>密码</label>
+        <input class="input" password placeholder="123456" value="{{password}}" data-k="password" bindinput="onInput" />
+      </view>
+      <view class="remember">
+        <switch checked="{{remember}}" bindchange="toggleRemember" color="#3d7bfd" style="transform:scale(.8);" />
+        <text>记住我（30 天免登录）</text>
+      </view>
+    </block>
+
+    <block wx:else>
+      <view class="field">
+        <label>用户名</label>
+        <input class="input" placeholder="2-24 位，字母/数字/中文" value="{{username}}" data-k="username" bindinput="onInput" />
+      </view>
+      <view class="field">
+        <label>昵称</label>
+        <input class="input" placeholder="怎么称呼你" value="{{nickname}}" data-k="nickname" bindinput="onInput" />
+      </view>
+      <view class="field">
+        <label>密码</label>
+        <input class="input" password placeholder="至少 4 位" value="{{password}}" data-k="password" bindinput="onInput" />
+      </view>
+      <view class="field">
+        <label>确认密码</label>
+        <input class="input" password placeholder="再输入一次" value="{{password2}}" data-k="password2" bindinput="onInput" />
+      </view>
+    </block>
+
+    <view class="err-msg" wx:if="{{error}}">{{error}}</view>
+    <button class="btn btn-main" loading="{{busy}}" disabled="{{busy}}" bindtap="submit">
+      {{tab === 'login' ? '登 录' : '注 册'}}
+    </button>
+  </view>
+
+  <view class="demo-tip">演示账号：xiaoming / 123456 ｜ xiaohong / 123456</view>
+  <view class="demo-tip muted">微信一键登录将在后续版本上线</view>
+</view>
