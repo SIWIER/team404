@@ -2,3 +2,5 @@ node_modules/
 data/
 .env
 *.log
+# 微信开发者工具的个人本地配置（每人一份，不入库）
+miniprogram/project.private.config.json
