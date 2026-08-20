@@ -1,0 +1,170 @@
+// test/reason.engine.test.js — 本地常识推理引擎单元测试
+'use strict';
+const { test } = require('node:test');
+const assert = require('node:assert');
+const engine = require('../src/modules/reason/engine');
+
+const noHistory = { total: 0, byLocation: {}, records: [] };
+const noProfile = { habits: [], favoritePlaces: [] };
+
+function topNames(result, n = 3) {
+  return result.ranked.slice(0, n).map((r) => r.name);
+}
+
+test('洗澡 + 卫生间 → 卫生间位置进入前三', () => {
+  const r = engine.infer({ activity: '洗澡/冲凉', room: '卫生间', timeOfDay: '晚上' }, noHistory, noProfile);
+  assert.strictEqual(r.topLocation, '洗手台边');
+  const rooms = topNames(r, 3).map((n) => r.ranked.find((x) => x.name === n).room);
+  assert.ok(rooms.includes('卫生间'));
+  assert.strictEqual(r.engine, 'local');
+});
+
+test('追问“放在置物架/镜柜”→ 该位置大幅上升', () => {
+  const base = engine.infer({ activity: '洗澡/冲凉', room: '卫生间' }, noHistory, noProfile);
+  const withClue = engine.infer({ activity: '洗澡/冲凉', room: '卫生间', bathPlace: '置物架/镜柜' }, noHistory, noProfile);
+  const baseScore = base.ranked.find((x) => x.name === '浴室置物架/镜柜').probability;
+  const clueScore = withClue.ranked.find((x) => x.name === '浴室置物架/镜柜').probability;
+  assert.ok(clueScore > baseScore);
+  assert.strictEqual(withClue.topLocation, '浴室置物架/镜柜');
+});
+
+test('换衣服 + 好像放口袋 → 口袋类位置上升', () => {
+  const r = engine.infer({ activity: '换衣服', pocket: '好像放口袋了' }, noHistory, noProfile);
+  const pocketNames = r.ranked.slice(0, 5).map((x) => x.name).filter((n) => n.includes('口袋'));
+  assert.ok(pocketNames.length >= 1);
+});
+
+test('还没检查身上 → 头顶上进入前三', () => {
+  const r = engine.infer({ activity: '玩手机/打电话', justTookOff: '否', onPerson: '还没检查，我去看看' }, noHistory, noProfile);
+  assert.ok(topNames(r, 3).includes('头顶上'));
+});
+
+test('个人历史影响：床头柜高频 → 排名上升', () => {
+  const hs = { total: 10, byLocation: { '床头柜': { count: 5, freq: 0.5 } }, records: [] };
+  const without = engine.infer({ activity: '不确定/忘记了' }, noHistory, noProfile);
+  const withHist = engine.infer({ activity: '不确定/忘记了' }, hs, noProfile);
+  const a = without.ranked.find((x) => x.name === '床头柜').probability;
+  const b = withHist.ranked.find((x) => x.name === '床头柜').probability;
+  assert.ok(b > a);
+  assert.strictEqual(withHist.topLocation, '床头柜');
+});
+
+test('画像常用地点影响：床头柜偏好 → 排名上升', () => {
+  const p = { favoritePlaces: ['床头柜'] };
+  const without = engine.infer({ activity: '不确定/忘记了' }, noHistory, noProfile);
+  const withFav = engine.infer({ activity: '不确定/忘记了' }, noHistory, p);
+  assert.ok(withFav.ranked.find((x) => x.name === '床头柜').probability > without.ranked.find((x) => x.name === '床头柜').probability);
+});
+
+test('无任何线索 → 输出通用排序且前 8 名概率和为 100', () => {
+  const r = engine.infer({}, noHistory, noProfile);
+  assert.ok(r.ranked.length >= 5);
+  const sum = r.ranked.reduce((a, c) => a + c.probability, 0);
+  assert.ok(Math.abs(sum - 100) < 1);
+  assert.ok(r.summary.length > 10);
+});
+
+// ---------- 户型感知 ----------
+const layoutNoXuanGuan = [
+  { name: '卧室', desc: '', spots: [] },
+  { name: '卫生间', desc: '', spots: [] },
+  { name: '客厅', desc: '', spots: [] },
+  { name: '厨房', desc: '', spots: [] }
+];
+
+test('户型没有玄关 → 「玄关/鞋柜」跌出候选前 8', () => {
+  const without = engine.infer({ activity: '回家进门' }, noHistory, noProfile);
+  const withLayout = engine.infer({ activity: '回家进门' }, noHistory, { ...noProfile, homeLayout: layoutNoXuanGuan });
+  assert.ok(without.ranked.some((x) => x.name === '玄关/鞋柜'));
+  assert.ok(!withLayout.ranked.some((x) => x.name === '玄关/鞋柜'));
+});
+
+test('户型自定义放置点「飘窗」成为候选并因同房间被加权', () => {
+  const p = { ...noProfile, homeLayout: [{ name: '卧室', desc: '', spots: ['飘窗'] }, { name: '卫生间', desc: '', spots: [] }] };
+  const r = engine.infer({ activity: '刚起床', room: '卧室' }, noHistory, p);
+  const item = r.ranked.find((x) => x.name === '飘窗');
+  assert.ok(item, '自定义放置点应出现在候选列表');
+  assert.ok(item.reasons.some((t) => t.includes('同房间位置')), '应因同房间加权');
+});
+
+test('户型中「厨房」与知识库「厨房/餐厅」区域互通', () => {
+  const p = { ...noProfile, homeLayout: layoutNoXuanGuan };
+  const base = engine.infer({ activity: '做饭/吃饭' }, noHistory, p);
+  const withRoom = engine.infer({ activity: '做饭/吃饭', room: '厨房' }, noHistory, p);
+  const baseTop = base.ranked.find((x) => x.name === '厨房操作台');
+  const roomTop = withRoom.ranked.find((x) => x.name === '厨房操作台');
+  assert.ok(baseTop && roomTop);
+  assert.ok(roomTop.probability > baseTop.probability);
+});
+
+// ---------- 户型图空间感知（拖拽编辑器坐标） ----------
+test('路过房间加权：路过的房间位置概率上升', () => {
+  const p = { ...noProfile, homeLayout: [
+    { name: '卧室', spots: [], x: 0, y: 0 },
+    { name: '客厅', spots: [], x: 1, y: 0 }
+  ] };
+  const base = engine.infer({ room: '卧室' }, noHistory, p);
+  const passed = engine.infer({ room: '卧室', passedRooms: ['客厅'] }, noHistory, p);
+  const a = base.ranked.find((x) => x.name === '茶几');
+  const b = passed.ranked.find((x) => x.name === '茶几');
+  assert.ok(a && b);
+  assert.ok(b.probability > a.probability);
+  assert.ok(b.reasons.some((t) => t.includes('路过')));
+});
+
+test('户型图距离衰减：相邻房间位置权重高于远处房间', () => {
+  const nearP = { ...noProfile, homeLayout: [
+    { name: '卧室', spots: [], x: 0, y: 0 },
+    { name: '卫生间', spots: [], x: 1, y: 0 }
+  ] };
+  const farP = { ...noProfile, homeLayout: [
+    { name: '卧室', spots: [], x: 0, y: 0 },
+    { name: '卫生间', spots: [], x: 4, y: 3 }
+  ] };
+  const near = engine.infer({ room: '卧室' }, noHistory, nearP);
+  const far = engine.infer({ room: '卧室' }, noHistory, farP);
+  const a = near.ranked.find((x) => x.name === '洗手台边');
+  const b = far.ranked.find((x) => x.name === '洗手台边');
+  assert.ok(a && b);
+  assert.ok(a.probability > b.probability);
+  assert.ok(a.reasons.some((t) => t.includes('相距 1 格')));
+  assert.ok(b.reasons.some((t) => t.includes('离得较远')));
+});
+
+test('定位提示按户型图距离衰减：邻近房间加权，远处不加', () => {
+  const p = { ...noProfile, homeLayout: [
+    { name: '卧室', spots: [], x: 0, y: 0 },
+    { name: '卫生间', spots: [], x: 1, y: 0 },
+    { name: '书房', spots: [], x: 4, y: 3 }
+  ] };
+  // 距离计算：曼哈顿距离
+  assert.strictEqual(engine.roomDist(p.homeLayout, '卧室', '卫生间'), 1);
+  assert.strictEqual(engine.roomDist(p.homeLayout, '卧室', '书房'), 7);
+  const r = engine.infer({ deviceHint: { room: '卧室', distance_m: 2 } }, noHistory, p);
+  const bath = r.ranked.find((x) => x.name === '洗手台边');
+  assert.ok(bath.reasons.some((t) => t.includes('定位器')));
+  assert.ok(bath.reasons.some((t) => t.includes('相距 1 格')));
+  // 非卧室/非邻近房间不应获得定位提示加权
+  const far = r.ranked.filter((x) => x.room !== '卧室' && x.room !== '卫生间');
+  assert.ok(far.length >= 0);
+  for (const item of far) {
+    assert.ok(!item.reasons.some((t) => t.includes('定位器')), `${item.name} 不应有定位器加权`);
+  }
+});
+
+// ---------- 走廊房间 ----------
+test('回家进门：有走廊的户型走廊位置进入候选，无走廊则降权', () => {
+  const withHall = { ...noProfile, homeLayout: [
+    { name: '卧室', spots: [], x: 0, y: 0 },
+    { name: '客厅', spots: [], x: 1, y: 0 },
+    { name: '走廊', spots: [], x: 2, y: 0 }
+  ] };
+  const withoutHall = { ...noProfile, homeLayout: [
+    { name: '卧室', spots: [], x: 0, y: 0 },
+    { name: '客厅', spots: [], x: 1, y: 0 }
+  ] };
+  const a = engine.infer({ activity: '回家进门' }, noHistory, withHall);
+  const b = engine.infer({ activity: '回家进门' }, noHistory, withoutHall);
+  assert.ok(a.ranked.some((x) => x.name === '走廊矮柜/鞋柜'));
+  assert.ok(!b.ranked.some((x) => x.name === '走廊矮柜/鞋柜'));
+});

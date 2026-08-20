@@ -1,0 +1,16 @@
+{
+  "name": "find-my-glasses",
+  "version": "1.0.0",
+  "description": "找眼镜助手正式版 — 帮家中无眼镜者找回丢失眼镜（零依赖 Node.js 应用）",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test",
+    "smoke": "node scripts/smoke.js"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "license": "MIT"
+}

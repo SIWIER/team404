@@ -1,0 +1,226 @@
+// js/views/profile.view.js — 个人画像（个性化智能体）编辑，含家庭布局/户型
+import { api } from '../api.js';
+import { store } from '../store.js';
+import { esc, toast, roomEmoji } from '../ui.js';
+
+const ROOM_PRESETS = ['卧室', '卫生间', '客厅', '厨房', '餐厅', '书房', '玄关', '走廊', '阳台', '衣帽间', '储物间'];
+
+let layout = []; // 编辑中的户型副本
+
+export function renderProfile(root) {
+  const p = store.user.profile;
+  layout = (p.homeLayout || []).map((r) => ({ ...r, spots: [...(r.spots || [])] }));
+
+  root.innerHTML = `
+    <div class="page-title">🧠 个性化智能体</div>
+    <p class="page-sub">画像越准确，后续推理越贴合你的习惯</p>
+    <div class="card">
+      <div class="field"><label>智能体昵称</label><input id="p-name" class="input" value="${esc(p.agentName)}"></div>
+      <div class="field"><label>智能体风格</label><input id="p-style" class="input" value="${esc(p.agentStyle)}" placeholder="例如：温和、爱追问、擅长生活常识"></div>
+      <div class="field"><label>生活习惯（每行一条，最多 20 条）</label><textarea id="p-habits" class="input">${esc((p.habits || []).join('\n'))}</textarea></div>
+      <div class="field"><label>常用放眼镜地点（每行一条，最多 20 条）</label><textarea id="p-favs" class="input">${esc((p.favoritePlaces || []).join('\n'))}</textarea></div>
+      <div class="field"><label>备注（度数 / 眼镜情况等）</label><textarea id="p-notes" class="input">${esc(p.notes || '')}</textarea></div>
+      <div class="btn-row">
+        <button class="btn" id="p-save">💾 保存画像</button>
+        <button class="btn ghost" onclick="location.hash='#/'">← 返回首页</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="layout-head">
+        <div>
+          <div style="font-weight:800;font-size:17px;">🏠 家庭布局（辅助推理）</div>
+          <p class="hint" style="margin:2px 0 0;">填写你家有哪些房间、各房间常放眼镜的位置，推理会按你的实际户型调整</p>
+        </div>
+        <button class="btn sm" id="p-save2">💾 保存布局</button>
+      </div>
+      <div id="layout-list"></div>
+      <div class="btn-row" id="layout-presets"></div>
+      <div id="layout-preview" style="margin-top:14px;"></div>
+    </div>`;
+
+  root.querySelector('#p-save').onclick = () => saveBasic(root);
+  root.querySelector('#p-save2').onclick = () => saveLayout(root);
+  renderLayout(root);
+}
+
+// ---------- 基础画像保存 ----------
+async function saveBasic(root) {
+  const btn = root.querySelector('#p-save');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span> 保存中…';
+  try {
+    const d = await api('/auth/profile', {
+      method: 'PUT',
+      body: {
+        agentName: root.querySelector('#p-name').value.trim(),
+        agentStyle: root.querySelector('#p-style').value.trim(),
+        habits: lines(root.querySelector('#p-habits')),
+        favoritePlaces: lines(root.querySelector('#p-favs')),
+        notes: root.querySelector('#p-notes').value.trim()
+      }
+    });
+    store.setUser(d.user);
+    toast('画像已保存 ✓');
+  } catch (e) { toast(e.message); }
+  btn.disabled = false;
+  btn.innerHTML = '💾 保存画像';
+}
+
+// ---------- 家庭布局编辑 ----------
+function renderLayout(root) {
+  const list = root.querySelector('#layout-list');
+  if (!layout.length) {
+    list.innerHTML = '<div class="empty-layout">还没有添加房间，点下方按钮快速添加，或自定义房间名 👇</div>';
+  } else {
+    list.innerHTML = layout.map((r, i) => `
+      <div class="room-card">
+        <div class="room-card-top">
+          <span class="room-emoji">${roomEmoji(r.name)}</span>
+          <input class="input" data-i="${i}" data-k="name" value="${esc(r.name)}" placeholder="房间名（如 卧室 / 阳台）">
+          <button class="btn ghost sm room-del" data-i="${i}" title="删除房间">✕</button>
+        </div>
+        <div class="room-card-row">
+          <input class="input" data-i="${i}" data-k="desc" value="${esc(r.desc)}" placeholder="房间描述（可选，如：有床头柜和书桌）">
+        </div>
+        <div class="room-card-row">
+          <input class="input" data-i="${i}" data-k="spots" value="${esc((r.spots || []).join('，'))}" placeholder="常放眼镜的位置，用逗号分隔（如：床头柜，书桌/电脑桌，窗台）">
+        </div>
+      </div>`).join('');
+  }
+
+  // 事件绑定
+  list.querySelectorAll('.room-del').forEach((btn) => {
+    btn.onclick = () => { layout.splice(Number(btn.dataset.i), 1); renderLayout(root); };
+  });
+  list.querySelectorAll('input[data-k]').forEach((inp) => {
+    const commit = () => {
+      const i = Number(inp.dataset.i);
+      const k = inp.dataset.k;
+      if (!layout[i]) return;
+      if (k === 'spots') {
+        layout[i].spots = inp.value.split(/[,，、]/).map((s) => s.trim()).filter(Boolean);
+      } else {
+        layout[i][k] = inp.value.trim();
+      }
+      renderPreview(root);
+    };
+    inp.addEventListener('change', commit);
+    inp.addEventListener('blur', commit);
+  });
+
+  // 快速添加预设
+  const presets = root.querySelector('#layout-presets');
+  const remaining = ROOM_PRESETS.filter((name) => !layout.some((r) => r.name === name));
+  presets.innerHTML = [
+    ...remaining.slice(0, 6).map((name) => `<button class="btn ghost sm" data-add="${esc(name)}">＋ ${roomEmoji(name)} ${esc(name)}</button>`),
+    '<button class="btn ghost sm" id="add-custom">＋ ✏️ 自定义房间</button>'
+  ].join('');
+  presets.querySelectorAll('[data-add]').forEach((b) => {
+    b.onclick = () => { layout.push({ name: b.dataset.add, desc: '', spots: [], x: null, y: null }); renderLayout(root); };
+  });
+  presets.querySelector('#add-custom').onclick = () => {
+    layout.push({ name: '', desc: '', spots: [], x: null, y: null });
+    renderLayout(root);
+  };
+
+  renderFloor(root);
+}
+
+// ---------- 户型图拖曳编辑器（6×6 网格） ----------
+const GRID = 6;
+
+function roomAt(x, y) {
+  return layout.findIndex((r) => r.x === x && r.y === y);
+}
+
+function renderFloor(root) {
+  const box = root.querySelector('#layout-preview');
+  if (!box) return;
+  const placed = layout.filter((r) => r.name && r.x != null && r.y != null);
+  const tray = layout.filter((r) => r.name && (r.x == null || r.y == null));
+
+  let cells = '';
+  for (let y = 0; y < GRID; y++) {
+    for (let x = 0; x < GRID; x++) {
+      const idx = roomAt(x, y);
+      cells += idx >= 0
+        ? `<div class="floor-cell filled" data-x="${x}" data-y="${y}">
+             <div class="floor-tile" draggable="true" data-idx="${idx}" title="拖到其他格子移动；点 ✕ 移出网格">
+               <span class="tile-x" data-idx="${idx}" title="移出网格">✕</span>
+               <div class="tile-emoji">${roomEmoji(layout[idx].name)}</div>
+               <div class="tile-name">${esc(layout[idx].name)}</div>
+             </div>
+           </div>`
+        : `<div class="floor-cell" data-x="${x}" data-y="${y}"></div>`;
+    }
+  }
+
+  box.innerHTML = `
+    <div class="muted" style="font-size:12px;font-weight:600;margin-bottom:8px;">户型图（拖拽房间摆放相对位置，将用于推理的距离远近计算）</div>
+    ${tray.length ? `<div class="tray">待放置：${tray.map((r, i) => `
+      <div class="floor-tile tray-tile" draggable="true" data-idx="${layout.indexOf(r)}" title="拖到下方网格中放置">
+        <div class="tile-emoji">${roomEmoji(r.name)}</div>
+        <div class="tile-name">${esc(r.name)}</div>
+      </div>`).join('')}</div>` : ''}
+    <div class="floor-grid">${cells}</div>
+    <p class="hint" style="margin-top:8px;">相邻格子 = 相邻房间。推理时：与"最后所在房间"越近的位置权重越高；拖到 ✕ 外可移回待放置区。</p>`;
+
+  // 拖放
+  box.querySelectorAll('.floor-tile').forEach((el) => {
+    el.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/plain', el.dataset.idx);
+      e.dataTransfer.effectAllowed = 'move';
+    });
+  });
+  box.querySelectorAll('.floor-cell').forEach((cell) => {
+    cell.addEventListener('dragover', (e) => { e.preventDefault(); cell.classList.add('over'); });
+    cell.addEventListener('dragleave', () => cell.classList.remove('over'));
+    cell.addEventListener('drop', (e) => {
+      e.preventDefault();
+      cell.classList.remove('over');
+      const idx = Number(e.dataTransfer.getData('text/plain'));
+      if (!Number.isInteger(idx) || !layout[idx]) return;
+      const x = Number(cell.dataset.x);
+      const y = Number(cell.dataset.y);
+      const existing = roomAt(x, y);
+      if (existing >= 0 && existing !== idx) {
+        // 交换：被占格子的房间拿到被拖房间原来的位置
+        layout[existing].x = layout[idx].x;
+        layout[existing].y = layout[idx].y;
+      }
+      layout[idx].x = x;
+      layout[idx].y = y;
+      renderFloor(root);
+    });
+  });
+  // 移出网格
+  box.querySelectorAll('.tile-x').forEach((el) => {
+    el.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const idx = Number(el.dataset.idx);
+      if (layout[idx]) { layout[idx].x = null; layout[idx].y = null; }
+      renderFloor(root);
+    };
+  });
+}
+
+async function saveLayout(root) {
+  const btn = root.querySelector('#p-save2');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span> 保存中…';
+  try {
+    const d = await api('/auth/profile', { method: 'PUT', body: { homeLayout: layout } });
+    store.setUser(d.user);
+    layout = d.user.profile.homeLayout.map((r) => ({ ...r, spots: [...(r.spots || [])] }));
+    toast('家庭布局已保存 ✓');
+    renderLayout(root);
+  } catch (e) { toast(e.message); }
+  btn.disabled = false;
+  btn.innerHTML = '💾 保存布局';
+}
+
+function lines(el) {
+  return el.value.split('\n').map((s) => s.trim()).filter(Boolean);
+}

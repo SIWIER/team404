@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>👓 找眼镜助手 · FindMyGlasses</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header id="topbar" class="hidden">
+    <div class="brand" onclick="location.hash='#/'">
+      <span class="brand-icon">👓</span>
+      <span class="brand-name">找眼镜助手</span>
+      <span class="brand-sub">FindMyGlasses Pro</span>
+    </div>
+    <nav id="topnav" class="topnav"></nav>
+    <div class="userbox">
+      <span id="userNick" class="user-nick"></span>
+      <button class="btn ghost sm" onclick="document.dispatchEvent(new CustomEvent('fmg:logout'))">退出</button>
+    </div>
+  </header>
+
+  <main id="app"></main>
+  <div id="toast" class="toast hidden"></div>
+
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>
