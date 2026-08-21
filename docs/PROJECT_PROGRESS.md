@@ -130,7 +130,7 @@ node scripts/smoke.js
 | 优先级 | 事项 | 认领建议 |
 |---|---|---|
 | 🔴 高 | 小程序 data 页（ECharts ec-canvas 图表 + 户型热力网格） | 成员 C |
-| 🔴 高 | 小程序 profile 页（movable-area 户型拖拽） | 成员 A |
+| ✅ 完成 | 小程序 profile 页（画像表单 + movable-view 户型拖拽 + 隐私说明） | 成员 A |
 | 🟡 中 | 微信一键登录（后端 `/api/auth/wxlogin` + 前端 wx.login） | 成员 B |
 | ✅ 完成 | 小程序 hardware 页（设备卡片/指令/注册/WS 实时事件流） | 成员 D |
 | ✅ 完成 | 设备轮询契约（GET pending + POST ack + 模拟/真实设备区分） | 成员 D |
