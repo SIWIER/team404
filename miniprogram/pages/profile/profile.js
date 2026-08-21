@@ -38,6 +38,8 @@ Page({
     unplaced: [],        // 托盘
     presets: [],
     corridorExists: false,
+    extendMode: false,   // 走廊延长模式：点高亮格选方向（可弯折）
+    extendCands: [],     // 可延伸候选格（走廊任意段四周的空格）
     drag: { idx: -1, dx: 0, dy: 0 },   // 方块拖拽位移
     ghost: { show: false, emoji: '', name: '', x: 0, y: 0 }, // 托盘拖拽幽灵
     grid: { cell: 52, area: 312, size: GRID, cells: [] }
@@ -281,23 +283,22 @@ Page({
   },
 
   // ---------- 走廊形状 ----------
-  extendCorridor() {
+  // 切换延长模式：点高亮格即可向任意方向延长（支持弯折）
+  toggleExtend() {
     const room = this.rooms.find((r) => r.name.includes('走廊'));
     if (!room) { toast('还没有「走廊」房间，先添加一个'); return; }
-    const last = room.cells[room.cells.length - 1];
-    const occupied = this.occupiedSet(room.idx);
-    const dirs = [{ x: 0, y: 1 }, { x: 1, y: 0 }, { x: 0, y: -1 }, { x: -1, y: 0 }];
-    for (const d of dirs) {
-      const nx = last.x + d.x;
-      const ny = last.y + d.y;
-      if (nx >= 0 && nx < GRID && ny >= 0 && ny < GRID && !occupied.has(key({ x: nx, y: ny }))) {
-        room.cells.push({ x: nx, y: ny });
-        this.renderLayout();
-        toast('走廊已延长');
-        return;
-      }
-    }
-    toast('走廊四周没有空位');
+    this.setData({ extendMode: !this.data.extendMode });
+    this.renderLayout();
+  },
+
+  onExtendCell(e) {
+    if (!this.data.extendMode) return;
+    const room = this.rooms.find((r) => r.name.includes('走廊'));
+    if (!room) return;
+    const x = Number(e.currentTarget.dataset.x);
+    const y = Number(e.currentTarget.dataset.y);
+    room.cells.push({ x, y });
+    this.renderLayout(); // 保持延长模式，继续点下一个格可连成任意形状
   },
 
   shrinkCorridor() {
@@ -314,6 +315,7 @@ Page({
     const named = this.rooms.filter((r) => r.name);
     if (!named.length) { toast('还没有添加房间，先点上方按钮添加'); return; }
     this.rooms.forEach((r) => { r.cells = []; });
+    this.setData({ extendMode: false });
     const occupied = () => this.rooms.flatMap((r) => r.cells);
     const isFree = (cs) => cs.every((c) => !occupied().some((o) => o.x === c.x && o.y === c.y));
     let n = 0;
@@ -335,6 +337,7 @@ Page({
 
   clearLayout() {
     this.rooms.forEach((r) => { r.cells = []; });
+    this.setData({ extendMode: false });
     this.renderLayout();
     toast('已全部移出网格');
   },
@@ -384,17 +387,40 @@ Page({
       .filter((n) => !this.rooms.some((r) => r.name === n))
       .slice(0, 6)
       .map((n) => ({ name: n, emoji: roomEmoji(n) }));
+
+    // 延长模式：走廊任意段四周的空格都是候选（支持弯折/绕行）
+    let extendCands = [];
+    if (this.data.extendMode) {
+      const corridor = this.rooms.find((r) => r.name.includes('走廊'));
+      if (corridor) {
+        const occupied = this.occupiedSet(corridor.idx);
+        const seen = new Set();
+        for (const c of corridor.cells) {
+          for (const d of [{ x: 0, y: 1 }, { x: 1, y: 0 }, { x: 0, y: -1 }, { x: -1, y: 0 }]) {
+            const nx = c.x + d.x;
+            const ny = c.y + d.y;
+            if (nx < 0 || nx >= GRID || ny < 0 || ny >= GRID) continue;
+            const k = key({ x: nx, y: ny });
+            if (seen.has(k) || occupied.has(k)) continue;
+            seen.add(k);
+            extendCands.push({ x: nx, y: ny, px: nx * cell, py: ny * cell });
+          }
+        }
+      }
+    }
+
     this.setData({
       rooms: this.rooms,
       tiles,
       unplaced,
       presets,
+      extendCands,
       corridorExists: this.rooms.some((r) => r.name.includes('走廊'))
     });
   },
 
   async saveLayout() {
-    this.setData({ savingLayout: true });
+    this.setData({ savingLayout: true, extendMode: false });
     const homeLayout = this.rooms
       .filter((r) => r.name)
       .map((r) => ({
