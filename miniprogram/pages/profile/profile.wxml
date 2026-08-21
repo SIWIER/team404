@@ -1,8 +1,86 @@
-<view class="card center" style="padding:100rpx 20rpx;">
-  <view style="font-size:100rpx;">🚧</view>
-  <view style="font-weight:800;font-size:36rpx;margin:24rpx 0 12rpx;">个性化智能体（开发中）</view>
-  <view class="muted">画像编辑、家庭布局与户型图拖拽（movable-view 实现）即将上线；后端接口已就绪。</view>
-  <view class="btn-row" style="justify-content:center;">
-    <view class="btn ghost" bindtap="goHome">← 返回首页</view>
+<view class="page-title">🧠 个性化智能体</view>
+<view class="page-sub">画像越准确，后续推理越贴合你的习惯</view>
+
+<!-- 基础画像表单 -->
+<view class="card">
+  <view class="field">
+    <label>智能体昵称</label>
+    <input class="input" value="{{agentName}}" data-k="agentName" bindinput="onInput" placeholder="例如：小明的小镜助手" />
   </view>
+  <view class="field">
+    <label>智能体风格</label>
+    <input class="input" value="{{agentStyle}}" data-k="agentStyle" bindinput="onInput" placeholder="例如：温和、爱追问、擅长生活常识" />
+  </view>
+  <view class="field">
+    <label>生活习惯（每行一条，最多 20 条）</label>
+    <textarea class="input area" value="{{habitsText}}" data-k="habitsText" bindinput="onInput" placeholder="例如：睡前刷手机后常随手把眼镜放床头" />
+  </view>
+  <view class="field">
+    <label>常用放眼镜地点（每行一条，最多 20 条）</label>
+    <textarea class="input area-s" value="{{favsText}}" data-k="favsText" bindinput="onInput" placeholder="例如：床头柜" />
+  </view>
+  <view class="field">
+    <label>备注（度数 / 眼镜情况等）</label>
+    <textarea class="input area-s" value="{{notes}}" data-k="notes" bindinput="onInput" />
+  </view>
+  <button class="btn btn-block" loading="{{saving}}" disabled="{{saving}}" bindtap="saveBasic">💾 保存画像</button>
+</view>
+
+<!-- 家庭布局 -->
+<view class="card">
+  <view class="layout-head">
+    <view class="layout-head-l">
+      <view class="layout-title">🏠 家庭布局（辅助推理）</view>
+      <view class="hint">填写你家有哪些房间、各房间常放眼镜的位置，推理会按你的实际户型调整</view>
+    </view>
+    <button class="btn sm" loading="{{savingLayout}}" disabled="{{savingLayout}}" bindtap="saveLayout">💾 保存布局</button>
+  </view>
+
+  <!-- 房间编辑列表 -->
+  <view class="empty-layout" wx:if="{{!rooms.length}}">还没有添加房间，点下方按钮快速添加 👇</view>
+  <view class="room-card" wx:for="{{rooms}}" wx:key="idx">
+    <view class="room-top">
+      <text class="room-emoji">{{item.emoji || '🏠'}}</text>
+      <input class="input room-name" value="{{item.name}}" data-idx="{{item.idx}}" data-k="name" bindinput="onRoomInput" placeholder="房间名（如 卧室 / 阳台）" />
+      <view class="room-del" data-idx="{{item.idx}}" bindtap="removeRoom">✕</view>
+    </view>
+    <input class="input" value="{{item.desc}}" data-idx="{{item.idx}}" data-k="desc" bindinput="onRoomInput" placeholder="房间描述（可选，如：有床头柜和书桌）" />
+    <input class="input" value="{{item.spotsText}}" data-idx="{{item.idx}}" data-k="spotsText" bindinput="onRoomInput" placeholder="常放眼镜的位置，用逗号分隔（如：床头柜，书桌/电脑桌，窗台）" />
+  </view>
+
+  <!-- 快捷添加 -->
+  <view class="btn-row">
+    <button class="btn ghost sm" wx:for="{{presets}}" wx:key="name" data-name="{{item.name}}" bindtap="addPreset">＋ {{item.emoji}} {{item.name}}</button>
+    <button class="btn ghost sm" bindtap="addCustom">＋ ✏️ 自定义房间</button>
+  </view>
+
+  <!-- 待放置托盘 -->
+  <view class="tray" wx:if="{{unplaced.length}}">
+    <view class="tray-title">待放置（点一下放进网格）：</view>
+    <view class="tray-chips">
+      <view class="tray-chip" wx:for="{{unplaced}}" wx:key="idx" data-idx="{{item.idx}}" bindtap="placeFromTray">{{item.emoji}} {{item.name}}</view>
+    </view>
+  </view>
+
+  <!-- 6×6 户型图拖拽 -->
+  <view class="floor-wrap">
+    <view class="hint">户型图：拖动房间摆放相对位置（将用于推理的"距离远近"计算）</view>
+    <movable-area class="floor-area" style="width:{{grid.area}}px;height:{{grid.area}}px;" bindtap="onAreaTap">
+      <movable-view class="floor-tile" wx:for="{{placed}}" wx:key="idx"
+        x="{{item.x}}" y="{{item.y}}" direction="all" inertia="false" damping="20"
+        data-idx="{{item.idx}}" bindchange="onTileMove" bindtouchend="onTileEnd">
+        <view class="tile-x" data-idx="{{item.idx}}" catchtap="removeFromGrid">✕</view>
+        <view class="tile-emoji">{{item.emoji}}</view>
+        <view class="tile-name">{{item.name}}</view>
+      </movable-view>
+    </movable-area>
+    <view class="hint">相邻格 = 相邻房间；点空白格可放置，点 ✕ 移回托盘。</view>
+  </view>
+</view>
+
+<!-- 隐私说明：问卷第14题结果未回收前默认显示，若统计显示接受度高可移除 -->
+<view class="privacy-note">🔒 数据仅用于本地推理：你的画像、户型与找回记录只保存在你自己的账号下，不会公开或用于其他用途。</view>
+
+<view style="padding: 16rpx 32rpx 60rpx; text-align: center;">
+  <button class="btn ghost" bindtap="goHome">← 返回首页</button>
 </view>
