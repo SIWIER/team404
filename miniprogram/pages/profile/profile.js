@@ -1,10 +1,27 @@
-// pages/profile/profile.js — 个性化智能体：画像表单 + 家庭布局（户型图：点选放置为主，拖拽为辅）
+// pages/profile/profile.js — 个性化智能体：画像表单 + 家庭布局（纯拖拽交互）
+// 交互约定（简洁、无干扰）：拖方块→移动/交换；✕→移出；点托盘→放入后自行拖动；一键生成标准户型
 const api = require('../../utils/api');
 const store = require('../../utils/store');
 const { toast, roomEmoji } = require('../../utils/ui');
 
 const ROOM_PRESETS = ['卧室', '卫生间', '客厅', '厨房', '餐厅', '书房', '玄关', '走廊', '阳台', '衣帽间', '储物间'];
 const GRID = 6;          // 户型图网格 6×6（与后端 sanitizeLayout 0-5 一致）
+
+// 标准户型模板：按常见家居布局预置槽位（单格/房间），生成后剩余房间按顺序补空
+const TEMPLATE = [
+  { key: '玄关', x: 0, y: 5 },
+  { key: '走廊', x: 1, y: 5 },
+  { key: '客厅', x: 2, y: 5 },
+  { key: '卫生间', x: 4, y: 5 },
+  { key: '厨房', x: 5, y: 4 },
+  { key: '餐厅', x: 5, y: 3 },
+  { key: '书房', x: 5, y: 2 },
+  { key: '卧室', x: 0, y: 2 },
+  { key: '卧室', x: 1, y: 1 },
+  { key: '阳台', x: 0, y: 0 },
+  { key: '衣帽间', x: 1, y: 0 },
+  { key: '储物间', x: 5, y: 0 }
+];
 
 Page({
   data: {
@@ -16,7 +33,6 @@ Page({
     placed: [],          // 已放置（movable-view 用，x/y 为 px）
     unplaced: [],        // 待放置托盘
     presets: [],         // 可快捷添加的预设
-    selectedIdx: null,   // 当前选中的房间（点选放置流）
     grid: { cell: 52, area: 312, size: GRID, cells: [] }
   },
 
@@ -31,7 +47,7 @@ Page({
     try {
       const sys = wx.getSystemInfoSync();
       const win = sys.windowWidth; // px
-      // 内容宽 = 屏宽 - 页边距 24rpx*2 - 卡片内边距 32rpx*2 - 少量冗余
+      // 内容宽 = 屏宽 - 页边距 24rpx*2 - 卡片内边距 32rpx*2 - 冗余 8rpx
       const areaPx = Math.floor((win * (750 - 48 - 64 - 8)) / 750);
       const cell = Math.max(40, Math.floor(areaPx / GRID));
       const area = cell * GRID;
@@ -99,7 +115,6 @@ Page({
   removeRoom(e) {
     const idx = Number(e.currentTarget.dataset.idx);
     this.rooms = this.rooms.filter((r) => r.idx !== idx);
-    this.setData({ selectedIdx: this.data.selectedIdx === idx ? null : this.data.selectedIdx });
     this.renderLayout();
   },
 
@@ -114,68 +129,20 @@ Page({
     this.renderLayout();
   },
 
-  // ---------- 点选放置流（主要交互，新手友好） ----------
-  // 点托盘房间：第一次选中，再点一次放进第一个空格
+  // ---------- 托盘：点一下放入第一个空格，再拖到想要的位置 ----------
   onChipTap(e) {
     const idx = Number(e.currentTarget.dataset.idx);
-    if (this.data.selectedIdx === idx) {
-      this.placeSelectedAt(idx, this.firstEmpty());
-    } else {
-      this.setData({ selectedIdx: idx });
-      toast('已选中「' + (this.roomName(idx) || '该房间') + '」，点网格中的格子放置');
-    }
-  },
-
-  // 点网格上的方块：选中它（不移动；移动请点目标格子）
-  onTileTap(e) {
-    const idx = Number(e.currentTarget.dataset.idx);
-    // 刚结束拖拽的误触忽略
-    if (this._justDragged && Date.now() - this._justDragged < 350) return;
-    this.setData({ selectedIdx: this.data.selectedIdx === idx ? null : idx });
-  },
-
-  // 点格子：优先放置/移动选中的房间
-  onAreaTap(e) {
-    if (!e.detail || e.detail.x == null || e.detail.y == null) return;
-    const cell = this.data.grid.cell;
-    const x = clamp(Math.floor(e.detail.x / cell), 0, GRID - 1);
-    const y = clamp(Math.floor(e.detail.y / cell), 0, GRID - 1);
-    const sel = this.data.selectedIdx;
-    if (sel != null) {
-      this.placeSelectedAt(sel, { x, y });
-      return;
-    }
-    // 未选中：放置第一个待放置房间
-    const pending = this.rooms.find((r) => r.name && (r.x == null || r.y == null));
-    if (!pending) { toast('没有待放置的房间，先在上方添加'); return; }
-    pending.x = x;
-    pending.y = y;
-    this.setData({ selectedIdx: null });
-    this.renderLayout();
-  },
-
-  // 把 idx 房间放到目标格；被占则交换并提示
-  placeSelectedAt(idx, cell) {
-    if (!cell) { toast('网格已满，先把某个房间移出'); return; }
     const room = this.rooms.find((r) => r.idx === idx);
     if (!room) return;
-    const other = this.rooms.find((r) => r.idx !== idx && r.x === cell.x && r.y === cell.y);
-    if (other) {
-      other.x = room.x;
-      other.y = room.y;
-      toast('与「' + other.name + '」交换了位置');
-    } else if (room.x == null && room.y == null) {
-      toast('已放入网格');
-    } else {
-      toast('已移动到新位置');
-    }
-    room.x = cell.x;
-    room.y = cell.y;
-    this.setData({ selectedIdx: null });
+    const empty = this.firstEmpty();
+    if (!empty) { toast('网格已满，先把某个房间移出'); return; }
+    room.x = empty.x;
+    room.y = empty.y;
     this.renderLayout();
+    toast('已放入，拖动它到想要的位置');
   },
 
-  // ---------- 拖拽（快捷方式） ----------
+  // ---------- 拖拽（唯一移动方式） ----------
   onTileMove(e) {
     const idx = e.currentTarget.dataset.idx;
     this._dragPos = this._dragPos || {};
@@ -184,13 +151,20 @@ Page({
 
   onTileEnd(e) {
     const idx = Number(e.currentTarget.dataset.idx);
+    // 删除后的 touchend 冒泡：忽略
+    if (this._suppressEnd && this._suppressEnd[idx]) {
+      this._suppressEnd[idx] = false;
+      return;
+    }
     const room = this.rooms.find((r) => r.idx === idx);
+    if (!room || room.x == null || room.y == null) return; // 已在托盘，忽略
     const pos = (this._dragPos && this._dragPos[idx]) || null;
-    if (!room || !pos) return;
-    this._justDragged = Date.now();
+    if (!pos) return;
     const cell = this.data.grid.cell;
     const x = clamp(Math.round(pos.x / cell), 0, GRID - 1);
     const y = clamp(Math.round(pos.y / cell), 0, GRID - 1);
+    this._dragPos[idx] = null;
+    if (room.x === x && room.y === y) return; // 没动过（纯点击），保持原状
     const other = this.rooms.find((r) => r.idx !== idx && r.x === x && r.y === y);
     if (other) {
       other.x = room.x;
@@ -199,51 +173,55 @@ Page({
     }
     room.x = x;
     room.y = y;
-    if (this._dragPos) this._dragPos[idx] = null;
-    this.setData({ selectedIdx: null });
     this.renderLayout();
   },
 
-  // 点 ✕ → 移出网格回托盘
+  // 点 ✕ → 移出网格回托盘（并屏蔽随之而来的 touchend，防止被放回去）
   removeFromGrid(e) {
     const idx = Number(e.currentTarget.dataset.idx);
     const room = this.rooms.find((r) => r.idx === idx);
     if (!room) return;
     room.x = null;
     room.y = null;
-    this.setData({ selectedIdx: this.data.selectedIdx === idx ? null : this.data.selectedIdx });
+    this._suppressEnd = this._suppressEnd || {};
+    this._suppressEnd[idx] = true;
+    if (this._dragPos) this._dragPos[idx] = null;
     this.renderLayout();
   },
 
   // ---------- 一键操作 ----------
-  // 自动把待放置房间依次填满空格
-  autoLayout() {
-    const pending = this.rooms.filter((r) => r.name && (r.x == null || r.y == null));
-    if (!pending.length) { toast('所有房间都已在网格中'); return; }
-    for (const room of pending) {
+  // 按标准户型模板摆放；模板外的房间依次补空位
+  applyTemplate() {
+    const unplaced = () => this.rooms.filter((r) => r.name && (r.x == null || r.y == null));
+    if (!unplaced().length) { toast('所有房间都已在网格中，可先「全部移出」再生成'); return; }
+    let n = 0;
+    for (const slot of TEMPLATE) {
+      const candidate = this.rooms.find((r) =>
+        r.name && r.name.includes(slot.key) && r.x == null && r.y == null &&
+        !this.rooms.some((o) => o.x === slot.x && o.y === slot.y));
+      if (!candidate) continue;
+      candidate.x = slot.x;
+      candidate.y = slot.y;
+      n++;
+    }
+    // 其余房间依次填空
+    for (const room of this.rooms.filter((r) => r.name && (r.x == null || r.y == null))) {
       const empty = this.firstEmpty();
-      if (!empty) { toast('网格已满，剩余房间留在托盘'); break; }
+      if (!empty) break;
       room.x = empty.x;
       room.y = empty.y;
     }
-    this.setData({ selectedIdx: null });
     this.renderLayout();
-    toast('✨ 已自动排列');
+    toast('🏠 已生成标准户型（可再拖动微调）');
   },
 
   clearLayout() {
     this.rooms.forEach((r) => { r.x = null; r.y = null; });
-    this.setData({ selectedIdx: null });
     this.renderLayout();
     toast('已全部移出网格');
   },
 
   // ---------- 工具 ----------
-  roomName(idx) {
-    const r = this.rooms.find((x) => x.idx === idx);
-    return r ? r.name : '';
-  },
-
   firstEmpty() {
     for (let y = 0; y < GRID; y++) {
       for (let x = 0; x < GRID; x++) {

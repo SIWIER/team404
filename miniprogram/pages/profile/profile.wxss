@@ -30,7 +30,6 @@
   border: 2rpx solid #e3e9f2; background: #fff; border-radius: 999rpx;
   padding: 10rpx 22rpx; font-size: 24rpx; font-weight: 600;
 }
-.tray-chip.sel { border-color: #3d7bfd; background: #e8f0ff; color: #3d7bfd; }
 
 /* 户型图 */
 .floor-wrap { margin-top: 24rpx; }
@@ -53,10 +52,6 @@
   background: #fff; border: 2rpx solid #c9d4e6; border-radius: 10rpx;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   position: relative; box-sizing: border-box;
-}
-.floor-tile.sel {
-  border-color: #3d7bfd; background: #e8f0ff;
-  box-shadow: 0 0 0 3rpx rgba(61, 123, 253, 0.25);
 }
 .tile-x {
   position: absolute; top: 0; right: 6rpx;
