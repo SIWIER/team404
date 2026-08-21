@@ -1,26 +1,30 @@
-// pages/profile/profile.js — 个性化智能体：画像表单 + 家庭布局（纯拖拽交互）
-// 交互约定（简洁、无干扰）：拖方块→移动/交换；✕→移出；点托盘→放入后自行拖动；一键生成标准户型
+// pages/profile/profile.js — 个性化智能体：画像表单 + 家庭布局（自研触摸拖拽，弃用 movable-view）
+// 设计要点：
+// 1) 位置永远由数据单一来源计算（rooms[].cells），渲染/吸附/交换都从数据推导 → 不存在"视觉-数据脱同步"
+// 2) 方块拖拽：touchstart/move/end 手写实现；松手按位移吸附最近格子；拖到占用格=交换
+// 3) 托盘房间可直接拖进网格（幽灵方块跟手），也可点一下放入后自行拖动
+// 4) 走廊为多格链式房间：可整体拖动、延长/缩短；标准户型模板保证所有房间紧贴走廊链
 const api = require('../../utils/api');
 const store = require('../../utils/store');
 const { toast, roomEmoji } = require('../../utils/ui');
 
 const ROOM_PRESETS = ['卧室', '卫生间', '客厅', '厨房', '餐厅', '书房', '玄关', '走廊', '阳台', '衣帽间', '储物间'];
-const GRID = 6;          // 户型图网格 6×6（与后端 sanitizeLayout 0-5 一致）
+const GRID = 6;
 
-// 标准户型模板：按常见家居布局预置槽位（单格/房间），生成后剩余房间按顺序补空
+// 标准户型模板：走廊居中成链，所有房间与走廊/入户相邻（全连通）
 const TEMPLATE = [
-  { key: '玄关', x: 0, y: 5 },
-  { key: '走廊', x: 1, y: 5 },
-  { key: '客厅', x: 2, y: 5 },
-  { key: '卫生间', x: 4, y: 5 },
-  { key: '厨房', x: 5, y: 4 },
-  { key: '餐厅', x: 5, y: 3 },
-  { key: '书房', x: 5, y: 2 },
-  { key: '卧室', x: 0, y: 2 },
-  { key: '卧室', x: 1, y: 1 },
-  { key: '阳台', x: 0, y: 0 },
-  { key: '衣帽间', x: 1, y: 0 },
-  { key: '储物间', x: 5, y: 0 }
+  { key: '走廊', cells: [{ x: 2, y: 2 }, { x: 2, y: 3 }, { x: 2, y: 4 }] },
+  { key: '玄关', cells: [{ x: 2, y: 5 }] },
+  { key: '客厅', cells: [{ x: 3, y: 3 }] },
+  { key: '卫生间', cells: [{ x: 3, y: 4 }] },
+  { key: '厨房', cells: [{ x: 1, y: 3 }] },
+  { key: '餐厅', cells: [{ x: 1, y: 4 }] },
+  { key: '书房', cells: [{ x: 3, y: 2 }] },
+  { key: '卧室', cells: [{ x: 1, y: 2 }] },
+  { key: '卧室', cells: [{ x: 2, y: 1 }] },
+  { key: '阳台', cells: [{ x: 3, y: 1 }] },
+  { key: '衣帽间', cells: [{ x: 0, y: 2 }] },
+  { key: '储物间', cells: [{ x: 4, y: 2 }] }
 ];
 
 Page({
@@ -29,10 +33,13 @@ Page({
     agentName: '', agentStyle: '', habitsText: '', favsText: '', notes: '',
     saving: false, savingLayout: false,
     // 布局
-    rooms: [],           // 房间编辑副本（含 idx/name/desc/spotsText/x/y）
-    placed: [],          // 已放置（movable-view 用，x/y 为 px）
-    unplaced: [],        // 待放置托盘
-    presets: [],         // 可快捷添加的预设
+    rooms: [],           // 编辑副本 {idx,name,desc,spotsText,cells:[{x,y}]}（cells 空=在托盘）
+    tiles: [],           // 网格方块（含走廊每格一段）{key,roomIdx,ci,name,emoji,corridor,px,py}
+    unplaced: [],        // 托盘
+    presets: [],
+    corridorExists: false,
+    drag: { idx: -1, dx: 0, dy: 0 },   // 方块拖拽位移
+    ghost: { show: false, emoji: '', name: '', x: 0, y: 0 }, // 托盘拖拽幽灵
     grid: { cell: 52, area: 312, size: GRID, cells: [] }
   },
 
@@ -42,12 +49,10 @@ Page({
     this.init();
   },
 
-  // 按屏幕宽度计算网格像素尺寸，保证任何机型都不溢出卡片
   computeGrid() {
     try {
       const sys = wx.getSystemInfoSync();
-      const win = sys.windowWidth; // px
-      // 内容宽 = 屏宽 - 页边距 24rpx*2 - 卡片内边距 32rpx*2 - 冗余 8rpx
+      const win = sys.windowWidth;
       const areaPx = Math.floor((win * (750 - 48 - 64 - 8)) / 750);
       const cell = Math.max(40, Math.floor(areaPx / GRID));
       const area = cell * GRID;
@@ -56,7 +61,7 @@ Page({
         cells.push({ x: (i % GRID) * cell, y: Math.floor(i / GRID) * cell });
       }
       this.setData({ grid: { cell, area, size: GRID, cells } });
-    } catch (e) { /* 保持默认值 */ }
+    } catch (e) { /* 默认值兜底 */ }
   },
 
   init() {
@@ -66,8 +71,9 @@ Page({
       name: r.name || '',
       desc: r.desc || '',
       spotsText: (r.spots || []).join('，'),
-      x: (r.x != null && r.y != null) ? r.x : null,
-      y: (r.x != null && r.y != null) ? r.y : null
+      cells: (Array.isArray(r.cells) && r.cells.length)
+        ? r.cells.map((c) => ({ x: c.x, y: c.y }))
+        : ((r.x != null && r.y != null) ? [{ x: r.x, y: r.y }] : [])
     }));
     this.setData({
       agentName: p.agentName || '',
@@ -108,7 +114,12 @@ Page({
     const { idx, k } = e.currentTarget.dataset;
     const room = this.rooms.find((r) => r.idx === Number(idx));
     if (!room) return;
+    const wasCorridor = room.name.includes('走廊');
     room[k] = e.detail.value;
+    // 改名离开走廊：多格塌缩为第一格，避免形状残留
+    if (k === 'name' && wasCorridor && !room.name.includes('走廊') && room.cells.length > 1) {
+      room.cells = room.cells.slice(0, 1);
+    }
     this.renderLayout();
   },
 
@@ -120,112 +131,229 @@ Page({
 
   addPreset(e) {
     const name = e.currentTarget.dataset.name;
-    this.rooms.push({ idx: nextIdx(this.rooms), name, desc: '', spotsText: '', x: null, y: null });
+    this.rooms.push({ idx: nextIdx(this.rooms), name, desc: '', spotsText: '', cells: [] });
     this.renderLayout();
   },
 
   addCustom() {
-    this.rooms.push({ idx: nextIdx(this.rooms), name: '', desc: '', spotsText: '', x: null, y: null });
+    this.rooms.push({ idx: nextIdx(this.rooms), name: '', desc: '', spotsText: '', cells: [] });
     this.renderLayout();
   },
 
-  // ---------- 托盘：点一下放入第一个空格，再拖到想要的位置 ----------
+  // ---------- 方块拖拽（自研实现，数据单一来源） ----------
+  onTileTouchStart(e) {
+    const t = e.touches[0];
+    this._t = {
+      idx: Number(e.currentTarget.dataset.idx),
+      sx: t.clientX, sy: t.clientY,
+      moved: false
+    };
+  },
+
+  onTileTouchMove(e) {
+    if (!this._t) return;
+    const t = e.touches[0];
+    const dx = t.clientX - this._t.sx;
+    const dy = t.clientY - this._t.sy;
+    if (!this._t.moved && Math.abs(dx) + Math.abs(dy) < 10) return;
+    this._t.moved = true;
+    this.setData({ drag: { idx: this._t.idx, dx, dy } });
+  },
+
+  onTileTouchEnd() {
+    const t = this._t;
+    if (!t) return;
+    this._t = null;
+    if (!t.moved) { this.resetDrag(); return; }
+    const cell = this.data.grid.cell;
+    const dX = Math.round(this.data.drag.dx / cell);
+    const dY = Math.round(this.data.drag.dy / cell);
+    this.resetDrag();
+    if (dX === 0 && dY === 0) return; // 位移不足一格，保持原状
+
+    const room = this.rooms.find((r) => r.idx === t.idx);
+    if (!room || !room.cells.length) return;
+
+    if (room.cells.length > 1) {
+      // 走廊链整体平移：校验不出界、不与他人重叠
+      const cand = room.cells.map((c) => ({ x: c.x + dX, y: c.y + dY }));
+      const occupied = this.occupiedSet(room.idx);
+      const ok = cand.every((c) => c.x >= 0 && c.x < GRID && c.y >= 0 && c.y < GRID && !occupied.has(key(c)));
+      if (!ok) { toast('移不过去：会出界或与其他房间重叠'); this.renderLayout(); return; }
+      room.cells = cand;
+    } else {
+      const target = {
+        x: clamp(room.cells[0].x + dX, 0, GRID - 1),
+        y: clamp(room.cells[0].y + dY, 0, GRID - 1)
+      };
+      if (target.x === room.cells[0].x && target.y === room.cells[0].y) return;
+      const other = this.rooms.find((r) => r.idx !== room.idx && r.cells.some((c) => c.x === target.x && c.y === target.y));
+      if (other) {
+        other.cells = room.cells;
+        toast('与「' + other.name + '」交换了位置');
+      }
+      room.cells = [target];
+    }
+    this.renderLayout();
+  },
+
+  resetDrag() {
+    this.setData({ drag: { idx: -1, dx: 0, dy: 0 } });
+  },
+
+  // 点 ✕ → 移出该格（走廊去掉该段；普通房间回托盘）
+  removeFromGrid(e) {
+    const idx = Number(e.currentTarget.dataset.idx);
+    const ci = Number(e.currentTarget.dataset.ci);
+    const room = this.rooms.find((r) => r.idx === idx);
+    if (!room) return;
+    if (room.cells.length > 1) {
+      room.cells.splice(ci, 1);
+    } else {
+      room.cells = [];
+    }
+    this.renderLayout();
+  },
+
+  // ---------- 托盘：点一下放入；或直接拖进网格 ----------
   onChipTap(e) {
     const idx = Number(e.currentTarget.dataset.idx);
     const room = this.rooms.find((r) => r.idx === idx);
     if (!room) return;
     const empty = this.firstEmpty();
     if (!empty) { toast('网格已满，先把某个房间移出'); return; }
-    room.x = empty.x;
-    room.y = empty.y;
+    room.cells = [empty];
     this.renderLayout();
     toast('已放入，拖动它到想要的位置');
   },
 
-  // ---------- 拖拽（唯一移动方式） ----------
-  onTileMove(e) {
-    const idx = e.currentTarget.dataset.idx;
-    this._dragPos = this._dragPos || {};
-    this._dragPos[idx] = { x: e.detail.x, y: e.detail.y };
+  onChipTouchStart(e) {
+    const t = e.touches[0];
+    this._chip = { idx: Number(e.currentTarget.dataset.idx), sx: t.clientX, sy: t.clientY, moved: false };
+    // 提前查好网格区域位置（拖到网格上空时使用）
+    this._areaRect = null;
+    wx.createSelectorQuery().in(this).select('.floor-area').boundingClientRect((rect) => {
+      this._areaRect = rect;
+    }).exec();
   },
 
-  onTileEnd(e) {
-    const idx = Number(e.currentTarget.dataset.idx);
-    // 删除后的 touchend 冒泡：忽略
-    if (this._suppressEnd && this._suppressEnd[idx]) {
-      this._suppressEnd[idx] = false;
+  onChipTouchMove(e) {
+    if (!this._chip) return;
+    const t = e.touches[0];
+    const dx = t.clientX - this._chip.sx;
+    const dy = t.clientY - this._chip.sy;
+    if (!this._chip.moved && Math.abs(dx) + Math.abs(dy) < 10) return;
+    this._chip.moved = true;
+    const room = this.rooms.find((r) => r.idx === this._chip.idx);
+    if (!room) return;
+    const cell = this.data.grid.cell;
+    this.setData({
+      ghost: { show: true, emoji: roomEmoji(room.name), name: room.name, x: t.clientX - cell / 2, y: t.clientY - cell / 2 }
+    });
+  },
+
+  onChipTouchEnd(e) {
+    const chip = this._chip;
+    this._chip = null;
+    this.setData({ ghost: { show: false, emoji: '', name: '', x: 0, y: 0 } });
+    if (!chip) return;
+    const room = this.rooms.find((r) => r.idx === chip.idx);
+    if (!room) return;
+    if (!chip.moved) { this.onChipTap({ currentTarget: { dataset: { idx: chip.idx } } }); return; }
+
+    // 拖拽结束：判断是否落在网格内
+    const t = e.changedTouches[0];
+    const rect = this._areaRect;
+    if (!rect || t.clientX < rect.left || t.clientX > rect.right || t.clientY < rect.top || t.clientY > rect.bottom) {
+      toast('没有落在网格内，房间留在托盘');
       return;
     }
-    const room = this.rooms.find((r) => r.idx === idx);
-    if (!room || room.x == null || room.y == null) return; // 已在托盘，忽略
-    const pos = (this._dragPos && this._dragPos[idx]) || null;
-    if (!pos) return;
     const cell = this.data.grid.cell;
-    const x = clamp(Math.round(pos.x / cell), 0, GRID - 1);
-    const y = clamp(Math.round(pos.y / cell), 0, GRID - 1);
-    this._dragPos[idx] = null;
-    if (room.x === x && room.y === y) return; // 没动过（纯点击），保持原状
-    const other = this.rooms.find((r) => r.idx !== idx && r.x === x && r.y === y);
+    const x = clamp(Math.floor((t.clientX - rect.left) / cell), 0, GRID - 1);
+    const y = clamp(Math.floor((t.clientY - rect.top) / cell), 0, GRID - 1);
+    const other = this.rooms.find((r) => r.idx !== room.idx && r.cells.some((c) => c.x === x && c.y === y));
     if (other) {
-      other.x = room.x;
-      other.y = room.y;
+      other.cells = room.cells;
       toast('与「' + other.name + '」交换了位置');
     }
-    room.x = x;
-    room.y = y;
+    room.cells = [{ x, y }];
     this.renderLayout();
   },
 
-  // 点 ✕ → 移出网格回托盘（并屏蔽随之而来的 touchend，防止被放回去）
-  removeFromGrid(e) {
-    const idx = Number(e.currentTarget.dataset.idx);
-    const room = this.rooms.find((r) => r.idx === idx);
+  // ---------- 走廊形状 ----------
+  extendCorridor() {
+    const room = this.rooms.find((r) => r.name.includes('走廊'));
+    if (!room) { toast('还没有「走廊」房间，先添加一个'); return; }
+    const last = room.cells[room.cells.length - 1];
+    const occupied = this.occupiedSet(room.idx);
+    const dirs = [{ x: 0, y: 1 }, { x: 1, y: 0 }, { x: 0, y: -1 }, { x: -1, y: 0 }];
+    for (const d of dirs) {
+      const nx = last.x + d.x;
+      const ny = last.y + d.y;
+      if (nx >= 0 && nx < GRID && ny >= 0 && ny < GRID && !occupied.has(key({ x: nx, y: ny }))) {
+        room.cells.push({ x: nx, y: ny });
+        this.renderLayout();
+        toast('走廊已延长');
+        return;
+      }
+    }
+    toast('走廊四周没有空位');
+  },
+
+  shrinkCorridor() {
+    const room = this.rooms.find((r) => r.name.includes('走廊'));
     if (!room) return;
-    room.x = null;
-    room.y = null;
-    this._suppressEnd = this._suppressEnd || {};
-    this._suppressEnd[idx] = true;
-    if (this._dragPos) this._dragPos[idx] = null;
+    if (room.cells.length <= 1) { toast('走廊至少保留一格'); return; }
+    room.cells.pop();
     this.renderLayout();
   },
 
   // ---------- 一键操作 ----------
-  // 按标准户型模板摆放；模板外的房间依次补空位
+  // 生成标准户型：先清空，按模板摆放（走廊链连接所有房间），剩余房间补空
   applyTemplate() {
-    const unplaced = () => this.rooms.filter((r) => r.name && (r.x == null || r.y == null));
-    if (!unplaced().length) { toast('所有房间都已在网格中，可先「全部移出」再生成'); return; }
+    const named = this.rooms.filter((r) => r.name);
+    if (!named.length) { toast('还没有添加房间，先点上方按钮添加'); return; }
+    this.rooms.forEach((r) => { r.cells = []; });
+    const occupied = () => this.rooms.flatMap((r) => r.cells);
+    const isFree = (cs) => cs.every((c) => !occupied().some((o) => o.x === c.x && o.y === c.y));
     let n = 0;
     for (const slot of TEMPLATE) {
       const candidate = this.rooms.find((r) =>
-        r.name && r.name.includes(slot.key) && r.x == null && r.y == null &&
-        !this.rooms.some((o) => o.x === slot.x && o.y === slot.y));
+        r.name.includes(slot.key) && !r.cells.length && isFree(slot.cells));
       if (!candidate) continue;
-      candidate.x = slot.x;
-      candidate.y = slot.y;
+      candidate.cells = slot.cells.map((c) => ({ x: c.x, y: c.y }));
       n++;
     }
-    // 其余房间依次填空
-    for (const room of this.rooms.filter((r) => r.name && (r.x == null || r.y == null))) {
+    for (const room of this.rooms.filter((r) => r.name && !r.cells.length)) {
       const empty = this.firstEmpty();
       if (!empty) break;
-      room.x = empty.x;
-      room.y = empty.y;
+      room.cells = [empty];
     }
     this.renderLayout();
-    toast('🏠 已生成标准户型（可再拖动微调）');
+    toast('🏠 已生成标准户型：所有房间都通过走廊相连（可拖动微调）');
   },
 
   clearLayout() {
-    this.rooms.forEach((r) => { r.x = null; r.y = null; });
+    this.rooms.forEach((r) => { r.cells = []; });
     this.renderLayout();
     toast('已全部移出网格');
   },
 
   // ---------- 工具 ----------
+  occupiedSet(exceptIdx) {
+    const set = new Set();
+    this.rooms.forEach((r) => {
+      if (r.idx === exceptIdx) return;
+      r.cells.forEach((c) => set.add(key(c)));
+    });
+    return set;
+  },
+
   firstEmpty() {
+    const occupied = this.occupiedSet(-1);
     for (let y = 0; y < GRID; y++) {
       for (let x = 0; x < GRID; x++) {
-        if (!this.rooms.some((r) => r.x === x && r.y === y)) return { x, y };
+        if (!occupied.has(key({ x, y }))) return { x, y };
       }
     }
     return null;
@@ -233,17 +361,36 @@ Page({
 
   renderLayout() {
     const cell = this.data.grid.cell;
-    const placed = this.rooms
-      .filter((r) => r.name && r.x != null && r.y != null)
-      .map((r) => ({ idx: r.idx, name: r.name, emoji: roomEmoji(r.name), x: r.x * cell, y: r.y * cell }));
+    const tiles = [];
+    this.rooms.forEach((r) => {
+      r.emoji = roomEmoji(r.name);
+      r.cells.forEach((c, ci) => {
+        tiles.push({
+          key: r.idx + '-' + ci,
+          roomIdx: r.idx,
+          ci,
+          name: r.name,
+          emoji: roomEmoji(r.name),
+          corridor: r.name.includes('走廊'),
+          px: c.x * cell,
+          py: c.y * cell
+        });
+      });
+    });
     const unplaced = this.rooms
-      .filter((r) => r.name && (r.x == null || r.y == null))
+      .filter((r) => r.name && !r.cells.length)
       .map((r) => ({ idx: r.idx, name: r.name, emoji: roomEmoji(r.name) }));
     const presets = ROOM_PRESETS
       .filter((n) => !this.rooms.some((r) => r.name === n))
       .slice(0, 6)
       .map((n) => ({ name: n, emoji: roomEmoji(n) }));
-    this.setData({ rooms: this.rooms, placed, unplaced, presets });
+    this.setData({
+      rooms: this.rooms,
+      tiles,
+      unplaced,
+      presets,
+      corridorExists: this.rooms.some((r) => r.name.includes('走廊'))
+    });
   },
 
   async saveLayout() {
@@ -253,7 +400,9 @@ Page({
       .map((r) => ({
         name: r.name, desc: r.desc,
         spots: splitSpots(r.spotsText),
-        x: r.x, y: r.y
+        x: r.cells.length ? r.cells[0].x : null,
+        y: r.cells.length ? r.cells[0].y : null,
+        cells: r.cells.map((c) => ({ x: c.x, y: c.y }))
       }));
     try {
       const d = await api.request('/auth/profile', { method: 'PUT', data: { homeLayout } });
@@ -261,8 +410,9 @@ Page({
       this.rooms = (d.user.profile.homeLayout || []).map((r, i) => ({
         idx: i, name: r.name, desc: r.desc || '',
         spotsText: (r.spots || []).join('，'),
-        x: (r.x != null && r.y != null) ? r.x : null,
-        y: (r.x != null && r.y != null) ? r.y : null
+        cells: (Array.isArray(r.cells) && r.cells.length)
+          ? r.cells.map((c) => ({ x: c.x, y: c.y }))
+          : ((r.x != null && r.y != null) ? [{ x: r.x, y: r.y }] : [])
       }));
       toast('家庭布局已保存 ✓');
       this.renderLayout();
@@ -286,4 +436,7 @@ function nextIdx(rooms) {
 }
 function clamp(v, a, b) {
   return Math.max(a, Math.min(b, v));
+}
+function key(c) {
+  return c.x + ',' + c.y;
 }
