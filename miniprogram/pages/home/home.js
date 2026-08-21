@@ -14,19 +14,30 @@ Page({
   },
   render(user) {
     const p = user.profile;
-    const placed = (p.homeLayout || []).filter((r) => r.x != null && r.y != null);
-    // 户型图行数据（迷你网格）
+    const layout = p.homeLayout || [];
+    // 多格展开：走廊链的每一格都渲染为一个 tile（与画像页编辑器一致）
+    const placed = [];
+    layout.forEach((r) => {
+      const cells = (Array.isArray(r.cells) && r.cells.length)
+        ? r.cells
+        : ((r.x != null && r.y != null) ? [{ x: r.x, y: r.y }] : []);
+      const corridor = r.name.includes('走廊');
+      cells.forEach((c) => placed.push({ x: c.x, y: c.y, name: r.name, corridor }));
+    });
+    // 户型图行数据（迷你网格，含走廊多格）
     const rows = [];
     if (placed.length) {
-      const w = Math.max(...placed.map((r) => r.x)) + 1;
-      const h = Math.max(...placed.map((r) => r.y)) + 1;
+      const w = Math.min(6, Math.max(...placed.map((c) => c.x)) + 1);
+      const h = Math.min(6, Math.max(...placed.map((c) => c.y)) + 1);
       for (let y = 0; y < h; y++) {
         const cells = [];
         for (let x = 0; x < w; x++) {
-          const r = placed.find((rr) => rr.x === x && rr.y === y);
-          cells.push(r ? { e: roomEmoji(r.name), n: r.name, empty: false } : { e: '', n: '', empty: true });
+          const c = placed.find((cc) => cc.x === x && cc.y === y);
+          cells.push(c
+            ? { e: roomEmoji(c.name), n: c.name, empty: false, corridor: c.corridor }
+            : { e: '', n: '', empty: true, corridor: false });
         }
-        rows.push({ cells, cols: Math.min(w, 6) });
+        rows.push({ cells, cols: w });
       }
     }
     this.setData({
@@ -35,9 +46,9 @@ Page({
       createdAt: (user.createdAt || '').slice(0, 10),
       habits: p.habits || [],
       favs: (p.favoritePlaces || []).map((n) => ({ n, e: roomEmoji(n) })),
-      layout: p.homeLayout || [],
+      layout,
       floorRows: rows,
-      layoutCount: (p.homeLayout || []).length,
+      layoutCount: layout.length,
       placedCount: placed.length
     });
   },

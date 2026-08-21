@@ -27,14 +27,14 @@
 
     <block wx:if="{{placedCount}}">
       <view class="muted" style="font-size:24rpx;font-weight:600;margin-top:16rpx;">🏠 家庭户型图</view>
-      <view class="floor">
+      <view class="floor" bindtap="goProfile">
         <view class="floor-row" wx:for="{{floorRows}}" wx:for-item="row" wx:key="index" style="grid-template-columns: repeat({{row.cols}}, 1fr);">
-          <view class="floor-cell {{item.empty ? 'empty' : ''}}" wx:for="{{row.cells}}" wx:for-item="item" wx:key="index">
+          <view class="floor-cell {{item.empty ? 'empty' : ''}} {{item.corridor ? 'corridor' : ''}}" wx:for="{{row.cells}}" wx:for-item="item" wx:key="index">
             {{item.e}} {{item.n}}
           </view>
         </view>
       </view>
-      <view class="hint">相邻格 = 相邻房间，影响推理的距离权重（画像页可拖拽调整）</view>
+      <view class="hint">相邻格 = 相邻房间（走廊为多格链），影响推理的距离权重；点击户型图可编辑</view>
     </block>
     <view wx:elif="{{layoutCount}}" class="muted" style="font-size:22rpx;margin-top:16rpx;">户型未摆放：去画像页拖拽房间到网格中</view>
   </view>
