@@ -53,16 +53,16 @@
       <view class="d">找回记录、高频地点、房间热力（小程序版开发中）。</view>
     </view>
     <view class="menu-card" bindtap="go" data-url="hardware">
-      <view class="badge gray">开发中</view>
+      <view class="badge">硬件端口</view>
       <view class="ico">📡</view>
       <view class="t">硬件设备接入</view>
-      <view class="d">定位器/近场呼唤器（小程序版开发中）。</view>
+      <view class="d">定位器 / 近场呼唤器 / 防丢标签，指令与实时事件流。</view>
     </view>
     <view class="menu-card" bindtap="go" data-url="profile">
-      <view class="badge gray">开发中</view>
+      <view class="badge">个性化</view>
       <view class="ico">🧠</view>
       <view class="t">个性化智能体</view>
-      <view class="d">生活习惯、常用地点、户型图拖拽（小程序版开发中）。</view>
+      <view class="d">生活习惯、常用地点、户型图拖拽与走廊塑形。</view>
     </view>
   </view>
 
