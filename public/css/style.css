@@ -273,6 +273,9 @@ table.tbl .nowrap { white-space: nowrap; }
 .device-card .dev-main { flex: 1; min-width: 200px; }
 .device-card .dev-name { font-weight: 700; font-size: 15px; }
 .device-card .dev-id { color: var(--muted); font-weight: 600; font-size: 12px; margin-left: 4px; }
+.dev-badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; margin-left: 6px; }
+.dev-badge.mock { background: #eef1f6; color: #7b8794; }
+.dev-badge.real { background: #e3f7ef; color: #12855c; }
 .device-card .dev-meta { font-size: 12px; color: var(--muted); margin-top: 3px; }
 .battery { height: 6px; background: var(--line); border-radius: 99px; margin-top: 8px; max-width: 260px; overflow: hidden; }
 .battery i { display: block; height: 100%; background: linear-gradient(90deg, #22b07d, #16a6c9); }

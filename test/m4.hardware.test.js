@@ -132,6 +132,45 @@ test('推理联动：定位器报告卧室 → 本地引擎以卧室位置居首
   assert.ok(result.ranked[0].reasons.some((t) => t.includes('定位器')));
 });
 
+test('真实设备指令轮询：下发 → pending → ack → 清空', async () => {
+  const token = await loginAs('xiaoming');
+  // 注册真实设备（is_mock=false）
+  const reg = await req('/api/hardware/devices', {
+    method: 'POST', token,
+    body: { id: 'tag-real-01', name: '真实防丢标签', type: 'tag' }
+  });
+  assert.strictEqual(reg.status, 200);
+  assert.strictEqual(reg.json.device.isMock, false);
+
+  // 模拟设备：指令即时执行，pending 为空
+  await req('/api/hardware/devices/nfc-01/command', { method: 'POST', token, body: { command: 'ping' } });
+  const pendMock = await req('/api/hardware/devices/nfc-01/pending', { token });
+  assert.strictEqual(pendMock.status, 200);
+  assert.strictEqual(pendMock.json.command, null);
+
+  // 真实设备：下发 beep → pending 返回该指令
+  const cmd = await req('/api/hardware/devices/tag-real-01/command', { method: 'POST', token, body: { command: 'beep' } });
+  assert.strictEqual(cmd.status, 200);
+  assert.ok(cmd.json.message.includes('等待设备执行'));
+  const pend1 = await req('/api/hardware/devices/tag-real-01/pending', { token });
+  assert.ok(pend1.json.command);
+  assert.strictEqual(pend1.json.command.command, 'beep');
+
+  // ack 后 pending 清空
+  const ack = await req('/api/hardware/devices/tag-real-01/ack', {
+    method: 'POST', token, body: { eventId: pend1.json.command.id }
+  });
+  assert.strictEqual(ack.status, 200);
+  const pend2 = await req('/api/hardware/devices/tag-real-01/pending', { token });
+  assert.strictEqual(pend2.json.command, null);
+
+  // 未知设备 404 / 错误 eventId 404
+  const p404 = await req('/api/hardware/devices/nope/pending', { token });
+  assert.strictEqual(p404.status, 404);
+  const a404 = await req('/api/hardware/devices/tag-real-01/ack', { method: 'POST', token, body: { eventId: 999999 } });
+  assert.strictEqual(a404.status, 404);
+});
+
 test('无硬件设备场景：清空设备后接口优雅降级', async () => {
   const token = await loginAs('xiaoming');
   // 清空全部设备

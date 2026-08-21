@@ -13,7 +13,8 @@ function publicDevice(d) {
   return {
     id: d.id, name: d.name, type: d.type, typeLabel: DEVICE_TYPES[d.type] || d.type,
     room: d.room, battery: d.battery, status: d.status,
-    lastSeen: d.last_seen, lastSignal: d.last_signal, registeredAt: d.registered_at
+    lastSeen: d.last_seen, lastSignal: d.last_signal, registeredAt: d.registered_at,
+    isMock: !!d.is_mock
   };
 }
 
@@ -26,8 +27,8 @@ function seedDevices() {
     { id: 'nfc-01', name: '近场呼唤器 NFC-Buzz', type: 'nfc', room: '卧室', battery: 72 },
     { id: 'tag-01', name: '防丢标签 Tag-Beep', type: 'tag', room: '客厅', battery: 64, status: 'offline' }
   ];
-  const ins = db.prepare(`INSERT INTO devices (id, name, type, room, battery, status, last_seen, registered_at)
-                          VALUES (?,?,?,?,?,?,?,?)`);
+  const ins = db.prepare(`INSERT INTO devices (id, name, type, room, battery, status, last_seen, registered_at, is_mock)
+                          VALUES (?,?,?,?,?,?,?,?,1)`);
   for (const d of defaults) ins.run(d.id, d.name, d.type, d.room, d.battery, d.status || 'online', now(), now());
   logger.info('[hardware] 已预置 3 台模拟设备');
 }
@@ -51,8 +52,8 @@ function registerDevice({ id, name, type, room }) {
   const exists = db.prepare('SELECT id FROM devices WHERE id = ?').get(devId);
   if (exists) return { error: '设备 ID 已存在' };
   const ts = now();
-  db.prepare(`INSERT INTO devices (id, name, type, room, battery, status, last_seen, registered_at)
-              VALUES (?,?,?,?,100,'online',?,?)`)
+  db.prepare(`INSERT INTO devices (id, name, type, room, battery, status, last_seen, registered_at, is_mock)
+              VALUES (?,?,?,?,100,'online',?,?,0)`)
     .run(devId, String(name || '').trim().slice(0, 40) || devId, type, String(room || '').trim() || null, ts, ts);
   return { device: getDevice(devId) };
 }
@@ -111,13 +112,30 @@ function applyReport(deviceId, report) {
   return { ok: true, message: msg, event: { ...event, payload: JSON.parse(event.payload) }, device };
 }
 
-// ---------- 下行：指令（真实设备可订阅此端口执行动作；演示为模拟响应） ----------
+// ---------- 下行：指令（模拟设备即时响应；真实设备轮询 pending 后执行） ----------
 // command: 'locate' | 'ping' | 'beep'
 function sendCommand(deviceId, command) {
   const db = getDb();
   const dev = db.prepare('SELECT * FROM devices WHERE id = ?').get(deviceId);
   if (!dev) return { ok: false, error: '设备不存在' };
-  addEvent(deviceId, 'command', { command });
+  if (!['locate', 'ping', 'beep'].includes(command)) return { ok: false, error: '未知指令（支持 locate/ping/beep）' };
+  const cmdEvent = addEvent(deviceId, 'command', { command });
+
+  // 真实设备：记录指令等待设备轮询执行（经 GET .../pending + POST .../ack）
+  if (!dev.is_mock) {
+    const device = getDevice(deviceId);
+    broadcastEvent(cmdEvent);
+    broadcastDevice(device);
+    return {
+      ok: true,
+      message: `📨 已向 ${dev.name} 下发「${command}」指令，等待设备执行`,
+      event: { ...cmdEvent, payload: JSON.parse(cmdEvent.payload) },
+      device
+    };
+  }
+
+  // 模拟设备：标记已执行并即时产生模拟结果
+  db.prepare('UPDATE device_events SET acked = 1 WHERE id = ?').run(cmdEvent.id);
 
   if (command === 'locate') {
     const room = ROOMS[Math.floor(Math.random() * ROOMS.length)];
@@ -152,6 +170,26 @@ function sendCommand(deviceId, command) {
     return { ok: true, message: `🔔 已向「${room}」方向发送蜂鸣指令，请静下心循声查找。`, event: { ...event, payload: JSON.parse(event.payload) }, device };
   }
   return { ok: false, error: '未知指令（支持 locate/ping/beep）' };
+}
+
+// ---------- 设备拉取待执行指令 / 确认执行（真实硬件的轮询契约） ----------
+function getPendingCommand(deviceId) {
+  const db = getDb();
+  const row = db.prepare(`
+    SELECT * FROM device_events
+    WHERE device_id = ? AND type = 'command' AND acked = 0
+    ORDER BY id DESC LIMIT 1`).get(deviceId);
+  if (!row) return null;
+  let payload = {};
+  try { payload = JSON.parse(row.payload); } catch {}
+  return { id: row.id, command: payload.command, ts: row.ts };
+}
+
+function ackCommand(deviceId, eventId) {
+  const db = getDb();
+  const info = db.prepare('UPDATE device_events SET acked = 1 WHERE id = ? AND device_id = ?')
+    .run(Number(eventId), deviceId);
+  return info.changes > 0;
 }
 
 // ---------- 定位提示（供推理引擎联动） ----------
@@ -196,5 +234,6 @@ function startSimulator() {
 
 module.exports = {
   DEVICE_TYPES, ROOMS, seedDevices, listDevices, getDevice, registerDevice, removeDevice,
-  applyReport, sendCommand, listEvents, getLastHint, simulateTick, startSimulator
+  applyReport, sendCommand, listEvents, getLastHint, getPendingCommand, ackCommand,
+  simulateTick, startSimulator
 };

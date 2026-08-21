@@ -130,12 +130,12 @@ node scripts/smoke.js
 | 优先级 | 事项 | 认领建议 |
 |---|---|---|
 | 🔴 高 | 小程序 data 页（ECharts ec-canvas 图表 + 户型热力网格） | 成员 C |
-| 🔴 高 | 小程序 hardware 页（wx.connectSocket 实时事件流） | 成员 D |
 | 🔴 高 | 小程序 profile 页（movable-area 户型拖拽） | 成员 A |
 | 🟡 中 | 微信一键登录（后端 `/api/auth/wxlogin` + 前端 wx.login） | 成员 B |
-| 🟡 中 | 防丢标签固件（Arduino：连 WiFi/报电量/轮询指令/蜂鸣）+ 服务器"设备拉指令"接口 | 成员 D |
+| ✅ 完成 | 小程序 hardware 页（设备卡片/指令/注册/WS 实时事件流） | 成员 D |
+| ✅ 完成 | 设备轮询契约（GET pending + POST ack + 模拟/真实设备区分） | 成员 D |
+| ✅ 完成 | 防丢标签固件 v1（`hardware/firmware/`，零第三方库，待实机联调） | 成员 D |
 | 🟢 低 | 3D 外壳按实板微调、组装测试（STL 已可打印） | 成员 D |
-| 🟢 低 | 代码托管平台（Gitee 推荐）建远程仓库并推送 | 团队负责人 |
 
 ---
 

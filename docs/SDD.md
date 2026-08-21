@@ -113,8 +113,9 @@ find-my-glasses-pro/
 | 推理 | POST /api/reason/record | 保存结果（成功/未找到 + 对话转录） |
 | 数据 | GET /api/data/stats · records · export | 统计/分页/导出 |
 | 数据 | DELETE /api/data/records/:id · POST /api/data/import | 删除（仅本人）/导入 |
-| 硬件 | GET/POST/DELETE /api/hardware/devices(/:id) | 设备管理 |
+| 硬件 | GET/POST/DELETE /api/hardware/devices(/:id) | 设备管理（含模拟/真实设备标记 isMock） |
 | 硬件 | POST …/:id/report · …/:id/command | 上行上报 / 下行指令 |
+| 硬件 | GET …/:id/pending · POST …/:id/ack | 真实设备轮询待执行指令 / 执行回报（固件契约） |
 | 硬件 | GET /api/hardware/events · POST /api/hardware/simulate | 事件 / 模拟触发 |
 | 系统 | GET /api/health | 健康检查 |
 

@@ -1,8 +1,95 @@
-<view class="card center" style="padding:100rpx 20rpx;">
-  <view style="font-size:100rpx;">🚧</view>
-  <view style="font-weight:800;font-size:36rpx;margin:24rpx 0 12rpx;">硬件设备接入（开发中）</view>
-  <view class="muted">后端接口已就绪（REST + WebSocket 实时推送）；小程序版将支持设备卡片、定位/呼唤指令与实时事件流。</view>
-  <view class="btn-row" style="justify-content:center;">
-    <view class="btn ghost" bindtap="goHome">← 返回首页</view>
+<view class="page-title">📡 硬件设备接入</view>
+<view class="page-sub">REST 上下行 + WebSocket 实时推送（模拟设备演示，可注册真实硬件）</view>
+
+<view class="toolbar">
+  <view class="ws-status">
+    <view class="dot {{wsOk ? 'on' : 'off'}}"></view>
+    <text class="muted">{{wsOk ? '实时通道已连接' : '实时通道断开'}}</text>
+  </view>
+  <view class="btn sm" bindtap="doSim">🎲 模拟事件</view>
+  <view class="btn ghost sm" bindtap="toggleForm">＋ 注册设备</view>
+</view>
+
+<!-- 注册表单 -->
+<view class="card" wx:if="{{showForm}}">
+  <view style="font-weight:700;margin-bottom:20rpx;">注册新设备（真实硬件接入第一步）</view>
+  <view class="field">
+    <label>设备名称</label>
+    <input class="input" placeholder="如：我的防丢标签" value="{{name}}" bindinput="onName" />
+  </view>
+  <view class="field">
+    <label>设备类型</label>
+    <picker range="{{types}}" range-key="label" value="{{typeIndex}}" bindchange="onType">
+      <view class="input">{{types[typeIndex].label}}</view>
+    </picker>
+  </view>
+  <view class="btn-row">
+    <view class="btn sm" bindtap="doRegister">注册</view>
+    <view class="btn ghost sm" bindtap="toggleForm">取消</view>
+  </view>
+</view>
+
+<!-- 设备列表 -->
+<view class="card dev-card" wx:for="{{devices}}" wx:key="id">
+  <view class="dev-head">
+    <view class="dev-ico">{{item.icon}}</view>
+    <view class="dev-main">
+      <view class="dev-name">
+        {{item.name}} <text class="dev-id">#{{item.id}}</text>
+        <text class="dev-badge {{item.isMock ? 'mock' : 'real'}}">{{item.isMock ? '模拟' : '真实'}}</text>
+      </view>
+      <view class="muted dev-meta">
+        <view class="dot {{item.on ? 'on' : 'off'}}"></view>{{item.on ? '在线' : '离线'}}
+        · {{item.label}} · {{item.room || '未定位'}}
+        <text wx:if="{{item.lastSignal != null}}"> · 最近信号 {{item.lastSignal}}m</text>
+      </view>
+      <view class="battery"><view class="fill" style="width:{{item.battery || 0}}%;"></view></view>
+    </view>
+  </view>
+  <view class="btn-row" style="margin-top:16rpx;">
+    <view class="btn {{a.cls}} sm" wx:for="{{item.actions}}" wx:for-item="a" wx:key="c"
+          data-id="{{item.id}}" data-cmd="{{a.c}}" bindtap="doCmd">{{a.t}}</view>
+    <view class="btn ghost sm" data-id="{{item.id}}" bindtap="doDel">删除</view>
+  </view>
+</view>
+
+<view class="card" wx:if="{{!devices.length}}">
+  <view class="center" style="padding:40rpx 0;">
+    <view style="font-size:80rpx;">📭</view>
+    <view style="font-weight:800;margin:16rpx 0 8rpx;">你还没有接入任何设备</view>
+    <view class="muted">没有硬件设备也完全不影响使用——引导推理已足够。接入真实设备请点上方「＋ 注册设备」。</view>
+  </view>
+</view>
+
+<!-- 事件流 -->
+<view class="card">
+  <view style="font-weight:700;margin-bottom:16rpx;">📟 设备事件流（实时）</view>
+  <view class="event-list">
+    <view class="event-row" wx:for="{{events}}" wx:key="index">
+      <text class="ts">[{{item.ts}}]</text>
+      <text class="dev">{{item.device}}</text>
+      <text>{{item.icon}} {{item.type}}</text>
+      <text class="payload">{{item.payload}}</text>
+      <text class="{{item.ackCls}}" wx:if="{{item.ack}}">{{item.ack}}</text>
+    </view>
+    <view class="muted center" wx:if="{{!events.length}}" style="padding:30rpx;">暂无事件（模拟器每 8 秒自动产生一条）</view>
+  </view>
+</view>
+
+<!-- 接入协议 -->
+<view class="card">
+  <view style="font-weight:700;margin-bottom:16rpx;">🔌 接入协议（真实硬件对接）</view>
+  <view class="proto">
+    <text class="c">── 上行（设备 → 服务）──</text>
+    POST /api/hardware/devices/{id}/report
+    Body: {room, distance_m, rssi_dbm, battery}
+    <text class="c">── 下行（服务 → 设备）──</text>
+    POST /api/hardware/devices/{id}/command
+    Body: {command: locate|ping|beep}
+    <text class="c">── 设备轮询与确认（固件用）──</text>
+    GET  /api/hardware/devices/{id}/pending   拉取待执行指令
+    POST /api/hardware/devices/{id}/ack       回报已执行 {eventId}
+    <text class="c">── 实时通道 ──</text>
+    WS /ws?token=...  推送 device_event / device_update
   </view>
 </view>

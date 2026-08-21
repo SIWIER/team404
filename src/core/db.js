@@ -88,8 +88,16 @@ const MIGRATIONS = [
       ALTER TABLE devices ADD COLUMN registered_at TEXT;
       CREATE INDEX IF NOT EXISTS idx_dev_events_device ON device_events(device_id, id);
     `
+  },
+  {
+    version: 6,
+    name: 'hardware-command-ack',
+    up: `
+      ALTER TABLE device_events ADD COLUMN acked INTEGER DEFAULT 0;
+      ALTER TABLE devices ADD COLUMN is_mock INTEGER DEFAULT 1;
+    `
   }
-  // 后续模块在此追加 v6、v7…
+  // 后续模块在此追加 v7、v8…
 ];
 
 function init() {

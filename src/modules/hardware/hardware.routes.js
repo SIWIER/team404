@@ -46,6 +46,22 @@ function registerRoutes(router) {
     ctx.res.ok({ message: r.message, event: r.event, device: r.device });
   });
 
+  // 【设备轮询】真实设备拉取待执行指令
+  router.get('/api/hardware/devices/:id/pending', (ctx) => {
+    if (!requireUser(ctx)) return;
+    if (!svc.getDevice(ctx.params.id)) return ctx.res.error('设备不存在', 404);
+    const command = svc.getPendingCommand(ctx.params.id);
+    ctx.res.ok({ command });
+  });
+
+  // 【设备确认】设备执行完指令后回报
+  router.post('/api/hardware/devices/:id/ack', (ctx) => {
+    if (!requireUser(ctx)) return;
+    const b = ctx.body || {};
+    if (!svc.ackCommand(ctx.params.id, b.eventId)) return ctx.res.error('指令不存在', 404);
+    ctx.res.ok();
+  });
+
   // 事件日志
   router.get('/api/hardware/events', (ctx) => {
     if (!requireUser(ctx)) return;

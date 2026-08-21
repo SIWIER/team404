@@ -101,7 +101,7 @@ function renderDevices(root, devices) {
       <div class="device-card">
         <div class="dev-ico">${TYPE_ICON[x.type] || '📟'}</div>
         <div class="dev-main">
-          <div class="dev-name">${esc(x.name)} <span class="dev-id">#${esc(x.id)}</span></div>
+          <div class="dev-name">${esc(x.name)} <span class="dev-id">#${esc(x.id)}</span><span class="dev-badge ${x.isMock ? 'mock' : 'real'}">${x.isMock ? '模拟设备' : '真实设备'}</span></div>
           <div class="dev-meta">
             <span class="dot ${on ? 'on' : 'off'}"></span>${on ? '在线' : '离线'}
             · ${esc(x.typeLabel)} · ${roomEmoji(x.room || '')} ${esc(x.room || '未定位')}
@@ -153,7 +153,10 @@ function formatEvent(e) {
   let p = '';
   try { p = JSON.stringify(JSON.parse(e.payload)); } catch { p = e.payload; }
   const icon = e.type === 'report' ? '📡' : e.type === 'command' ? '⬇️' : e.type === 'ping_result' ? '🔊' : '🔔';
-  return `<span class="ts">[${esc((e.ts || '').slice(11, 19))}]</span> <span class="ok">${esc(e.device_id)}</span> ${icon} ${esc(e.type)} ${esc(p)}`;
+  const ack = e.type === 'command'
+    ? (e.acked ? ' <span class="ok">✅已执行</span>' : ' <span class="warn">⏳待设备执行</span>')
+    : '';
+  return `<span class="ts">[${esc((e.ts || '').slice(11, 19))}]</span> <span class="ok">${esc(e.device_id)}</span> ${icon} ${esc(e.type)} ${esc(p)}${ack}`;
 }
 
 async function refresh(root) {

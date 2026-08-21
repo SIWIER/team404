@@ -1,0 +1,29 @@
+.toolbar { display: flex; align-items: center; gap: 16rpx; margin: 0 32rpx 24rpx; }
+.ws-status { display: flex; align-items: center; gap: 10rpx; margin-right: auto; font-size: 26rpx; }
+.dot { width: 16rpx; height: 16rpx; border-radius: 50%; display: inline-block; }
+.dot.on { background: #22b07d; }
+.dot.off { background: #c3ccd6; }
+
+.dev-card { padding: 28rpx 32rpx; }
+.dev-head { display: flex; gap: 20rpx; align-items: center; }
+.dev-ico { font-size: 56rpx; }
+.dev-main { flex: 1; }
+.dev-name { font-weight: 700; font-size: 30rpx; }
+.dev-id { color: #7b8794; font-size: 22rpx; margin-left: 8rpx; }
+.dev-badge { font-size: 20rpx; padding: 2rpx 12rpx; border-radius: 999rpx; margin-left: 10rpx; }
+.dev-badge.mock { background: #eef1f6; color: #7b8794; }
+.dev-badge.real { background: #e3f7ef; color: #12855c; }
+.dev-meta { font-size: 24rpx; margin-top: 6rpx; display: flex; align-items: center; gap: 6rpx; }
+.battery { height: 10rpx; background: #e3e9f2; border-radius: 999rpx; margin-top: 12rpx; overflow: hidden; }
+.battery .fill { height: 100%; background: linear-gradient(90deg, #22b07d, #16a6c9); }
+
+.event-list { background: #0f1720; color: #c7f9d1; border-radius: 16rpx; padding: 20rpx; font-family: monospace; font-size: 22rpx; max-height: 480rpx; overflow-y: auto; }
+.event-row { line-height: 1.9; }
+.ts { color: #5b7285; }
+.dev { color: #6ee7a0; }
+.payload { color: #9fb6d1; }
+.ack-done { color: #6ee7a0; }
+.ack-wait { color: #ffd166; }
+
+.proto { background: #0f1720; color: #c7f9d1; border-radius: 16rpx; padding: 20rpx; font-family: monospace; font-size: 22rpx; line-height: 1.9; white-space: pre-wrap; }
+.proto .c { color: #7fa6d9; }
