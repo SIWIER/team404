@@ -56,25 +56,34 @@
 
   <!-- 待放置托盘 -->
   <view class="tray" wx:if="{{unplaced.length}}">
-    <view class="tray-title">待放置（点一下放进网格）：</view>
+    <view class="tray-title">待放置（点一下选中，再点网格放进去）：</view>
     <view class="tray-chips">
-      <view class="tray-chip" wx:for="{{unplaced}}" wx:key="idx" data-idx="{{item.idx}}" bindtap="placeFromTray">{{item.emoji}} {{item.name}}</view>
+      <view class="tray-chip {{selectedIdx === item.idx ? 'sel' : ''}}" wx:for="{{unplaced}}" wx:key="idx" data-idx="{{item.idx}}" bindtap="onChipTap">{{item.emoji}} {{item.name}}</view>
     </view>
   </view>
 
-  <!-- 6×6 户型图拖拽 -->
+  <!-- 6×6 户型图 -->
   <view class="floor-wrap">
-    <view class="hint">户型图：拖动房间摆放相对位置（将用于推理的"距离远近"计算）</view>
+    <view class="floor-tip">👆 玩法：点房间选中 → 点格子放置；拖动方块也可换位置；点 ✕ 移回托盘</view>
     <movable-area class="floor-area" style="width:{{grid.area}}px;height:{{grid.area}}px;" bindtap="onAreaTap">
-      <movable-view class="floor-tile" wx:for="{{placed}}" wx:key="idx"
-        x="{{item.x}}" y="{{item.y}}" direction="all" inertia="false" damping="20"
-        data-idx="{{item.idx}}" bindchange="onTileMove" bindtouchend="onTileEnd">
+      <!-- 虚线网格底图 -->
+      <view class="grid-cell" wx:for="{{grid.cells}}" wx:key="index"
+            style="left:{{item.x}}px;top:{{item.y}}px;width:{{grid.cell}}px;height:{{grid.cell}}px;"></view>
+      <!-- 房间方块 -->
+      <movable-view class="floor-tile {{selectedIdx === item.idx ? 'sel' : ''}}" wx:for="{{placed}}" wx:key="idx"
+        x="{{item.x}}" y="{{item.y}}" style="width:{{grid.cell}}px;height:{{grid.cell}}px;"
+        direction="all" inertia="false" damping="20"
+        data-idx="{{item.idx}}" bindchange="onTileMove" bindtouchend="onTileEnd" bindtap="onTileTap">
         <view class="tile-x" data-idx="{{item.idx}}" catchtap="removeFromGrid">✕</view>
         <view class="tile-emoji">{{item.emoji}}</view>
         <view class="tile-name">{{item.name}}</view>
       </movable-view>
     </movable-area>
-    <view class="hint">相邻格 = 相邻房间；点空白格可放置，点 ✕ 移回托盘。</view>
+    <view class="btn-row" style="justify-content:center;">
+      <button class="btn ghost sm" bindtap="autoLayout">✨ 一键自动排列</button>
+      <button class="btn ghost sm" bindtap="clearLayout">🗑 全部移出</button>
+    </view>
+    <view class="hint">相邻格 = 相邻房间，影响推理的"距离远近"权重；拖到别的房间上会交换位置。</view>
   </view>
 </view>
 

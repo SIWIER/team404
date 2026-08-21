@@ -1,12 +1,10 @@
-// pages/profile/profile.js — 个性化智能体：画像表单 + 家庭布局（movable-view 户型图拖拽）
+// pages/profile/profile.js — 个性化智能体：画像表单 + 家庭布局（户型图：点选放置为主，拖拽为辅）
 const api = require('../../utils/api');
 const store = require('../../utils/store');
 const { toast, roomEmoji } = require('../../utils/ui');
 
 const ROOM_PRESETS = ['卧室', '卫生间', '客厅', '厨房', '餐厅', '书房', '玄关', '走廊', '阳台', '衣帽间', '储物间'];
 const GRID = 6;          // 户型图网格 6×6（与后端 sanitizeLayout 0-5 一致）
-const CELL = 52;         // 单格 px（movable-area 使用 px 单位）
-const AREA = CELL * GRID;
 
 Page({
   data: {
@@ -15,15 +13,34 @@ Page({
     saving: false, savingLayout: false,
     // 布局
     rooms: [],           // 房间编辑副本（含 idx/name/desc/spotsText/x/y）
-    placed: [],          // 已放置（供 movable-view，x/y 已换算为 px）
+    placed: [],          // 已放置（movable-view 用，x/y 为 px）
     unplaced: [],        // 待放置托盘
     presets: [],         // 可快捷添加的预设
-    grid: { cell: CELL, area: AREA, size: GRID }
+    selectedIdx: null,   // 当前选中的房间（点选放置流）
+    grid: { cell: 52, area: 312, size: GRID, cells: [] }
   },
 
   onLoad() {
     if (!store.getUser()) { wx.reLaunch({ url: '/pages/auth/auth' }); return; }
+    this.computeGrid();
     this.init();
+  },
+
+  // 按屏幕宽度计算网格像素尺寸，保证任何机型都不溢出卡片
+  computeGrid() {
+    try {
+      const sys = wx.getSystemInfoSync();
+      const win = sys.windowWidth; // px
+      // 内容宽 = 屏宽 - 页边距 24rpx*2 - 卡片内边距 32rpx*2 - 少量冗余
+      const areaPx = Math.floor((win * (750 - 48 - 64 - 8)) / 750);
+      const cell = Math.max(40, Math.floor(areaPx / GRID));
+      const area = cell * GRID;
+      const cells = [];
+      for (let i = 0; i < GRID * GRID; i++) {
+        cells.push({ x: (i % GRID) * cell, y: Math.floor(i / GRID) * cell });
+      }
+      this.setData({ grid: { cell, area, size: GRID, cells } });
+    } catch (e) { /* 保持默认值 */ }
   },
 
   init() {
@@ -70,7 +87,7 @@ Page({
     this.setData({ saving: false });
   },
 
-  // ---------- 家庭布局编辑 ----------
+  // ---------- 房间增删改 ----------
   onRoomInput(e) {
     const { idx, k } = e.currentTarget.dataset;
     const room = this.rooms.find((r) => r.idx === Number(idx));
@@ -82,6 +99,7 @@ Page({
   removeRoom(e) {
     const idx = Number(e.currentTarget.dataset.idx);
     this.rooms = this.rooms.filter((r) => r.idx !== idx);
+    this.setData({ selectedIdx: this.data.selectedIdx === idx ? null : this.data.selectedIdx });
     this.renderLayout();
   },
 
@@ -96,51 +114,93 @@ Page({
     this.renderLayout();
   },
 
-  // 点托盘房间 → 放进第一个空格子
-  placeFromTray(e) {
+  // ---------- 点选放置流（主要交互，新手友好） ----------
+  // 点托盘房间：第一次选中，再点一次放进第一个空格
+  onChipTap(e) {
     const idx = Number(e.currentTarget.dataset.idx);
-    const room = this.rooms.find((r) => r.idx === idx);
-    if (!room) return;
-    const empty = this.firstEmpty();
-    if (!empty) { toast('网格已满，先把某个房间移出'); return; }
-    room.x = empty.x;
-    room.y = empty.y;
-    this.renderLayout();
+    if (this.data.selectedIdx === idx) {
+      this.placeSelectedAt(idx, this.firstEmpty());
+    } else {
+      this.setData({ selectedIdx: idx });
+      toast('已选中「' + (this.roomName(idx) || '该房间') + '」，点网格中的格子放置');
+    }
   },
 
-  // 点空白格子 → 放置第一个待放置房间
+  // 点网格上的方块：选中它（不移动；移动请点目标格子）
+  onTileTap(e) {
+    const idx = Number(e.currentTarget.dataset.idx);
+    // 刚结束拖拽的误触忽略
+    if (this._justDragged && Date.now() - this._justDragged < 350) return;
+    this.setData({ selectedIdx: this.data.selectedIdx === idx ? null : idx });
+  },
+
+  // 点格子：优先放置/移动选中的房间
   onAreaTap(e) {
     if (!e.detail || e.detail.x == null || e.detail.y == null) return;
-    const x = clamp(Math.floor(e.detail.x / CELL), 0, GRID - 1);
-    const y = clamp(Math.floor(e.detail.y / CELL), 0, GRID - 1);
-    if (this.rooms.some((r) => r.x === x && r.y === y)) return;
+    const cell = this.data.grid.cell;
+    const x = clamp(Math.floor(e.detail.x / cell), 0, GRID - 1);
+    const y = clamp(Math.floor(e.detail.y / cell), 0, GRID - 1);
+    const sel = this.data.selectedIdx;
+    if (sel != null) {
+      this.placeSelectedAt(sel, { x, y });
+      return;
+    }
+    // 未选中：放置第一个待放置房间
     const pending = this.rooms.find((r) => r.name && (r.x == null || r.y == null));
-    if (!pending) return;
+    if (!pending) { toast('没有待放置的房间，先在上方添加'); return; }
     pending.x = x;
     pending.y = y;
+    this.setData({ selectedIdx: null });
     this.renderLayout();
   },
 
-  // 拖拽过程中记录位置
+  // 把 idx 房间放到目标格；被占则交换并提示
+  placeSelectedAt(idx, cell) {
+    if (!cell) { toast('网格已满，先把某个房间移出'); return; }
+    const room = this.rooms.find((r) => r.idx === idx);
+    if (!room) return;
+    const other = this.rooms.find((r) => r.idx !== idx && r.x === cell.x && r.y === cell.y);
+    if (other) {
+      other.x = room.x;
+      other.y = room.y;
+      toast('与「' + other.name + '」交换了位置');
+    } else if (room.x == null && room.y == null) {
+      toast('已放入网格');
+    } else {
+      toast('已移动到新位置');
+    }
+    room.x = cell.x;
+    room.y = cell.y;
+    this.setData({ selectedIdx: null });
+    this.renderLayout();
+  },
+
+  // ---------- 拖拽（快捷方式） ----------
   onTileMove(e) {
     const idx = e.currentTarget.dataset.idx;
     this._dragPos = this._dragPos || {};
     this._dragPos[idx] = { x: e.detail.x, y: e.detail.y };
   },
 
-  // 拖拽结束 → 吸附最近格子；目标格被占则交换
   onTileEnd(e) {
     const idx = Number(e.currentTarget.dataset.idx);
     const room = this.rooms.find((r) => r.idx === idx);
     const pos = (this._dragPos && this._dragPos[idx]) || null;
     if (!room || !pos) return;
-    const x = clamp(Math.round(pos.x / CELL), 0, GRID - 1);
-    const y = clamp(Math.round(pos.y / CELL), 0, GRID - 1);
+    this._justDragged = Date.now();
+    const cell = this.data.grid.cell;
+    const x = clamp(Math.round(pos.x / cell), 0, GRID - 1);
+    const y = clamp(Math.round(pos.y / cell), 0, GRID - 1);
     const other = this.rooms.find((r) => r.idx !== idx && r.x === x && r.y === y);
-    if (other) { other.x = room.x; other.y = room.y; } // 交换
+    if (other) {
+      other.x = room.x;
+      other.y = room.y;
+      toast('与「' + other.name + '」交换了位置');
+    }
     room.x = x;
     room.y = y;
     if (this._dragPos) this._dragPos[idx] = null;
+    this.setData({ selectedIdx: null });
     this.renderLayout();
   },
 
@@ -151,7 +211,37 @@ Page({
     if (!room) return;
     room.x = null;
     room.y = null;
+    this.setData({ selectedIdx: this.data.selectedIdx === idx ? null : this.data.selectedIdx });
     this.renderLayout();
+  },
+
+  // ---------- 一键操作 ----------
+  // 自动把待放置房间依次填满空格
+  autoLayout() {
+    const pending = this.rooms.filter((r) => r.name && (r.x == null || r.y == null));
+    if (!pending.length) { toast('所有房间都已在网格中'); return; }
+    for (const room of pending) {
+      const empty = this.firstEmpty();
+      if (!empty) { toast('网格已满，剩余房间留在托盘'); break; }
+      room.x = empty.x;
+      room.y = empty.y;
+    }
+    this.setData({ selectedIdx: null });
+    this.renderLayout();
+    toast('✨ 已自动排列');
+  },
+
+  clearLayout() {
+    this.rooms.forEach((r) => { r.x = null; r.y = null; });
+    this.setData({ selectedIdx: null });
+    this.renderLayout();
+    toast('已全部移出网格');
+  },
+
+  // ---------- 工具 ----------
+  roomName(idx) {
+    const r = this.rooms.find((x) => x.idx === idx);
+    return r ? r.name : '';
   },
 
   firstEmpty() {
@@ -164,9 +254,10 @@ Page({
   },
 
   renderLayout() {
+    const cell = this.data.grid.cell;
     const placed = this.rooms
       .filter((r) => r.name && r.x != null && r.y != null)
-      .map((r) => ({ idx: r.idx, name: r.name, emoji: roomEmoji(r.name), x: r.x * CELL, y: r.y * CELL }));
+      .map((r) => ({ idx: r.idx, name: r.name, emoji: roomEmoji(r.name), x: r.x * cell, y: r.y * cell }));
     const unplaced = this.rooms
       .filter((r) => r.name && (r.x == null || r.y == null))
       .map((r) => ({ idx: r.idx, name: r.name, emoji: roomEmoji(r.name) }));
@@ -189,7 +280,6 @@ Page({
     try {
       const d = await api.request('/auth/profile', { method: 'PUT', data: { homeLayout } });
       store.setUser(d.user);
-      // 用服务端规范化结果刷新本地副本
       this.rooms = (d.user.profile.homeLayout || []).map((r, i) => ({
         idx: i, name: r.name, desc: r.desc || '',
         spotsText: (r.spots || []).join('，'),

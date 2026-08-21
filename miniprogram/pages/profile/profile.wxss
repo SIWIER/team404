@@ -27,28 +27,43 @@
 .tray-title { font-size: 24rpx; color: #7b8794; margin-bottom: 12rpx; }
 .tray-chips { display: flex; flex-wrap: wrap; gap: 12rpx; }
 .tray-chip {
-  border: 1rpx solid #e3e9f2; background: #fff; border-radius: 999rpx;
+  border: 2rpx solid #e3e9f2; background: #fff; border-radius: 999rpx;
   padding: 10rpx 22rpx; font-size: 24rpx; font-weight: 600;
 }
+.tray-chip.sel { border-color: #3d7bfd; background: #e8f0ff; color: #3d7bfd; }
 
-/* 户型图拖拽 */
+/* 户型图 */
 .floor-wrap { margin-top: 24rpx; }
-.floor-area {
-  margin: 16rpx auto; background: #f7f9fc;
-  border: 2rpx dashed #d5ddeb; border-radius: 12rpx; overflow: hidden;
+.floor-tip {
+  background: #eaf1ff; color: #3d5b9e; font-size: 24rpx;
+  border-radius: 12rpx; padding: 14rpx 20rpx; margin-bottom: 16rpx; line-height: 1.5;
 }
+.floor-area {
+  margin: 0 auto; background: #f7f9fc;
+  border: 2rpx dashed #c3cede; border-radius: 12rpx;
+  position: relative; overflow: hidden;
+}
+/* 虚线网格底图：36 个格子 */
+.grid-cell {
+  position: absolute; box-sizing: border-box;
+  border: 1rpx dashed #d5ddeb; background: #fdfeff;
+}
+/* 房间方块 */
 .floor-tile {
-  width: 52px; height: 52px;
-  background: #fff; border: 1rpx solid #c9d4e6; border-radius: 10rpx;
+  background: #fff; border: 2rpx solid #c9d4e6; border-radius: 10rpx;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   position: relative; box-sizing: border-box;
 }
+.floor-tile.sel {
+  border-color: #3d7bfd; background: #e8f0ff;
+  box-shadow: 0 0 0 3rpx rgba(61, 123, 253, 0.25);
+}
 .tile-x {
   position: absolute; top: 0; right: 6rpx;
-  font-size: 22rpx; color: #ff7a59; line-height: 1;
+  font-size: 22rpx; color: #ff7a59; line-height: 1; padding: 4rpx;
 }
-.tile-emoji { font-size: 30rpx; }
-.tile-name { font-size: 18rpx; font-weight: 700; max-width: 100%; overflow: hidden; }
+.tile-emoji { font-size: 34rpx; }
+.tile-name { font-size: 18rpx; font-weight: 700; max-width: 100%; overflow: hidden; white-space: nowrap; }
 
 /* 隐私说明（问卷第14题：数据用途告知） */
 .privacy-note {
