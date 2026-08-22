@@ -9,6 +9,11 @@ const ROOM_EMOJI = {
   '厨房/餐厅': '🍳', '书房': '📚', '玄关': '🚪', '走廊': '🚶', '阳台': '🪴', '衣帽间': '👔', '储物间': '📦'
 };
 
+// 房间名去编号后取 emoji（卧室2 → 🛏️）
+function roomEmoji(name) {
+  return ROOM_EMOJI[name] || ROOM_EMOJI[String(name || '').replace(/\d+$/, '')] || '🏠';
+}
+
 function requireUser(ctx) {
   if (!ctx.user) { ctx.res.error('请先登录', 401); ctx.ended = true; return false; }
   return true;
@@ -25,12 +30,16 @@ function registerRoutes(router) {
       const roomQ = flow.find((q) => q.id === 'room');
       if (roomQ) {
         roomQ.opts = layout
-          .map((r) => [r.name, ROOM_EMOJI[r.name] || '🏠'])
+          .map((r) => [r.name, roomEmoji(r.name)])
           .concat([['不确定', '🤔']]);
       }
       const passedQ = flow.find((q) => q.id === 'passedRooms');
       if (passedQ) {
-        passedQ.opts = layout.map((r) => [r.name, ROOM_EMOJI[r.name] || '🏠']);
+        passedQ.opts = layout.map((r) => [r.name, roomEmoji(r.name)]);
+      }
+      const checkedQ = flow.find((q) => q.id === 'checkedRooms');
+      if (checkedQ) {
+        checkedQ.opts = layout.map((r) => [r.name, roomEmoji(r.name)]);
       }
     }
     ctx.res.ok({ flow });
@@ -47,6 +56,9 @@ function registerRoutes(router) {
     }
     if (Array.isArray(facts.passedRooms)) {
       facts.passedRooms = facts.passedRooms.slice(0, 10).map((s) => String(s).slice(0, 30));
+    }
+    if (Array.isArray(facts.checkedRooms)) {
+      facts.checkedRooms = facts.checkedRooms.slice(0, 10).map((s) => String(s).slice(0, 30));
     }
     const result = await svc.infer(ctx.user.id, facts);
     ctx.res.ok({ result });

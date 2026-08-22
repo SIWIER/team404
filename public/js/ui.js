@@ -28,5 +28,5 @@ export const ROOM_EMOJI = {
 };
 
 export function roomEmoji(name) {
-  return ROOM_EMOJI[name] || '🏠';
+  return ROOM_EMOJI[name] || ROOM_EMOJI[String(name || '').replace(/\d+$/, '')] || '🏠';
 }
