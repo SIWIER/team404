@@ -47,10 +47,10 @@
       <view class="d">一问一答，回忆场景，AI 结合常识与你的历史数据推理位置。</view>
     </view>
     <view class="menu-card" bindtap="go" data-url="data">
-      <view class="badge gray">开发中</view>
+      <view class="badge">数据统计</view>
       <view class="ico">📊</view>
       <view class="t">数据统计与分析</view>
-      <view class="d">找回记录、高频地点、房间热力（小程序版开发中）。</view>
+      <view class="d">找回记录、高频地点、房间热力、趋势图表与导入导出。</view>
     </view>
     <view class="menu-card" bindtap="go" data-url="hardware">
       <view class="badge">硬件端口</view>

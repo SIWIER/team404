@@ -1,0 +1,77 @@
+/* pages/data/data.wxss — 数据统计与分析页样式（复用 app.wxss 的 card/btn/empty/hint） */
+.toolbar { display: flex; align-items: center; gap: 16rpx; margin: 0 32rpx 8rpx; }
+
+/* 顶部统计卡（2×2） */
+.stat-cards { display: flex; flex-wrap: wrap; gap: 20rpx; margin: 0 24rpx; }
+.stat-card {
+  flex: 1 1 40%; min-width: 0; box-sizing: border-box; background: #fff;
+  border-radius: 24rpx; padding: 30rpx 20rpx; text-align: center;
+  box-shadow: 0 10rpx 30rpx rgba(40, 60, 110, 0.1);
+}
+.stat-card .v { font-size: 52rpx; font-weight: 800; color: #3d7bfd; line-height: 1.2; }
+.stat-card .v.small { font-size: 32rpx; }
+.stat-card .k { color: #7b8794; font-size: 24rpx; margin-top: 10rpx; }
+
+.chart-title { font-weight: 700; font-size: 30rpx; margin-bottom: 20rpx; }
+
+/* 智能洞察 */
+.insight { display: flex; align-items: flex-start; gap: 16rpx; padding: 16rpx 0; border-bottom: 1rpx solid #eef1f6; }
+.insight:last-child { border-bottom: none; padding-bottom: 4rpx; }
+.insight-num {
+  flex: none; width: 40rpx; height: 40rpx; border-radius: 50%;
+  background: #eaf1ff; color: #3d7bfd; font-size: 24rpx; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.insight-text { flex: 1; font-size: 28rpx; line-height: 1.7; }
+
+/* ECharts 图表容器（ec-canvas 填满容器，必须给定高度） */
+.chart-box { width: 100%; }
+.chart-box.h-bar { height: 460rpx; }
+.chart-box.h-donut { height: 520rpx; }
+.chart-box.h-col { height: 420rpx; }
+
+/* 户型热力网格 */
+.heat-floor { background: #fafcff; border: 1rpx dashed #d5ddeb; border-radius: 14rpx; padding: 12rpx; }
+.heat-row { display: grid; gap: 10rpx; margin-bottom: 10rpx; }
+.heat-row:last-child { margin-bottom: 0; }
+.heat-cell {
+  border-radius: 12rpx; min-height: 110rpx; padding: 12rpx 6rpx; box-sizing: border-box;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.tile-emoji { font-size: 34rpx; }
+.tile-name { font-size: 20rpx; color: #1f2b3a; font-weight: 700; margin-top: 2rpx; }
+.tile-count { font-size: 20rpx; color: #1f2b3a; font-weight: 600; margin-top: 2rpx; }
+.tile-count.zero { color: #b8c2cf; }
+
+/* 不在户型中的房间：虚线框补充展示 */
+.extra-wrap { margin-top: 20rpx; }
+.extra-title { font-size: 22rpx; color: #7b8794; margin-bottom: 12rpx; font-weight: 600; }
+.extra-list { display: flex; flex-wrap: wrap; gap: 16rpx; }
+.extra-tile {
+  border: 2rpx dashed #9db9ff; background: rgba(61, 123, 253, 0.05); border-radius: 16rpx;
+  padding: 16rpx 20rpx; display: flex; flex-direction: column; align-items: center;
+}
+
+/* 无坐标时按列表展示 */
+.heat-list { display: flex; flex-wrap: wrap; gap: 16rpx; justify-content: center; }
+.heat-tile {
+  border-radius: 16rpx; padding: 20rpx 24rpx; min-width: 140rpx;
+  display: flex; flex-direction: column; align-items: center;
+}
+
+/* 记录列表 */
+.rec-row { display: flex; align-items: center; gap: 16rpx; padding: 22rpx 0; border-bottom: 1rpx solid #eef1f6; }
+.rec-row:last-child { border-bottom: none; padding-bottom: 4rpx; }
+.rec-main { flex: 1; min-width: 0; }
+.rec-time { font-size: 24rpx; color: #7b8794; }
+.rec-loc { font-size: 28rpx; font-weight: 700; margin-top: 6rpx; word-break: break-all; }
+.rec-room { font-weight: 400; color: #7b8794; font-size: 24rpx; }
+.rec-side { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 6rpx; }
+.pill { font-size: 22rpx; font-weight: 700; padding: 4rpx 18rpx; border-radius: 999rpx; }
+.pill.ok { background: #e3f7ef; color: #12855c; }
+.pill.no { background: #ffe9e4; color: #e85d5d; }
+.rec-meta { font-size: 22rpx; color: #7b8794; }
+.load-tip { text-align: center; color: #7b8794; font-size: 24rpx; padding: 20rpx 0 4rpx; }
+
+/* 导出报告图：离屏画布（display:none 无法绘制，用移出屏幕的方式） */
+.export-canvas { position: fixed; left: -10000px; top: 0; width: 750px; height: 2600px; }
