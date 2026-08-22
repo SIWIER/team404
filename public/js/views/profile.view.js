@@ -217,16 +217,34 @@ function renderFloor(root) {
 
 // ---------- 房间内部细致布局（12×12 网格，左上角为起点，拖右下角滑块定尺寸，可放置家具） ----------
 const ROOM_GRID = 12;
-const FURN_DEFAULTS = ['床', '柜子', '架子', '桌子'];
-const FURN_EMOJI = { '床': '🛏️', '柜子': '🗄️', '架子': '📦', '桌子': '🪑' };
+// 家具分类：通用家具任何房间都有；特定房间类型再附加专属家具；自定义/其他房间给全部家具
+const FURN_COMMON = ['柜子', '架子', '窗台', '桌子'];
+const FURN_BY_TYPE = {
+  '卧室': ['床'],
+  '卫生间': ['洗手池', '便池', '浴池'],
+  '客厅': ['沙发', '电视'],
+  '厨房': ['灶台', '冰箱', '洗手池']
+};
+const FURN_ALL = [...new Set([...FURN_COMMON, ...Object.values(FURN_BY_TYPE).flat()])];
+const FURN_EMOJI = {
+  '床': '🛏️', '柜子': '🗄️', '架子': '📦', '桌子': '🪑', '窗台': '🪟',
+  '洗手池': '🚰', '便池': '🚽', '浴池': '🛁',
+  '沙发': '🛋️', '电视': '📺',
+  '灶台': '🍳', '冰箱': '🧊'
+};
 const FURN_PALETTE = [
   ['#e8f0ff', '#5b8def'],
   ['#fff3e0', '#e8963a'],
   ['#eaf7ed', '#4caf6d'],
   ['#fdeef3', '#e05c8e'],
-  ['#f4efff', '#8b6fe8'],
   ['#e6f7f7', '#2fa3a3'],
-  ['#fdf5e6', '#c9a24b']
+  ['#e0f2ff', '#2f80c9'],
+  ['#f3f0ff', '#7a5fe0'],
+  ['#e0f6ff', '#2a9ec9'],
+  ['#fdf0e6', '#d98a4a'],
+  ['#eef1f6', '#5b7285'],
+  ['#fff5e6', '#d9a03a'],
+  ['#eaf4ff', '#4a90c9']
 ];
 function furnEmoji(name) { return FURN_EMOJI[name] || '🪑'; }
 function furnColors(name) {
@@ -234,6 +252,15 @@ function furnColors(name) {
   for (const ch of String(name)) hash = (hash * 31 + ch.codePointAt(0)) % 997;
   const [bg, bd] = FURN_PALETTE[hash % FURN_PALETTE.length];
   return { bg, bd };
+}
+// 根据房间名返回家具选项（未匹配到特定类型 → 全部家具）
+function furnOptionsFor(roomName) {
+  const n = String(roomName || '');
+  if (n.includes('卧室')) return [...FURN_COMMON, ...FURN_BY_TYPE['卧室']];
+  if (n.includes('卫生间') || n.includes('厕所') || n.includes('洗手间')) return [...FURN_COMMON, ...FURN_BY_TYPE['卫生间']];
+  if (n.includes('客厅')) return [...FURN_COMMON, ...FURN_BY_TYPE['客厅']];
+  if (n.includes('厨房')) return [...FURN_COMMON, ...FURN_BY_TYPE['厨房']];
+  return [...FURN_ALL];
 }
 
 function openRoomEditor(root, idx) {
@@ -243,7 +270,7 @@ function openRoomEditor(root, idx) {
   if (!Number.isFinite(room.h) || room.h < 1 || room.h > ROOM_GRID) room.h = ROOM_GRID;
   if (!Array.isArray(room.furn)) room.furn = [];
 
-  const furnOptions = [...FURN_DEFAULTS];
+  const furnOptions = furnOptionsFor(room.name);
   let selectedFurn = null;
 
   const overlay = document.createElement('div');
