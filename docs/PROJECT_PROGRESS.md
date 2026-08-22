@@ -66,7 +66,7 @@ find-my-glasses-pro/
 ├─ public/                   # Web 前端（已完成）
 │  └─ js/views/*.view.js     # 每页面一文件
 ├─ miniprogram/              # 微信小程序（3/6 页完成）
-├─ test/                     # 54 项自动化测试
+├─ test/                     # 78 项自动化测试
 ├─ scripts/smoke.js          # 演示前一键自检
 ├─ hardware/                 # 3D 外壳模型与 STL
 └─ docs/                     # SDD / DEMO / 本文档
@@ -86,7 +86,7 @@ cd find-my-glasses-pro
 node server.js            # 或双击 start.bat → http://localhost:8081
 
 # 测试（改完代码先跑这个）
-node --test               # 54 项应全绿
+node --test               # 78 项应全绿
 
 # 演示前自检
 node scripts/smoke.js
