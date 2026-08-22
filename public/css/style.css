@@ -309,3 +309,16 @@ select.input { appearance: auto; }
 .room-cell.origin { background: linear-gradient(135deg, var(--brand), var(--brand2)); color: #fff; font-size: 11px; font-weight: 700; }
 .room-handle { position: absolute; width: 28px; height: 28px; transform: translate(-50%, -50%); background: var(--brand); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: nwse-resize; box-shadow: 0 4px 14px rgba(61, 123, 253, .4); user-select: none; touch-action: none; }
 .room-handle:hover { background: var(--brand2); }
+
+/* 家具工具栏与家具格 */
+.furn-toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
+.furn-opt { cursor: pointer; border: 1.5px solid var(--line); background: #fff; border-radius: 10px; padding: 6px 12px; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; transition: all .15s ease; color: var(--ink); }
+.furn-opt:hover { border-color: var(--brand); background: #f3f7ff; }
+.furn-opt.active { border-color: var(--brand); background: #e8f0ff; color: var(--brand); box-shadow: 0 3px 10px rgba(61, 123, 253, .18); }
+.furn-add { border-style: dashed; color: var(--muted); }
+.furn-add:hover { color: var(--brand); border-color: var(--brand); background: #f8faff; }
+.furn-input { display: inline-flex; align-items: center; gap: 6px; }
+.furn-input .input { width: 160px; padding: 6px 10px; font-size: 13px; }
+.room-cell.furn { flex-direction: column; cursor: pointer; }
+.room-cell.furn .furn-e { font-size: 14px; line-height: 1.1; }
+.room-cell.furn .furn-n { font-size: 9px; font-weight: 700; margin-top: 1px; color: #3d4a5e; line-height: 1.1; white-space: nowrap; overflow: hidden; }

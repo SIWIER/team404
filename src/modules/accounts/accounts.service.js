@@ -6,7 +6,7 @@ const { hashPassword, verifyPassword, issueToken } = require('../../core/auth');
 function now() { return new Date().toISOString(); }
 function safeJson(s, d) { try { const v = JSON.parse(s); return v === null ? d : v; } catch { return d; } }
 
-// 家庭布局清洗：最多 10 个房间，每房间最多 20 个放置点；坐标 x/y 为户型图网格位置（0-5）；w/h 为房间内部布局尺寸（1-12 格，仅当输入提供时保留）
+// 家庭布局清洗：最多 10 个房间，每房间最多 20 个放置点；坐标 x/y 为户型图网格位置（0-5）；w/h 为房间内部布局尺寸（1-12 格，仅当输入提供时保留）；furn 为房间内家具格（仅当输入提供时保留）
 function sanitizeLayout(layout) {
   if (!Array.isArray(layout)) return [];
   return layout.slice(0, 10).map((r) => {
@@ -25,6 +25,20 @@ function sanitizeLayout(layout) {
     // 房间尺寸：仅在客户端提供时保留，四舍五入并夹在 [1,12]
     if (w !== null) room.w = Math.min(12, Math.max(1, Math.round(w)));
     if (h !== null) room.h = Math.min(12, Math.max(1, Math.round(h)));
+    // 家具格：name 非空、坐标整数且落在房间尺寸范围内，最多 144 格
+    const furn = Array.isArray(r && r.furn) ? r.furn.map((f) => {
+      const fx = num(f && f.x);
+      const fy = num(f && f.y);
+      const fname = String((f && f.name) || '').trim().slice(0, 10);
+      if (!fname || fx === null || fy === null) return null;
+      const rx = Math.round(fx);
+      const ry = Math.round(fy);
+      if (rx < 0 || ry < 0 || rx > 11 || ry > 11) return null;
+      if (room.w !== undefined && rx >= room.w) return null;
+      if (room.h !== undefined && ry >= room.h) return null;
+      return { name: fname, x: rx, y: ry };
+    }).filter(Boolean).slice(0, 144) : [];
+    if (furn.length) room.furn = furn;
     return room;
   }).filter((r) => r.name);
 }
