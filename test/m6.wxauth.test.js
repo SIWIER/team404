@@ -362,7 +362,11 @@ test('场景⑥：后端未配置 WX_APPID 且未启用 mock → /wxlogin 返回
   }
   const proc = spawn(process.execPath, ['server.js'], {
     cwd: ROOT,
-    env: { ...process.env, PORT: String(subPort), DB_FILE: subDb, LLM_ENABLED: 'false', SIMULATOR_ENABLED: 'false' }, // 不设 WX_* 环境变量
+    // 不设 WX_* 环境变量：显式置空，防止本机 .env（如 WX_MOCK_OPENID/WX_APPID）被继承导致"未配置"场景失真
+    env: {
+      ...process.env, PORT: String(subPort), DB_FILE: subDb, LLM_ENABLED: 'false', SIMULATOR_ENABLED: 'false',
+      WX_APPID: '', WX_SECRET: '', WX_MOCK_OPENID: '', WX_AUTO_REGISTER: ''
+    },
     stdio: 'ignore'
   });
   try {
