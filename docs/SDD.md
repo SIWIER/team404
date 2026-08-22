@@ -196,6 +196,11 @@ scrypt（N=16384）密码 + 时间恒定比较；画像含**家庭布局**（≤
   `extractJson` 与 reason 模块同策略但各自实现，不跨模块引用（遵守 DEVELOPMENT.md 铁律）
 - **视觉模型独立配置**：文本模型 `deepseek-chat` 不支持读图，故 `LLM_VISION_*` 与
   `LLM_*` 相互独立；未配置时接口返回 503，小程序按钮置灰，手动拖拽路径不受影响
+- **选型实测**（同一张五房间测试户型图，含中间竖向走廊）：
+  `gpt-4o` 房间齐全 + 走廊多格链正确（约 4s，推荐）；`gpt-4o-mini` 漏走廊只认出 4 房间；
+  DeepSeek 系为推理型模型，token 全部计入 `reasoning_content` 而 `content` 返回空
+  （`finish_reason: length`），无论 `max_tokens` 调到多大都解析不出 JSON，不可用。
+  更换服务商前先确认模型支持 `image_url` 多模态输入
 
 ---
 
