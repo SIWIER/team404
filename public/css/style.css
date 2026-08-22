@@ -163,6 +163,12 @@ textarea.input { min-height: 90px; resize: vertical; }
 .tray-tile { width: 72px; height: 64px; border: 1px solid var(--line); border-radius: 10px; background: #fff; padding: 4px; cursor: grab; }
 .tray-tile .tile-emoji { font-size: 20px; }
 
+/* 推理页户型图选项：可点击选中 */
+.floor-tile.selectable { cursor: pointer; }
+.floor-tile.selectable:hover { border-color: var(--brand); background: #f3f7ff; }
+.floor-tile.selectable.active { border-color: var(--brand); background: #e8f0ff; color: var(--brand); box-shadow: 0 4px 14px rgba(61,123,253,.15); }
+.tray-tile.selectable { cursor: pointer; }
+
 /* 首页迷你户型图 */
 .mini-floor { display: grid; gap: 4px; margin-top: 6px; }
 .mini-cell {

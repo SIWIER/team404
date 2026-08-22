@@ -138,3 +138,22 @@ test('家庭布局坐标 x/y 保存并往返（含四舍五入）', async () => 
   assert.strictEqual(hl[2].x, null); // 未放置
   assert.strictEqual(hl[2].y, null);
 });
+test('家庭布局同名房间自动编号（卧室、卧室2…）', async () => {
+  const login = await req('/api/auth/login', { method: 'POST', body: { username: 'xiaoming', password: '123456' } });
+  const token = login.json.token;
+  const r = await req('/api/auth/profile', {
+    method: 'PUT', token,
+    body: { homeLayout: [
+      { name: '卧室', spots: ['床头柜'], x: 0, y: 0 },
+      { name: '卧室', spots: ['梳妆台'], x: 1, y: 0 },
+      { name: '卫生间', spots: [] }
+    ] }
+  });
+  assert.strictEqual(r.status, 200);
+  const hl = r.json.user.profile.homeLayout;
+  assert.deepStrictEqual(hl.map((x) => x.name), ['卧室', '卧室2', '卫生间']);
+  assert.strictEqual(hl[0].x, 0);
+  assert.strictEqual(hl[1].x, 1);
+  assert.deepStrictEqual(hl[0].spots, ['床头柜']);
+  assert.deepStrictEqual(hl[1].spots, ['梳妆台']);
+});

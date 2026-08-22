@@ -1,7 +1,7 @@
 // js/views/reason.view.js — 引导推理：问答向导 + 推理结果 + 找到/未找到闭环
 import { api } from '../api.js';
 import { store } from '../store.js';
-import { esc, toast } from '../ui.js';
+import { esc, toast, roomEmoji } from '../ui.js';
 
 let S = null;
 
@@ -54,6 +54,44 @@ function centerHtml(ico, text, withBack = false) {
   }</div>`;
 }
 
+// ---------- 房间选项按户型图排版（用户有已放置房间时） ----------
+function placedLayout() {
+  const layout = Array.isArray(store.user.profile.homeLayout) ? store.user.profile.homeLayout : [];
+  const placed = layout.filter((r) => r.name && r.x != null && r.y != null);
+  return placed.length ? { layout, placed } : null;
+}
+
+function roomOptionsHtml(q, isSelected) {
+  const pl = placedLayout();
+  if (!pl) return null;
+  const GRID = 6;
+  const byPos = new Map(pl.placed.map((r) => [r.x + ',' + r.y, r]));
+  let cells = '';
+  for (let y = 0; y < GRID; y++) {
+    for (let x = 0; x < GRID; x++) {
+      const r = byPos.get(x + ',' + y);
+      cells += r
+        ? '<div class="floor-cell filled"><div class="floor-tile selectable ' + (isSelected(r.name) ? 'active' : '') + '" data-val="' + esc(r.name) + '"><div class="tile-emoji">' + roomEmoji(r.name) + '</div><div class="tile-name">' + esc(r.name) + '</div></div></div>'
+        : '<div class="floor-cell"></div>';
+    }
+  }
+  const unplaced = pl.layout.filter((r) => r.name && (r.x == null || r.y == null));
+  let tray = '';
+  if (unplaced.length) {
+    tray = '<div class="tray">' + unplaced.map((r) =>
+      '<div class="floor-tile tray-tile selectable ' + (isSelected(r.name) ? 'active' : '') + '" data-val="' + esc(r.name) + '"><div class="tile-emoji">' + roomEmoji(r.name) + '</div><div class="tile-name">' + esc(r.name) + '</div></div>'
+    ).join('') + '</div>';
+  }
+  const extras = (q.opts || []).map((o) => o[0]).filter((label) => !pl.layout.some((r) => r.name === label));
+  let extra = '';
+  if (extras.length) {
+    extra = '<div class="opts" style="margin-top:10px;">' + extras.map((label) =>
+      '<div class="opt ' + (isSelected(label) ? 'active' : '') + '" data-val="' + esc(label) + '"><span class="emoji">' + roomEmoji(label) + '</span>' + esc(label) + '</div>'
+    ).join('') + '</div>';
+  }
+  return '<div class="floor-grid">' + cells + '</div>' + tray + extra;
+}
+
 // ---------- 问答向导 ----------
 function stepView(root) {
   const vs = visibleQuestions();
@@ -75,24 +113,24 @@ function stepView(root) {
       S._multiStep = q.id;
       S._multi = [...(Array.isArray(S.answers[q.id]) ? S.answers[q.id] : [])];
     }
-    const chips = (q.opts || []).map(([label, emoji]) => {
-      const on = S._multi.includes(label);
-      return `<div class="opt ${on ? 'active' : ''}" data-val="${esc(label)}"><span class="emoji">${emoji}</span>${esc(label)}${on ? ' ✓' : ''}</div>`;
-    }).join('');
-    body = `
-      <div class="opts">${chips}</div>
-      <div class="btn-row">
-        <button class="btn ghost" id="q-back">← 上一步</button>
-        <button class="btn" id="q-next">${S._multi.length ? `下一步 →（已选 ${S._multi.length} 个）` : '没路过，跳过 →'}</button>
-      </div>`;
+    const isRoomQ = q.id === 'room' || q.id === 'passedRooms' || q.id === 'checkedRooms';
+    const roomHtml = isRoomQ ? roomOptionsHtml(q, (v) => S._multi.includes(v)) : null;
+    const optionsBody = roomHtml !== null
+      ? roomHtml
+      : '<div class="opts">' + (q.opts || []).map(([label, emoji]) => {
+          const on = S._multi.includes(label);
+          return '<div class="opt ' + (on ? 'active' : '') + '" data-val="' + esc(label) + '"><span class="emoji">' + emoji + '</span>' + esc(label) + (on ? ' ✓' : '') + '</div>';
+        }).join('') + '</div>';
+    body = optionsBody + '<div class="btn-row"><button class="btn ghost" id="q-back">← 上一步</button><button class="btn" id="q-next">' + (S._multi.length ? '下一步 →（已选 ' + S._multi.length + ' 个）' : (q.id === 'passedRooms' ? '没路过，跳过 →' : '都还没检查，跳过 →')) + '</button></div>';
   } else {
-    const opts = (q.opts || []).map(([label, emoji]) => `
-      <div class="opt ${S.answers[q.id] === label ? 'active' : ''}" data-val="${esc(label)}">
-        <span class="emoji">${emoji}</span>${esc(label)}
-      </div>`).join('');
-    body = `
-      <div class="opts">${opts}</div>
-      <div class="btn-row"><button class="btn ghost" id="q-back">← 上一步</button></div>`;
+    const isRoomQ = q.id === 'room' || q.id === 'passedRooms' || q.id === 'checkedRooms';
+    const roomHtml = isRoomQ ? roomOptionsHtml(q, (v) => S.answers[q.id] === v) : null;
+    const optionsBody = roomHtml !== null
+      ? roomHtml
+      : '<div class="opts">' + (q.opts || []).map(([label, emoji]) =>
+          '<div class="opt ' + (S.answers[q.id] === label ? 'active' : '') + '" data-val="' + esc(label) + '"><span class="emoji">' + emoji + '</span>' + esc(label) + '</div>'
+        ).join('') + '</div>';
+    body = optionsBody + '<div class="btn-row"><button class="btn ghost" id="q-back">← 上一步</button></div>';
   }
 
   root.innerHTML = `
@@ -119,7 +157,7 @@ function stepView(root) {
       stepView(root);
     };
   } else if (q.type === 'multi') {
-    root.querySelectorAll('.opt').forEach((el) => {
+    root.querySelectorAll('.opt, .floor-tile.selectable').forEach((el) => {
       el.onclick = () => {
         const val = el.getAttribute('data-val');
         const i = S._multi.indexOf(val);
@@ -130,13 +168,13 @@ function stepView(root) {
     const next = root.querySelector('#q-next');
     next.onclick = () => {
       S.answers[q.id] = [...S._multi];
-      S.conversation.push({ q: q.q, a: S._multi.length ? S._multi.join('、') : '没路过' });
+      S.conversation.push({ q: q.q, a: S._multi.length ? S._multi.join('、') : (q.id === 'passedRooms' ? '没路过' : '还没检查过') });
       S._multiStep = null;
       S.step++;
       stepView(root);
     };
   } else {
-    root.querySelectorAll('.opt').forEach((el) => {
+    root.querySelectorAll('.opt, .floor-tile.selectable').forEach((el) => {
       el.onclick = () => {
         const val = el.getAttribute('data-val');
         S.answers[q.id] = val;
