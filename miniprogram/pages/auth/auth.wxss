@@ -8,3 +8,36 @@
 .remember { display: flex; align-items: center; gap: 12rpx; font-size: 26rpx; color: #7b8794; margin-bottom: 24rpx; }
 .btn-main { margin-top: 12rpx; }
 .demo-tip { text-align: center; font-size: 22rpx; margin-top: 20rpx; }
+.muted { color: #7b8794; }
+
+/* 微信登录卡 */
+.wx-card { padding-top: 8rpx; padding-bottom: 32rpx; }
+.divider { display: flex; align-items: center; gap: 16rpx; margin: 8rpx 0 24rpx; }
+.divider .line { flex: 1; height: 1rpx; background: #e3e9f2; }
+.divider .txt { color: #7b8794; font-size: 22rpx; }
+.btn-wx {
+  display: flex; align-items: center; justify-content: center; gap: 12rpx;
+  background: #1aad19; color: #fff; font-size: 30rpx; font-weight: 700;
+  border-radius: 18rpx; padding: 22rpx 36rpx; text-align: center;
+  box-shadow: 0 8rpx 20rpx rgba(26, 173, 25, 0.25);
+}
+.btn-wx.disabled,
+.btn-wx[disabled] { background: #c9e5c8; color: #f0faf0; box-shadow: none; opacity: .8; }
+.btn-wx-hover { opacity: .85; }
+.btn-wx .wx-ico { font-size: 36rpx; }
+.wx-hint { color: #7b8794; font-size: 22rpx; text-align: center; margin-top: 12rpx; }
+.none { }
+
+/* 绑定弹窗 */
+.bind-mask {
+  position: fixed; inset: 0; background: rgba(15, 25, 45, 0.45);
+  display: flex; align-items: center; justify-content: center; z-index: 999;
+  padding: 0 40rpx; box-sizing: border-box;
+}
+.bind-dialog {
+  background: #fff; border-radius: 24rpx; padding: 36rpx 32rpx; width: 100%;
+  box-shadow: 0 20rpx 60rpx rgba(0,0,0,0.18);
+}
+.bind-title { font-size: 36rpx; font-weight: 800; margin-bottom: 8rpx; }
+.bind-sub { color: #7b8794; font-size: 24rpx; line-height: 1.6; margin-bottom: 24rpx; }
+.btn-ghost { background: #fff; color: #3d7bfd; border: 1rpx solid #e3e9f2; box-shadow: none; }

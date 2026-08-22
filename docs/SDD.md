@@ -85,7 +85,7 @@ find-my-glasses-pro/
 
 | 表 | 关键字段 | 说明 |
 |---|---|---|
-| users | username(唯一), password_hash, nickname | 账户（scrypt 哈希） |
+| users | username(唯一), password_hash, nickname, **wechat_openid**(唯一可空) | 账户（scrypt 哈希；微信登录/绑定用 openid 关联，UNIQUE 部分索引） |
 | profiles | agent_name, agent_style, habits, favorite_places, **home_layout**, notes | 画像与户型 JSON |
 | loss_records | user_id, started_at, found_location, found_room, confidence, success, clues, reasoning, duration_sec, **conversation** | 找回记录（正/负样本） |
 | devices | id, name, type(locator/nfc/tag), room, battery, status, last_signal | 硬件设备 |
@@ -108,6 +108,9 @@ find-my-glasses-pro/
 |---|---|---|
 | 账户 | POST /api/auth/register · login · logout | 限流 20 次/分/IP；字段级 422 |
 | 账户 | GET /api/auth/me · PUT /api/auth/profile | 画像/户型读写 |
+| 账户（微信） | POST /api/auth/wxlogin | 小程序 `wx.login` 拿 `code` → 调 jscode2session 换 openid；返回 `mode=login|autoRegister|needBind`（详见 §5.5） |
+| 账户（微信） | POST /api/auth/wxbind | `wxlogin` 返回 `needBind` 时使用：拿 `bindToken` + 已有账号密码完成绑定，颁发 token |
+| 账户（微信） | GET /api/auth/wxconfig | 前端能力探测：`{enabled, autoRegister}`；未配置 AppID 时 `enabled=false` |
 | 推理 | GET /api/reason/flow | 问答流程（房间选项按户型动态化） |
 | 推理 | POST /api/reason/infer | `{facts}` → 排序候选+依据+摘要 |
 | 推理 | POST /api/reason/record | 保存结果（成功/未找到 + 对话转录） |
@@ -172,6 +175,18 @@ score(L) = base(L) × 行为加成 × 追问加成 × 空间距离衰减 × 路�
 ### 5.2 accounts：账户与个性化
 scrypt（N=16384）密码 + 时间恒定比较；画像含**家庭布局**（≤10 房间 × ≤20 放置点 + **户型图网格坐标 x/y** + **多格形状 cells**：走廊可占多个相邻格，x/y 恒等于 cells[0] 以兼容 Web 版与推理引擎）；户型联动：流程房间/路过房间选项、引擎距离衰减与降权、自定义候选、LLM 提示词。
 
+### 5.5 微信登录（accounts.wx）
+**核心契约**：账号密码登录保留 + 微信登录/绑定并存。
+- **code 换 openid**：`POST /api/auth/wxlogin {code}` → 后端调 `https://api.weixin.qq.com/sns/jscode2session` 换 `openid`（Node 内置 `fetch`，零依赖）。函数封装为可注入 `setCode2Session()`，测试用 `WX_MOCK_OPENID` 环境变量直接返回固定 openid，不真实调微信。
+- **三种 mode**：
+  - `login` —— `openid` 已绑定用户 → 直接颁发 token（默认 remember=true，30 天）
+  - `autoRegister` —— 未绑定且 `WX_AUTO_REGISTER=true` → 自动创建新用户（昵称 `微信用户xxxx`，随机占位密码），颁发 token
+  - `needBind` —— 未绑定且 `WX_AUTO_REGISTER=false` → 颁发 HMAC 签名一次性 `bindToken`（10 分钟过期），前端弹窗收集已有账号密码
+- **绑定**：`POST /api/auth/wxbind {bindToken, username, password}` → 校验密码 → 把 `openid` 写入该用户（unique 部分索引）→ 颁发 token
+- **能力探测**：`GET /api/auth/wxconfig` → `{enabled, autoRegister}`；未配置 `WX_APPID`/`WX_MOCK_OPENID` 时 `enabled=false`，前端按钮置灰
+- **安全**：openid 持久化到 `users.wechat_openid`（UNIQUE 部分索引，NULL 不参与）；`WX_SECRET` 仅读取 `.env`，不入库不进日志；自动注册用户使用不可登录的随机占位密码，必须经 `wxbind` 才能用密码登录（避免与未来"账号密码"流程冲突）
+- **未配置降级**：`/api/auth/wxlogin` 在未配置 WX_APPID 时返回 `503 {code: 'WX_NOT_CONFIGURED'}`；前端应通过 `/wxconfig` 提前发现并把按钮置灰
+
 ### 5.3 data：数据与分析
 统计指标 + 自然语言洞察（高频地点/房间占比/时段/效率趋势）+ SVG 图表 + 户型热力 + 分页管理 + JSON 导入导出（≤200 条/次）。
 
@@ -209,6 +224,7 @@ scrypt（N=16384）密码 + 时间恒定比较；画像含**家庭布局**（≤
 - 登录/注册限流（20 次/分/IP）；越权防护（记录/设备删除校验归属）
 - 前端所有用户输入经 `esc()` HTML 转义；静态文件路径穿越校验；JSON body 限 2MB
 - API Key 存放 `.env`（已 gitignore），不入库不入前端
+- **微信登录**：openid 与用户一一绑定（UNIQUE 部分索引，允许多用户未绑定 NULL 状态）；`WX_SECRET` 仅在服务端内存中使用，不入库不进日志；自动注册用户使用不可登录的占位密码，强制走 `wxbind` 才能用密码登录，避免"未注册微信"绕过"必须先注册"约束
 
 ---
 
@@ -241,6 +257,11 @@ scrypt（N=16384）密码 + 时间恒定比较；画像含**家庭布局**（≤
 | LLM_ENABLED / _BASE_URL / _API_KEY / _MODEL / _TIMEOUT_MS | — | 大模型配置（文本推理） |
 | LLM_VISION_ENABLED / _BASE_URL / _API_KEY / _MODEL / _TIMEOUT_MS | true / — / — / — / 40000 | 视觉模型配置（户型图识别；留空则该功能返回 503 降级） |
 | SIMULATOR_ENABLED / _INTERVAL_MS | true / 8000 | 硬件模拟器 |
+| WX_APPID / WX_SECRET | — | 微信小程序 AppID / Secret（Secret 务必 gitignore；只在本机后端使用） |
+| WX_AUTO_REGISTER | true | 未绑定 openid 的微信用户首次登录是否自动建号；`false` 时返回 `needBind` + bindToken |
+| WX_MOCK_OPENID | — | 设置后 `wxlogin` 直接返回该 openid（测试/CI 跳过真实微信调用） |
+| WX_BIND_TOKEN_TTL_MS | 600000 | `needBind` 流程一次性凭证有效期 |
+| WX_CODE2SESSION_TIMEOUT_MS | 8000 | 调 jscode2session 的超时 |
 
 ### 8.2 启动方式
 - Windows：`start.bat` ｜ Linux/macOS：`./start.sh` ｜ 通用：`node server.js`

@@ -55,6 +55,19 @@ const config = {
     simulatorEnabled: envBool('SIMULATOR_ENABLED', true),
     simulatorIntervalMs: envNum('SIMULATOR_INTERVAL_MS', 8000),
     hintFreshMs: envNum('HINT_FRESH_MS', 10 * 60 * 1000)
+  },
+  // 微信登录（小程序一键登录 / 账号绑定）。注意：secret 不入库、不进日志
+  wx: {
+    appId: env('WX_APPID', ''),
+    secret: env('WX_SECRET', ''),
+    // 未绑定 openid 的微信用户首次登录时是否自动建号
+    autoRegister: envBool('WX_AUTO_REGISTER', true),
+    // 测试/开发用：设置后 code2session 直接返回该 openid（跳过真实微信调用）
+    mockOpenid: env('WX_MOCK_OPENID', ''),
+    // bindToken 有效期（毫秒），用于"需绑定已有账号"流程
+    bindTokenTtlMs: envNum('WX_BIND_TOKEN_TTL_MS', 10 * 60 * 1000),
+    // code2session 接口超时
+    code2sessionTimeoutMs: envNum('WX_CODE2SESSION_TIMEOUT_MS', 8000)
   }
 };
 

@@ -96,8 +96,17 @@ const MIGRATIONS = [
       ALTER TABLE device_events ADD COLUMN acked INTEGER DEFAULT 0;
       ALTER TABLE devices ADD COLUMN is_mock INTEGER DEFAULT 1;
     `
+  },
+  {
+    version: 7,
+    name: 'wechat-openid',
+    // 微信一键登录/绑定：openid 与用户一一绑定（NULL 表示未绑定）
+    up: `
+      ALTER TABLE users ADD COLUMN wechat_openid TEXT;
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_users_wechat_openid ON users(wechat_openid) WHERE wechat_openid IS NOT NULL;
+    `
   }
-  // 后续模块在此追加 v7、v8…
+  // 后续模块在此追加 v8、v9…
 ];
 
 function init() {

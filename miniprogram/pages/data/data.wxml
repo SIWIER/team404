@@ -1,8 +1,162 @@
-<view class="card center" style="padding:100rpx 20rpx;">
-  <view style="font-size:100rpx;">🚧</view>
-  <view style="font-weight:800;font-size:36rpx;margin:24rpx 0 12rpx;">数据统计与分析（开发中）</view>
-  <view class="muted">后端接口 /api/data/stats 已就绪：找回记录、高频地点、房间热力、趋势图与智能洞察即将上线。</view>
-  <view class="btn-row" style="justify-content:center;">
-    <view class="btn ghost" bindtap="goHome">← 返回首页</view>
+<view class="page-title">📊 数据统计与分析</view>
+<view class="page-sub">数据库累计 {{s.total}} 条记录，持续学习你的习惯</view>
+
+<view class="toolbar">
+  <view class="btn ghost sm" bindtap="doExport">⬇️ 导出</view>
+  <view class="btn ghost sm" bindtap="toggleImport">{{showImport ? '收起导入' : '⬆️ 导入数据'}}</view>
+</view>
+
+<!-- 导入（粘贴 JSON） -->
+<view class="card" wx:if="{{showImport}}">
+  <view class="chart-title">⬆️ 导入数据（粘贴 JSON）</view>
+  <textarea class="input" placeholder="粘贴导出的 JSON：整体导出文件或纯记录数组均可，单次最多 200 条"
+            value="{{importText}}" bindinput="onImportInput" maxlength="-1"></textarea>
+  <view class="btn-row">
+    <view class="btn sm" bindtap="doImport">开始导入</view>
+    <view class="btn ghost sm" bindtap="toggleImport">取消</view>
   </view>
 </view>
+
+<!-- 加载中 / 加载失败 -->
+<view class="card" wx:if="{{loading}}">
+  <view class="center" style="padding:60rpx 0;">
+    <view style="font-size:80rpx;">📊</view>
+    <view class="muted" style="margin-top:12rpx;">统计数据加载中…</view>
+  </view>
+</view>
+<view class="card" wx:elif="{{error}}">
+  <view class="center" style="padding:40rpx 0;">
+    <view style="font-size:80rpx;">⚠️</view>
+    <view class="muted" style="margin:16rpx 0;">{{error}}</view>
+    <view class="btn sm" bindtap="retry">重新加载</view>
+  </view>
+</view>
+
+<block wx:else>
+  <!-- 顶部统计卡 -->
+  <view class="stat-cards">
+    <view class="stat-card"><view class="v">{{s.total}}</view><view class="k">找回记录总数</view></view>
+    <view class="stat-card"><view class="v">{{s.successRate}}%</view><view class="k">找回成功率</view></view>
+    <view class="stat-card"><view class="v small">{{s.avgDurText}}</view><view class="k">平均找回用时</view></view>
+    <view class="stat-card"><view class="v">{{s.last30}}</view><view class="k">近 30 天记录</view></view>
+  </view>
+
+  <!-- 智能洞察 -->
+  <view class="card">
+    <view class="chart-title">💡 智能分析（基于你的数据自动生成）</view>
+    <view class="insight" wx:for="{{insights}}" wx:key="*this">
+      <view class="insight-num">{{index + 1}}</view>
+      <view class="insight-text">{{item}}</view>
+    </view>
+    <view class="empty" wx:if="{{!insights.length}}">暂无洞察：去「找眼镜」完成一次引导推理，数据会在这里积累并反哺推理</view>
+  </view>
+
+  <!-- 高频地点条形图 -->
+  <view class="card">
+    <view class="chart-title">🏆 高频找回地点 Top {{topCount}}</view>
+    <view class="chart-box h-bar" wx:if="{{!topEmpty}}">
+      <ec-canvas id="cTop" canvas-id="cTop" ec="{{ecTop}}"></ec-canvas>
+    </view>
+    <view class="empty" wx:else>暂无找回数据</view>
+  </view>
+
+  <!-- 房间分布环图 -->
+  <view class="card">
+    <view class="chart-title">🏠 找回位置 · 房间分布</view>
+    <view class="chart-box h-donut" wx:if="{{!roomEmpty}}">
+      <ec-canvas id="cRoom" canvas-id="cRoom" ec="{{ecRoom}}"></ec-canvas>
+    </view>
+    <view class="empty" wx:else>暂无找回数据</view>
+  </view>
+
+  <!-- 近 30 天趋势 -->
+  <view class="card">
+    <view class="chart-title">📅 近 30 天找回趋势（按天）</view>
+    <view class="chart-box h-col" wx:if="{{!timeEmpty}}">
+      <ec-canvas id="cTime" canvas-id="cTime" ec="{{ecTime}}"></ec-canvas>
+    </view>
+    <view class="empty" wx:else>近 30 天暂无记录</view>
+  </view>
+
+  <!-- 时段分布 -->
+  <view class="card">
+    <view class="chart-title">🕐 丢眼镜时段分布</view>
+    <view class="chart-box h-col" wx:if="{{!todEmpty}}">
+      <ec-canvas id="cTod" canvas-id="cTod" ec="{{ecTod}}"></ec-canvas>
+    </view>
+    <view class="empty" wx:else>暂无数据</view>
+  </view>
+
+  <!-- 户型热力 -->
+  <view class="card">
+    <view class="chart-title">🔥 户型热力：各房间历史找回次数</view>
+    <block wx:if="{{heat.hasLayout}}">
+      <block wx:if="{{heat.placed}}">
+        <view class="heat-floor">
+          <view class="heat-row" wx:for="{{heat.floorRows}}" wx:for-item="row" wx:key="index"
+                style="grid-template-columns: repeat({{row.cols}}, 1fr);">
+            <view class="heat-cell" wx:for="{{row.cells}}" wx:for-item="item" wx:key="index"
+                  style="background: {{item.bg}};">
+              <block wx:if="{{!item.empty}}">
+                <view class="tile-emoji">{{item.e}}</view>
+                <view class="tile-name">{{item.n}}</view>
+                <view class="tile-count {{item.dim ? 'zero' : ''}}">{{item.count}} 次</view>
+              </block>
+            </view>
+          </view>
+        </view>
+        <view class="extra-wrap" wx:if="{{heat.extras.length}}">
+          <view class="extra-title">不在户型中的房间（有找回记录，虚线补充展示）</view>
+          <view class="extra-list">
+            <view class="extra-tile" wx:for="{{heat.extras}}" wx:key="name">
+              <view class="tile-emoji">{{item.e}}</view>
+              <view class="tile-name">{{item.name}}</view>
+              <view class="tile-count">{{item.count}} 次</view>
+            </view>
+          </view>
+        </view>
+      </block>
+      <view wx:elif="{{heat.list.length}}" style="padding:20rpx 0;">
+        <view class="heat-list">
+          <view class="heat-tile" wx:for="{{heat.list}}" wx:key="name" style="background: {{item.bg}};">
+            <view class="tile-emoji">{{item.e}}</view>
+            <view class="tile-name">{{item.name}}</view>
+            <view class="tile-count">{{item.count}} 次</view>
+          </view>
+        </view>
+        <view class="hint" style="margin-top:16rpx;">{{heat.listHint}}，可去画像页拖拽摆放。</view>
+      </view>
+      <view class="empty" wx:else>户型已填写但网格未摆放房间，去画像页拖拽摆放后可查看热力</view>
+      <view class="hint">颜色越深代表该房间找回次数越多；布局来自你的户型图，可在画像页拖拽调整。</view>
+    </block>
+    <view class="empty" wx:else>
+      尚未填写家庭户型：去画像页填写后可查看房间热力
+      <view class="btn ghost sm" style="margin:24rpx auto 0;width:280rpx;" bindtap="goProfile">去画像页填写</view>
+    </view>
+  </view>
+
+  <!-- 记录分页列表 -->
+  <view class="card">
+    <view class="chart-title">🕓 找回记录（共 {{total}} 条 · 上滑加载更多）</view>
+    <view class="rec-row" wx:for="{{records}}" wx:key="id">
+      <view class="rec-main">
+        <view class="rec-time">🕓 {{item.timeText}}<text wx:if="{{item.hasConv}}"> 💬</text></view>
+        <view class="rec-loc">{{item.loc}}<text class="rec-room" wx:if="{{item.room}}"> · {{item.room}}</text></view>
+      </view>
+      <view class="rec-side">
+        <view class="pill {{item.ok ? 'ok' : 'no'}}">{{item.resultText}}</view>
+        <view class="rec-meta">置信 {{item.confText}} · 用时 {{item.durText}}</view>
+      </view>
+      <view class="btn ghost sm" data-id="{{item.id}}" catchtap="doDel">删除</view>
+    </view>
+    <view class="load-tip" wx:if="{{loadingMore}}">加载中…</view>
+    <view class="load-tip" wx:elif="{{!hasMore && records.length}}">已加载全部 {{total}} 条记录</view>
+    <view class="empty" wx:if="{{!records.length && !loadingMore}}">
+      <view>暂无记录：去「找眼镜」完成一次引导推理，数据会在这里积累</view>
+      <view class="btn sm" style="margin:24rpx auto 0;width:300rpx;" bindtap="goReason">🔍 去找眼镜</view>
+    </view>
+  </view>
+</block>
+
+<!-- 导出报告图：离屏画布（canvas 2d 手绘后存相册） -->
+<canvas type="2d" id="exportCanvas" class="export-canvas"></canvas>
