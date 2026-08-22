@@ -138,3 +138,27 @@ test('家庭布局坐标 x/y 保存并往返（含四舍五入）', async () => 
   assert.strictEqual(hl[2].x, null); // 未放置
   assert.strictEqual(hl[2].y, null);
 });
+
+test('家庭布局房间尺寸 w/h 保存并往返（仅提供时保留，夹在 1-12，四舍五入）', async () => {
+  const login = await req('/api/auth/login', { method: 'POST', body: { username: 'xiaoming', password: '123456' } });
+  const token = login.json.token;
+  const r = await req('/api/auth/profile', {
+    method: 'PUT', token,
+    body: { homeLayout: [
+      { name: '卧室', x: 0, y: 0, w: 6, h: 8 },
+      { name: '卫生间', x: 1, y: 1 },                 // 缺省 → 不返回 w/h 字段
+      { name: '客厅', x: 2, y: 2, w: 99, h: 0 },      // 越界 → 夹到 12 / 1
+      { name: '书房', x: 3, y: 3, w: 4.6, h: 7.4 }    // 四舍五入 → 5 / 7
+    ] }
+  });
+  assert.strictEqual(r.status, 200);
+  const hl = r.json.user.profile.homeLayout;
+  assert.strictEqual(hl[0].w, 6);
+  assert.strictEqual(hl[0].h, 8);
+  assert.strictEqual(hl[1].w, undefined); // 缺省不注入
+  assert.strictEqual(hl[1].h, undefined);
+  assert.strictEqual(hl[2].w, 12); // 99 越界夹到 12
+  assert.strictEqual(hl[2].h, 1);  // 0 越界夹到 1
+  assert.strictEqual(hl[3].w, 5);  // 4.6 四舍五入
+  assert.strictEqual(hl[3].h, 7);  // 7.4 四舍五入
+});

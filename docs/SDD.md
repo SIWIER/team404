@@ -86,7 +86,7 @@ find-my-glasses-pro/
 | 表 | 关键字段 | 说明 |
 |---|---|---|
 | users | username(唯一), password_hash, nickname | 账户（scrypt 哈希） |
-| profiles | agent_name, agent_style, habits, favorite_places, **home_layout**, notes | 画像与户型 JSON |
+| profiles | agent_name, agent_style, habits, favorite_places, **home_layout**, notes | 画像与户型 JSON（房间含 x/y 坐标与 w/h 尺寸） |
 | loss_records | user_id, started_at, found_location, found_room, confidence, success, clues, reasoning, duration_sec, **conversation** | 找回记录（正/负样本） |
 | devices | id, name, type(locator/nfc/tag), room, battery, status, last_signal | 硬件设备 |
 | device_events | device_id, ts, type(report/command/ping_result/beep), payload | 事件流 |
@@ -107,7 +107,7 @@ find-my-glasses-pro/
 | 模块 | 方法/路径 | 说明 |
 |---|---|---|
 | 账户 | POST /api/auth/register · login · logout | 限流 20 次/分/IP；字段级 422 |
-| 账户 | GET /api/auth/me · PUT /api/auth/profile | 画像/户型读写 |
+| 账户 | GET /api/auth/me · PUT /api/auth/profile | 画像/户型读写（房间含 x/y 网格坐标与 w/h 尺寸） |
 | 推理 | GET /api/reason/flow | 问答流程（房间选项按户型动态化） |
 | 推理 | POST /api/reason/infer | `{facts}` → 排序候选+依据+摘要 |
 | 推理 | POST /api/reason/record | 保存结果（成功/未找到 + 对话转录） |
@@ -150,20 +150,13 @@ score(L) = base(L) × 行为加成 × 追问加成 × 空间距离衰减 × 路�
 **编排 reason.service.js**：LLM 优先 → 失败回退本地引擎（engine 字段标注），自动注入定位器最近上报（10 分钟内）作为强证据。
 
 ### 5.2 accounts：账户与个性化
-scrypt（N=16384）密码 + 时间恒定比较；画像含**家庭布局**（≤10 房间 × ≤20 放置点 + **户型图网格坐标 x/y**）；户型联动：流程房间/路过房间选项、引擎距离衰减与降权、自定义候选、LLM 提示词。
+scrypt（N=16384）密码 + 时间恒定比较；画像含**家庭布局**（≤10 房间 × ≤20 放置点 + **户型图网格坐标 x/y** + **房间内部尺寸 w/h**，w/h 取值 1-12 格，缺省时前端按 12×12 展示）；户型联动：流程房间/路过房间选项、引擎距离衰减与降权、自定义候选、LLM 提示词。房间尺寸由画像页户型图上**双击房间**弹出的 12×12 网格编辑器设定：左上角方块为起点、右下角滑块为终点，拖动滑块确定房间大致尺寸；纯前端交互，复用 `PUT /api/auth/profile` 保存。
 
 ### 5.3 data：数据与分析
 统计指标 + 自然语言洞察（高频地点/房间占比/时段/效率趋势）+ SVG 图表 + 户型热力 + 分页管理 + JSON 导入导出（≤200 条/次）。
 
 ### 5.4 hardware：硬件端口
 设备注册（locator/nfc/tag）、上下行双通道、事件日志、模拟器（8s 心跳）、`getLastHint()` 供推理联动。
-
-### 5.5 前端交互：房间细致布局搜查（家具级）
-首页户型图（`public/js/views/home.view.js`）的网格房间可点击，弹出「房间细致布局」：房间按正常比例展示内置家具（床、洗手台、沙发等，按房间类型预设，并合并用户画像中的常用位置 spots）。
-- 家具初始为「未搜查」状态，点击一次即切换「已搜查 / 未搜查」，用于排除或确认某件家具是否已查。
-- 找到眼镜后，点击「找到了」即把**最后一次搜查的家具**作为 `foundLocation`、房间名作为 `foundRoom`，复用 `POST /api/reason/record` 写入 `loss_records`，从而自动汇总进数据页「高频找回地点（丢失物品高频位置）」列表。
-- 未找到时也可记录一条 `success: false` 的搜索记录，保持数据闭环。
-- 该功能为纯前端交互，后端接口零改动。
 
 ---
 

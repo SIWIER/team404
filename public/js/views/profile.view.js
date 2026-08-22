@@ -117,10 +117,10 @@ function renderLayout(root) {
     '<button class="btn ghost sm" id="add-custom">＋ ✏️ 自定义房间</button>'
   ].join('');
   presets.querySelectorAll('[data-add]').forEach((b) => {
-    b.onclick = () => { layout.push({ name: b.dataset.add, desc: '', spots: [], x: null, y: null }); renderLayout(root); };
+    b.onclick = () => { layout.push({ name: b.dataset.add, desc: '', spots: [], x: null, y: null, w: 12, h: 12 }); renderLayout(root); };
   });
   presets.querySelector('#add-custom').onclick = () => {
-    layout.push({ name: '', desc: '', spots: [], x: null, y: null });
+    layout.push({ name: '', desc: '', spots: [], x: null, y: null, w: 12, h: 12 });
     renderLayout(root);
   };
 
@@ -164,13 +164,22 @@ function renderFloor(root) {
         <div class="tile-name">${esc(r.name)}</div>
       </div>`).join('')}</div>` : ''}
     <div class="floor-grid">${cells}</div>
-    <p class="hint" style="margin-top:8px;">相邻格子 = 相邻房间。推理时：与"最后所在房间"越近的位置权重越高；拖到 ✕ 外可移回待放置区。</p>`;
+    <p class="hint" style="margin-top:8px;">相邻格子 = 相邻房间。推理时：与"最后所在房间"越近的位置权重越高；拖到 ✕ 外可移回待放置区。<b>双击房间</b>可设置该房间的大小（内部布局网格）。</p>`;
 
   // 拖放
   box.querySelectorAll('.floor-tile').forEach((el) => {
     el.addEventListener('dragstart', (e) => {
       e.dataTransfer.setData('text/plain', el.dataset.idx);
       e.dataTransfer.effectAllowed = 'move';
+    });
+  });
+  // 双击已放置的房间块：打开房间内部细致布局（12×12 网格，拖右下角滑块定尺寸）
+  box.querySelectorAll('.floor-cell .floor-tile').forEach((el) => {
+    el.addEventListener('dblclick', (e) => {
+      if (e.target.closest('.tile-x')) return;
+      const idx = Number(el.dataset.idx);
+      const room = layout[idx];
+      if (room && room.x != null && room.y != null) openRoomEditor(root, idx);
     });
   });
   box.querySelectorAll('.floor-cell').forEach((cell) => {
@@ -204,6 +213,91 @@ function renderFloor(root) {
       renderFloor(root);
     };
   });
+}
+
+// ---------- 房间内部细致布局（12×12 网格，左上角为起点，拖右下角滑块定尺寸） ----------
+const ROOM_GRID = 12;
+
+function openRoomEditor(root, idx) {
+  const room = layout[idx];
+  if (!room) return;
+  if (!Number.isFinite(room.w) || room.w < 1 || room.w > ROOM_GRID) room.w = ROOM_GRID;
+  if (!Number.isFinite(room.h) || room.h < 1 || room.h > ROOM_GRID) room.h = ROOM_GRID;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'room-size-overlay';
+  overlay.innerHTML = `
+    <div class="room-size-panel" role="dialog" aria-modal="true">
+      <div class="room-size-head">
+        <div style="flex:1;">
+          <div style="font-weight:800;font-size:18px;">${roomEmoji(room.name)} ${esc(room.name)} · 房间细致布局</div>
+          <div class="muted" style="font-size:12px;margin-top:2px;">拖动右下角滑块，确定房间的大致尺寸</div>
+        </div>
+        <button class="btn ghost sm" id="rs-close">✕ 关闭</button>
+      </div>
+      <div class="room-size-meta">房间大小：<b id="rs-size">${room.w} × ${room.h} 格</b><span class="muted">（左上角方块为起点，右下角滑块为终点）</span></div>
+      <div class="room-grid-wrap">
+        <div class="room-grid" id="rs-grid"></div>
+        <div class="room-handle" id="rs-handle" title="拖动调整房间大小">⠿</div>
+      </div>
+      <p class="hint" style="margin:10px 0 0;">调整好后点「完成」，再点页面「💾 保存布局」即可生效。</p>
+      <div class="btn-row" style="margin-top:12px;">
+        <button class="btn" id="rs-done">✓ 完成</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const grid = overlay.querySelector('#rs-grid');
+  const handle = overlay.querySelector('#rs-handle');
+  const sizeEl = overlay.querySelector('#rs-size');
+
+  function render() {
+    let cells = '';
+    for (let y = 0; y < ROOM_GRID; y++) {
+      for (let x = 0; x < ROOM_GRID; x++) {
+        const inside = x < room.w && y < room.h;
+        const isOrigin = x === 0 && y === 0;
+        cells += `<div class="room-cell${inside ? ' in' : ''}${isOrigin ? ' origin' : ''}">${isOrigin ? '起' : ''}</div>`;
+      }
+    }
+    grid.innerHTML = cells;
+    handle.style.left = (room.w / ROOM_GRID * 100) + '%';
+    handle.style.top = (room.h / ROOM_GRID * 100) + '%';
+    sizeEl.textContent = `${room.w} × ${room.h} 格`;
+  }
+  render();
+
+  handle.onpointerdown = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handle.setPointerCapture(e.pointerId);
+    const move = (ev) => {
+      const r = grid.getBoundingClientRect();
+      if (!r.width || !r.height) return;
+      let x = Math.floor((ev.clientX - r.left) / (r.width / ROOM_GRID)) + 1;
+      let y = Math.floor((ev.clientY - r.top) / (r.height / ROOM_GRID)) + 1;
+      x = Math.min(ROOM_GRID, Math.max(1, x));
+      y = Math.min(ROOM_GRID, Math.max(1, y));
+      if (x !== room.w || y !== room.h) {
+        room.w = x;
+        room.h = y;
+        render();
+      }
+    };
+    const up = () => {
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', up);
+      handle.removeEventListener('pointercancel', up);
+    };
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', up);
+    handle.addEventListener('pointercancel', up);
+  };
+
+  const close = () => { overlay.remove(); renderFloor(root); };
+  overlay.querySelector('#rs-close').onclick = close;
+  overlay.querySelector('#rs-done').onclick = close;
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
 }
 
 async function saveLayout(root) {

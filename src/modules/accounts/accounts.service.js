@@ -6,20 +6,26 @@ const { hashPassword, verifyPassword, issueToken } = require('../../core/auth');
 function now() { return new Date().toISOString(); }
 function safeJson(s, d) { try { const v = JSON.parse(s); return v === null ? d : v; } catch { return d; } }
 
-// 家庭布局清洗：最多 10 个房间，每房间最多 20 个放置点；坐标 x/y 为户型图网格位置（0-5）
+// 家庭布局清洗：最多 10 个房间，每房间最多 20 个放置点；坐标 x/y 为户型图网格位置（0-5）；w/h 为房间内部布局尺寸（1-12 格，仅当输入提供时保留）
 function sanitizeLayout(layout) {
   if (!Array.isArray(layout)) return [];
   return layout.slice(0, 10).map((r) => {
     const num = (v) => (v !== null && v !== undefined && Number.isFinite(Number(v)) ? Number(v) : null);
     const x = num(r && r.x);
     const y = num(r && r.y);
-    return {
+    const w = num(r && r.w);
+    const h = num(r && r.h);
+    const room = {
       name: String((r && r.name) || '').trim().slice(0, 20),
       desc: String((r && r.desc) || '').trim().slice(0, 100),
       spots: Array.isArray(r && r.spots) ? r.spots.slice(0, 20).map((s) => String(s).trim().slice(0, 30)).filter(Boolean) : [],
       x: x === null ? null : Math.min(5, Math.max(0, Math.round(x))),
       y: y === null ? null : Math.min(5, Math.max(0, Math.round(y)))
     };
+    // 房间尺寸：仅在客户端提供时保留，四舍五入并夹在 [1,12]
+    if (w !== null) room.w = Math.min(12, Math.max(1, Math.round(w)));
+    if (h !== null) room.h = Math.min(12, Math.max(1, Math.round(h)));
+    return room;
   }).filter((r) => r.name);
 }
 
