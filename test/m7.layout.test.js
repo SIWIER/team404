@@ -48,12 +48,21 @@ before(async () => {
   for (const suffix of ['', '-shm', '-wal']) {
     try { fs.rmSync(path.join(ROOT, TEST_DB + suffix), { force: true }); } catch { /* 不存在则忽略 */ }
   }
-  // 显式清空 LLM_VISION_*：模拟"后端未配置视觉模型"，保证 CI 与本机结果一致且不产生真实调用
-  const env = { ...process.env, PORT: String(PORT), DB_FILE: TEST_DB, LLM_ENABLED: 'false', SIMULATOR_ENABLED: 'false' };
-  delete env.LLM_VISION_BASE_URL;
-  delete env.LLM_VISION_API_KEY;
-  delete env.LLM_VISION_MODEL;
-  delete env.LLM_VISION_ENABLED;
+  // 显式清空 LLM_VISION_*：模拟"后端未配置视觉模型"，保证 CI 与本机结果一致且不产生真实调用。
+  // 注意必须赋空串而不能用 delete：src/config.js 的 loadEnvFile 只跳过"已存在于 process.env"的键
+  // （`!(m[1] in process.env)`），delete 掉的键会被本机 .env 里的真实配置重新填上，
+  // 导致这条用例变成真实的付费调用并返回 502 而不是 503。空串仍算 in process.env，故能拦住覆盖。
+  const env = {
+    ...process.env,
+    PORT: String(PORT),
+    DB_FILE: TEST_DB,
+    LLM_ENABLED: 'false',
+    SIMULATOR_ENABLED: 'false',
+    LLM_VISION_ENABLED: '',
+    LLM_VISION_BASE_URL: '',
+    LLM_VISION_API_KEY: '',
+    LLM_VISION_MODEL: ''
+  };
   serverProc = spawn(process.execPath, ['server.js'], { cwd: ROOT, env, stdio: 'ignore' });
   for (let i = 0; i < 50; i++) {
     try { const r = await req('/api/health'); if (r.status === 200) return; } catch { /* 还没起来 */ }
