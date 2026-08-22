@@ -172,6 +172,29 @@ textarea.input { min-height: 90px; resize: vertical; }
 }
 .mini-cell.empty { background: #f7f9fc; }
 
+/* 首页户型图：可点击进入房间细致布局 */
+.mini-cell.room { cursor: pointer; border-style: solid; border-color: var(--line); transition: all .15s ease; }
+.mini-cell.room:hover { border-color: var(--brand); background: #eaf1ff; transform: translateY(-1px); }
+
+/* 房间细致布局弹窗（家具级搜查） */
+.modal-overlay { position: fixed; inset: 0; background: rgba(18, 28, 46, .48); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 120; }
+.modal-panel { background: #fff; border-radius: 16px; width: 100%; max-width: 600px; max-height: 88vh; overflow: auto; padding: 20px; box-shadow: 0 24px 70px rgba(0, 0, 0, .28); animation: pop .18s ease; }
+@keyframes pop { from { transform: scale(.96); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.room-detail-head { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+.room-detail-emoji { font-size: 40px; line-height: 1; }
+.room-detail-name { font-weight: 800; font-size: 19px; }
+.furn-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; margin: 12px 0 16px; }
+.furn-item { position: relative; border: 1.5px solid var(--line); border-radius: 13px; padding: 16px 8px 12px; text-align: center; cursor: pointer; background: #fff; transition: all .15s ease; user-select: none; }
+.furn-item:hover { border-color: var(--brand); background: #f3f7ff; }
+.furn-item .furn-emoji { font-size: 32px; display: block; }
+.furn-item .furn-name { font-size: 13px; font-weight: 700; margin-top: 6px; }
+.furn-item .furn-badge { position: absolute; top: 6px; right: 6px; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: #eef1f6; color: var(--muted); }
+.furn-item.searched { border-color: var(--good); background: #eafaf3; }
+.furn-item.searched .furn-badge { background: var(--good); color: #fff; }
+.furn-item.searched .furn-name { color: #12855c; }
+.room-search-bar { border-top: 1px solid var(--line); padding-top: 12px; }
+.room-search-bar .muted { font-size: 13px; margin-bottom: 10px; }
+
 /* 占位页 */
 .soon { text-align: center; padding: 50px 20px; }
 .soon .ico { font-size: 48px; }
