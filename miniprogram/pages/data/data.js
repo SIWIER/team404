@@ -19,6 +19,219 @@ function shortName(name) {
   return name && name.length > 8 ? name.slice(0, 8) + '…' : name;
 }
 
+// ---------- 导出报告图（canvas 2d 手绘，保存到相册） ----------
+const REPORT_W = 750;   // 逻辑宽度（与 rpx 同刻度，按 2 倍 DPR 输出高清位图）
+const REPORT_DPR = 2;
+
+function pad2(n) {
+  return n < 10 ? '0' + n : String(n);
+}
+
+function fmtDateNow() {
+  const t = new Date();
+  return t.getFullYear() + '-' + pad2(t.getMonth() + 1) + '-' + pad2(t.getDate());
+}
+
+// 圆角矩形路径（arcTo 实现，兼容无 roundRect 的基础库）
+function rr(c, x, y, w, h, r) {
+  c.beginPath();
+  c.moveTo(x + r, y);
+  c.arcTo(x + w, y, x + w, y + h, r);
+  c.arcTo(x + w, y + h, x, y + h, r);
+  c.arcTo(x, y + h, x, y, r);
+  c.arcTo(x, y, x + w, y, r);
+  c.closePath();
+}
+
+// 中文按字符换行（fillText 不会自动换行）
+function wrapLines(c, text, maxW) {
+  const lines = [];
+  let line = '';
+  for (const ch of String(text)) {
+    if (line && c.measureText(line + ch).width > maxW) { lines.push(line); line = ch; }
+    else { line += ch; }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+// 两遍绘制：第一遍度量排版算总高，第二遍定尺寸画图
+function drawReport(canvas, s, user) {
+  const W = REPORT_W, DPR = REPORT_DPR;
+  const ctx = canvas.getContext('2d');
+  const PAD = 40, RW = W - PAD * 2;
+  const F = {
+    section: 'bold 32px sans-serif',
+    text: '26px sans-serif',
+    small: '24px sans-serif',
+    value: 'bold 44px sans-serif'
+  };
+
+  // ---- 第一遍：度量 ----
+  const sec = [];
+  let totalH = PAD + 210;                       // 头部
+  const addSec = (type, h2, extra) => {
+    if (sec.length) totalH += 28;
+    sec.push({ type, y: totalH, h: h2, ...extra });
+    totalH += h2;
+  };
+
+  addSec('stats', 324);                         // 2×2 统计卡
+  ctx.font = F.text;
+  const insights = (s.insights || []).slice(0, 5).map((t, i) => {
+    const lines = wrapLines(ctx, t, RW - 64);
+    return { t, i, lines, h: lines.length * 40 + 16 };
+  });
+  addSec('section', 56, { t: '💡 智能分析' });
+  addSec('insights', insights.reduce((a, x) => a + x.h, 0), { items: insights });
+  const tops = (s.topLocations || []).slice(0, 6);
+  const maxTop = Math.max(1, ...tops.map((x) => x.count));
+  addSec('section', 56, { t: '🏆 高频找回地点' });
+  addSec('tops', tops.length ? tops.length * 64 : 40, { items: tops, max: maxTop });
+  const rooms = (s.roomDist || []).slice(0, 8);
+  const roomTotal = rooms.reduce((a, x) => a + x.count, 0) || 1;
+  addSec('section', 56, { t: '🏠 房间分布' });
+  addSec('rooms', rooms.length ? rooms.length * 44 : 40, { items: rooms, total: roomTotal });
+  ctx.font = F.text;
+  const timeStr = (s.timeDist || []).map((x) => x.name + ' ' + x.count + ' 次').join(' · ');
+  const timeLines = timeStr ? wrapLines(ctx, '🕐 ' + timeStr, RW) : [];
+  addSec('section', 56, { t: '🕐 丢眼镜时段' });
+  addSec('times', timeLines.length ? timeLines.length * 40 + 8 : 40, { lines: timeLines });
+  addSec('foot', 96);
+  totalH += PAD;
+
+  // ---- 第二遍：定尺寸并绘制 ----
+  canvas.width = W * DPR;
+  canvas.height = totalH * DPR;
+  const c = canvas.getContext('2d');
+  c.scale(DPR, DPR);
+
+  c.fillStyle = '#ffffff';
+  c.fillRect(0, 0, W, totalH);
+
+  // 头部（渐变横幅 + 日期/昵称 + 总记录）
+  const grad = c.createLinearGradient(0, PAD, W, PAD);
+  grad.addColorStop(0, '#3d7bfd');
+  grad.addColorStop(1, '#6a5cff');
+  c.fillStyle = grad;
+  rr(c, PAD, PAD, RW, 210, 24);
+  c.fill();
+  c.fillStyle = '#ffffff';
+  c.font = 'bold 40px sans-serif';
+  c.fillText('📊 找眼镜助手 · 数据报告', PAD + 36, PAD + 78);
+  c.font = F.small;
+  c.globalAlpha = 0.9;
+  c.fillText(fmtDateNow() + '  ·  ' + ((user && user.nickname) || '我'), PAD + 36, PAD + 136);
+  c.font = 'bold 44px sans-serif';
+  c.textAlign = 'right';
+  c.fillText(String(s.total || 0) + ' 条', PAD + RW - 36, PAD + 100);
+  c.globalAlpha = 0.85;
+  c.font = F.small;
+  c.fillText('累计找回记录', PAD + RW - 36, PAD + 142);
+  c.globalAlpha = 1;
+  c.textAlign = 'left';
+
+  // 各区块
+  for (const e of sec) {
+    const y0 = e.y;
+    if (e.type === 'stats') {
+      const cw = (RW - 24) / 2, ch2 = 150;
+      const stats = [
+        { v: String(s.total || 0), k: '找回记录总数' },
+        { v: (s.successRate || 0) + '%', k: '找回成功率' },
+        { v: fmtDur(s.avgDur), k: '平均找回用时' },
+        { v: String(s.last30 || 0), k: '近 30 天记录' }
+      ];
+      stats.forEach((st, i) => {
+        const x = PAD + (i % 2) * (cw + 24);
+        const yy = y0 + Math.floor(i / 2) * (ch2 + 24);
+        c.fillStyle = '#f7f9fd';
+        rr(c, x, yy, cw, ch2, 20);
+        c.fill();
+        c.fillStyle = '#3d7bfd';
+        c.textAlign = 'center';
+        c.font = i === 2 ? 'bold 36px sans-serif' : F.value;
+        c.fillText(st.v, x + cw / 2, yy + 72);
+        c.fillStyle = '#7b8794';
+        c.font = F.small;
+        c.fillText(st.k, x + cw / 2, yy + 118);
+        c.textAlign = 'left';
+      });
+    } else if (e.type === 'section') {
+      c.fillStyle = '#1f2b3a';
+      c.font = F.section;
+      c.fillText(e.t, PAD, y0 + 44);
+    } else if (e.type === 'insights') {
+      let yy = y0;
+      e.items.forEach((it) => {
+        c.fillStyle = '#eaf1ff';
+        c.beginPath();
+        c.arc(PAD + 18, yy + 18, 18, 0, Math.PI * 2);
+        c.fill();
+        c.fillStyle = '#3d7bfd';
+        c.textAlign = 'center';
+        c.font = 'bold 22px sans-serif';
+        c.fillText(String(it.i + 1), PAD + 18, yy + 26);
+        c.textAlign = 'left';
+        c.fillStyle = '#1f2b3a';
+        c.font = F.text;
+        it.lines.forEach((ln, li) => {
+          c.fillText(ln, PAD + 64, yy + 32 + li * 40);
+        });
+        yy += it.h;
+      });
+    } else if (e.type === 'tops') {
+      if (!e.items.length) { c.fillStyle = '#7b8794'; c.font = F.small; c.fillText('暂无找回数据', PAD, y0 + 12); }
+      e.items.forEach((it, i) => {
+        const yy = y0 + i * 64;
+        c.fillStyle = '#1f2b3a';
+        c.font = 'bold 26px sans-serif';
+        c.fillText(it.name, PAD, yy + 24);
+        c.fillStyle = COLORS[i % COLORS.length];
+        c.textAlign = 'right';
+        c.fillText(it.count + ' 次', PAD + RW, yy + 24);
+        c.textAlign = 'left';
+        c.fillStyle = '#eef1f6';
+        rr(c, PAD, yy + 34, RW, 22, 11);
+        c.fill();
+        c.fillStyle = COLORS[i % COLORS.length];
+        rr(c, PAD, yy + 34, Math.max(22, Math.round(it.count / e.max * RW)), 22, 11);
+        c.fill();
+      });
+    } else if (e.type === 'rooms') {
+      if (!e.items.length) { c.fillStyle = '#7b8794'; c.font = F.small; c.fillText('暂无找回数据', PAD, y0 + 12); }
+      e.items.forEach((it, i) => {
+        const yy = y0 + i * 44;
+        c.fillStyle = COLORS[i % COLORS.length];
+        c.beginPath();
+        c.arc(PAD + 10, yy + 22, 10, 0, Math.PI * 2);
+        c.fill();
+        c.fillStyle = '#1f2b3a';
+        c.font = F.text;
+        c.fillText(it.name, PAD + 34, yy + 32);
+        c.fillStyle = '#7b8794';
+        c.textAlign = 'right';
+        c.fillText(it.count + ' 次 · ' + Math.round(it.count / e.total * 100) + '%', PAD + RW, yy + 32);
+        c.textAlign = 'left';
+      });
+    } else if (e.type === 'times') {
+      if (!e.lines.length) { c.fillStyle = '#7b8794'; c.font = F.small; c.fillText('暂无时段数据', PAD, y0 + 12); }
+      c.fillStyle = '#1f2b3a';
+      c.font = F.text;
+      e.lines.forEach((ln, i) => {
+        c.fillText(ln, PAD, y0 + 32 + i * 40);
+      });
+    } else if (e.type === 'foot') {
+      c.fillStyle = '#b8c2cf';
+      c.font = F.small;
+      c.textAlign = 'center';
+      c.fillText('由「找眼镜助手」小程序生成 · 数据仅属于你', W / 2, y0 + 36);
+      c.textAlign = 'left';
+    }
+  }
+  return totalH;
+}
+
 Page({
   data: {
     loading: true,
@@ -103,6 +316,7 @@ Page({
   },
 
   renderStats(s, user) {
+    this.mine = s;   // 供报告图导出使用（完整统计快照）
     const topLocations = s.topLocations || [];
     const roomDist = s.roomDist || [];
     const timeline = s.timeline || [];
@@ -333,8 +547,18 @@ Page({
     } catch (err) { toast(err.message); }
   },
 
-  // ---------- 导入导出（简化版：剪贴板复制 / 粘贴 JSON） ----------
-  async doExport() {
+  // ---------- 导入导出（导出可选格式：JSON 剪贴板 / 报告图存相册） ----------
+  doExport() {
+    wx.showActionSheet({
+      itemList: ['JSON 数据（复制到剪贴板）', '统计报告图（保存到手机相册）'],
+      success: (res) => {
+        if (res.tapIndex === 0) this.doExportJson();
+        else if (res.tapIndex === 1) this.doExportImage();
+      }
+    });
+  },
+
+  async doExportJson() {
     try {
       const d = await api.request('/data/export');
       wx.setClipboardData({
@@ -343,6 +567,57 @@ Page({
         fail: () => toast('复制失败，请重试')
       });
     } catch (e) { toast(e.message); }
+  },
+
+  doExportImage() {
+    if (!this.mine) { toast('统计数据尚未加载'); return; }
+    wx.showLoading({ title: '正在生成…' });
+    wx.createSelectorQuery().in(this)
+      .select('#exportCanvas')
+      .fields({ node: true })
+      .exec((res) => {
+        if (!res || !res[0] || !res[0].node) {
+          wx.hideLoading();
+          toast('画布初始化失败，请重试');
+          return;
+        }
+        try {
+          drawReport(res[0].node, this.mine, store.getUser());
+        } catch (e) {
+          wx.hideLoading();
+          toast('生成失败：' + e.message);
+          return;
+        }
+        wx.canvasToTempFilePath({
+          canvas: res[0].node,
+          fileType: 'png',
+          success: (r) => {
+            wx.hideLoading();
+            this.saveToAlbum(r.tempFilePath);
+          },
+          fail: () => { wx.hideLoading(); toast('生成图片失败，请重试'); }
+        });
+      });
+  },
+
+  saveToAlbum(filePath) {
+    wx.saveImageToPhotosAlbum({
+      filePath,
+      success: () => toast('已保存到手机相册 ✓'),
+      fail: (err) => {
+        const msg = (err && (err.errMsg || '')) + (err && (err.errno || ''));
+        if (msg.indexOf('auth') >= 0 || msg.indexOf('deny') >= 0 || msg.indexOf('permission') >= 0) {
+          wx.showModal({
+            title: '需要相册权限',
+            content: '保存报告图需要相册权限，请在设置中开启',
+            confirmText: '去设置',
+            success: (r) => { if (r.confirm) wx.openSetting(); }
+          });
+        } else {
+          toast('保存失败，请重试');
+        }
+      }
+    });
   },
 
   toggleImport() {

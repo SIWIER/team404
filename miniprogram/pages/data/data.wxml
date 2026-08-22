@@ -2,7 +2,7 @@
 <view class="page-sub">数据库累计 {{s.total}} 条记录，持续学习你的习惯</view>
 
 <view class="toolbar">
-  <view class="btn ghost sm" bindtap="doExport">⬇️ 导出 JSON</view>
+  <view class="btn ghost sm" bindtap="doExport">⬇️ 导出</view>
   <view class="btn ghost sm" bindtap="toggleImport">{{showImport ? '收起导入' : '⬆️ 导入数据'}}</view>
 </view>
 
@@ -157,3 +157,6 @@
     </view>
   </view>
 </block>
+
+<!-- 导出报告图：离屏画布（canvas 2d 手绘后存相册） -->
+<canvas type="2d" id="exportCanvas" class="export-canvas"></canvas>

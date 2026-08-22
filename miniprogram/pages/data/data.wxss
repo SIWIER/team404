@@ -72,3 +72,6 @@
 .pill.no { background: #ffe9e4; color: #e85d5d; }
 .rec-meta { font-size: 22rpx; color: #7b8794; }
 .load-tip { text-align: center; color: #7b8794; font-size: 24rpx; padding: 20rpx 0 4rpx; }
+
+/* 导出报告图：离屏画布（display:none 无法绘制，用移出屏幕的方式） */
+.export-canvas { position: fixed; left: -10000px; top: 0; width: 750px; height: 2600px; }
