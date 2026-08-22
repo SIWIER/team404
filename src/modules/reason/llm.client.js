@@ -29,6 +29,7 @@ function buildPrompt(facts, historyStats, profile) {
 - 是否可能放进口袋：${facts.pocket || '不确定'}
 - 是否已检查身上：${facts.onPerson || '未提及'}
 - 路过过的房间：${(Array.isArray(facts.passedRooms) && facts.passedRooms.length) ? facts.passedRooms.join('、') : '未提及'}（路过的房间也可能随手放下）
+- 已检查过的区域（在这些区域找过但没找到，推理时应排除其所在房间）：${(Array.isArray(facts.checkedRooms) && facts.checkedRooms.length) ? facts.checkedRooms.join('、') : '未提及'}
 - 硬件定位提示：${facts.deviceHint ? `定位器最近报告眼镜在「${facts.deviceHint.room}」${facts.deviceHint.distance_m != null ? `约 ${facts.deviceHint.distance_m} 米` : ''}（这是强证据，请优先考虑该房间及邻近房间）` : '无'}
 - 补充描述：${facts.extra || '无'}
 

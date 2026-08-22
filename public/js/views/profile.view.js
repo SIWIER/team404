@@ -5,6 +5,14 @@ import { esc, toast, roomEmoji } from '../ui.js';
 
 const ROOM_PRESETS = ['卧室', '卫生间', '客厅', '厨房', '餐厅', '书房', '玄关', '走廊', '阳台', '衣帽间', '储物间'];
 
+// 同类房间自动编号：卧室 → 卧室2 → 卧室3
+function nextRoomName(base) {
+  if (!layout.some((r) => r.name === base)) return base;
+  let n = 2;
+  while (layout.some((r) => r.name === base + n)) n++;
+  return base + n;
+}
+
 let layout = []; // 编辑中的户型副本
 
 export function renderProfile(root) {
@@ -30,7 +38,7 @@ export function renderProfile(root) {
       <div class="layout-head">
         <div>
           <div style="font-weight:800;font-size:17px;">🏠 家庭布局（辅助推理）</div>
-          <p class="hint" style="margin:2px 0 0;">填写你家有哪些房间、各房间常放眼镜的位置，推理会按你的实际户型调整</p>
+          <p class="hint" style="margin:2px 0 0;">填写你家有哪些房间、各房间常放眼镜的位置；同类房间可重复添加，自动编号区分（如 卧室2）</p>
         </div>
         <button class="btn sm" id="p-save2">💾 保存布局</button>
       </div>
@@ -100,6 +108,13 @@ function renderLayout(root) {
       if (!layout[i]) return;
       if (k === 'spots') {
         layout[i].spots = inp.value.split(/[,，、]/).map((s) => s.trim()).filter(Boolean);
+      } else if (k === 'name') {
+        const raw = inp.value.trim();
+        layout[i].name = raw;
+        if (raw && layout.some((r, j) => j !== i && r.name === raw)) {
+          layout[i].name = nextRoomName(raw);
+          toast(`「${raw}」已存在，已自动命名为「${layout[i].name}」`);
+        }
       } else {
         layout[i][k] = inp.value.trim();
       }
@@ -111,13 +126,13 @@ function renderLayout(root) {
 
   // 快速添加预设
   const presets = root.querySelector('#layout-presets');
-  const remaining = ROOM_PRESETS.filter((name) => !layout.some((r) => r.name === name));
+  const remaining = ROOM_PRESETS; // 同类房间可重复添加，添加时自动编号区分
   presets.innerHTML = [
-    ...remaining.slice(0, 6).map((name) => `<button class="btn ghost sm" data-add="${esc(name)}">＋ ${roomEmoji(name)} ${esc(name)}</button>`),
+    ...remaining.map((name) => `<button class="btn ghost sm" data-add="${esc(name)}">＋ ${roomEmoji(name)} ${esc(name)}</button>`),
     '<button class="btn ghost sm" id="add-custom">＋ ✏️ 自定义房间</button>'
   ].join('');
   presets.querySelectorAll('[data-add]').forEach((b) => {
-    b.onclick = () => { layout.push({ name: b.dataset.add, desc: '', spots: [], x: null, y: null }); renderLayout(root); };
+    b.onclick = () => { layout.push({ name: nextRoomName(b.dataset.add), desc: '', spots: [], x: null, y: null }); renderLayout(root); };
   });
   presets.querySelector('#add-custom').onclick = () => {
     layout.push({ name: '', desc: '', spots: [], x: null, y: null });

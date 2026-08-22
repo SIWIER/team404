@@ -37,7 +37,7 @@ before(async () => {
   }
   serverProc = spawn(process.execPath, ['server.js'], {
     cwd: ROOT,
-    env: { ...process.env, PORT: String(PORT), DB_FILE: TEST_DB, LLM_ENABLED: 'false' },
+    env: { ...process.env, PORT: String(PORT), DB_FILE: TEST_DB, LLM_ENABLED: 'false', SIMULATOR_ENABLED: 'false' },
     stdio: 'ignore'
   });
   for (let i = 0; i < 50; i++) {
@@ -171,4 +171,54 @@ test('成功记录缺少位置 → 422', async () => {
     body: { success: true }
   });
   assert.strictEqual(r.status, 422);
+});
+test('流程包含「已检查区域」多选且选项来自户型', async () => {
+  const login = await req('/api/auth/login', { method: 'POST', body: { username: 'xiaoming', password: '123456' } });
+  const token = login.json.token;
+  const r = await req('/api/reason/flow', { token });
+  const q = r.json.flow.find((x) => x.id === 'checkedRooms');
+  assert.ok(q, '应存在 checkedRooms 问题');
+  assert.strictEqual(q.type, 'multi');
+  const rooms = q.opts.map((o) => o[0]);
+  assert.deepStrictEqual(rooms, ['卧室', '卫生间', '客厅', '厨房/餐厅', '书房']);
+});
+
+test('推理勾选已检查区域 → 该房间跌出首推', async () => {
+  const login = await req('/api/auth/login', { method: 'POST', body: { username: 'xiaoming', password: '123456' } });
+  const token = login.json.token;
+  const r = await req('/api/reason/infer', {
+    method: 'POST', token,
+    body: { facts: { activity: '洗澡/冲凉', room: '卫生间', timeOfDay: '晚上', checkedRooms: ['卫生间'] } }
+  });
+  assert.strictEqual(r.status, 200);
+  const result = r.json.result;
+  assert.notStrictEqual(result.topRoom, '卫生间');
+  assert.strictEqual(result.ranked.find((x) => x.name === '洗手台边'), undefined, '已检查卫生间后洗手台边应跌出前 8');
+  assert.ok(result.summary.includes('排除'));
+});
+test('复数同类型房间：户型编号保存、流程含编号选项、勾选编号房间推理排除', async () => {
+  const login = await req('/api/auth/login', { method: 'POST', body: { username: 'xiaohong', password: '123456' } });
+  const token = login.json.token;
+  const pf = await req('/api/auth/profile', {
+    method: 'PUT', token,
+    body: { homeLayout: [
+      { name: '卧室', spots: ['床头柜'], x: 0, y: 0 },
+      { name: '卧室', spots: ['梳妆台'], x: 1, y: 0 },
+      { name: '客厅', spots: [], x: 2, y: 0 }
+    ] }
+  });
+  assert.strictEqual(pf.status, 200);
+  assert.deepStrictEqual(pf.json.user.profile.homeLayout.map((r) => r.name), ['卧室', '卧室2', '客厅']);
+  const flow = await req('/api/reason/flow', { token });
+  const roomOpts = flow.json.flow.find((q) => q.id === 'room').opts.map((o) => o[0]);
+  const checkedOpts = flow.json.flow.find((q) => q.id === 'checkedRooms').opts.map((o) => o[0]);
+  assert.ok(roomOpts.includes('卧室') && roomOpts.includes('卧室2'));
+  assert.ok(checkedOpts.includes('卧室2'));
+  const r = await req('/api/reason/infer', {
+    method: 'POST', token,
+    body: { facts: { room: '卧室2', checkedRooms: ['卧室2'] } }
+  });
+  assert.strictEqual(r.status, 200);
+  assert.ok(r.json.result.summary.includes('卧室2'));
+  assert.strictEqual(r.json.result.ranked.find((x) => x.name === '梳妆台'), undefined, '卧室2 放置点应跌出前 8');
 });

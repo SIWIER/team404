@@ -161,3 +161,22 @@ test('走廊多格形状 cells 保存并往返（去重、裁剪）', async () =
   // 普通房间自动生成单格 cells
   assert.deepStrictEqual(hl[1].cells, [{ x: 0, y: 2 }]);
 });
+test('家庭布局同名房间自动编号（卧室、卧室2…）', async () => {
+  const login = await req('/api/auth/login', { method: 'POST', body: { username: 'xiaoming', password: '123456' } });
+  const token = login.json.token;
+  const r = await req('/api/auth/profile', {
+    method: 'PUT', token,
+    body: { homeLayout: [
+      { name: '卧室', spots: ['床头柜'], x: 0, y: 0 },
+      { name: '卧室', spots: ['梳妆台'], x: 1, y: 0 },
+      { name: '卫生间', spots: [] }
+    ] }
+  });
+  assert.strictEqual(r.status, 200);
+  const hl = r.json.user.profile.homeLayout;
+  assert.deepStrictEqual(hl.map((x) => x.name), ['卧室', '卧室2', '卫生间']);
+  assert.strictEqual(hl[0].x, 0);
+  assert.strictEqual(hl[1].x, 1);
+  assert.deepStrictEqual(hl[0].spots, ['床头柜']);
+  assert.deepStrictEqual(hl[1].spots, ['梳妆台']);
+});
