@@ -1,0 +1,91 @@
+/* pages/layout-scan/layout-scan.wxss — 拍照识别户型 */
+/* 网格相关样式与画像页 profile.wxss 保持一致，保证两页视觉统一 */
+
+.step-title {
+  font-size: 30rpx; font-weight: 800; color: #1f2d3d; margin-bottom: 8rpx;
+}
+.shot-tip {
+  font-size: 24rpx; color: #7c8798; line-height: 1.6; margin-bottom: 20rpx;
+}
+
+/* 未配置视觉模型的降级卡片 */
+.notice { background: #fff7e8; border: 1rpx solid #ffe0a8; }
+.notice-t { font-size: 28rpx; font-weight: 800; color: #8a5b16; margin-bottom: 8rpx; }
+
+/* 选图入口 */
+.pick-box {
+  border: 2rpx dashed #c3cede; border-radius: 16rpx; background: #f7f9fc;
+  padding: 60rpx 24rpx; text-align: center;
+}
+.pick-box:active { background: #eef3fb; }
+.pick-icon { font-size: 76rpx; line-height: 1; }
+.pick-main { font-size: 30rpx; font-weight: 700; color: #3d7bfd; margin: 16rpx 0 6rpx; }
+.pick-sub { font-size: 22rpx; color: #93a0b4; }
+
+.preview-img {
+  width: 100%; border-radius: 12rpx; border: 1rpx solid #e3e9f2; display: block;
+}
+
+/* 识别中 */
+.recognizing { text-align: center; padding: 32rpx 0 8rpx; }
+.spin { font-size: 56rpx; animation: spin-rotate 1.6s linear infinite; }
+@keyframes spin-rotate { to { transform: rotate(360deg); } }
+.rec-main { font-size: 28rpx; font-weight: 700; color: #3d7bfd; margin: 12rpx 0 4rpx; }
+
+/* 模型给的户型概况 */
+.note-box {
+  background: #eef3fb; border-radius: 12rpx; padding: 16rpx 20rpx;
+  font-size: 25rpx; color: #40536b; line-height: 1.6; margin-bottom: 20rpx;
+}
+
+/* 只读预览网格（同 profile.wxss） */
+.floor-area {
+  margin: 0 auto; background: #f7f9fc;
+  border: 2rpx dashed #c3cede; border-radius: 12rpx;
+  position: relative; overflow: hidden;
+}
+.grid-cell {
+  position: absolute; box-sizing: border-box;
+  border: 1rpx dashed #d5ddeb; background: #fdfeff;
+}
+.floor-tile {
+  position: absolute; box-sizing: border-box;
+  background: #fff; border: 2rpx solid #c9d4e6; border-radius: 10rpx;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.floor-tile.cor-seg { background: #fff7e8; border-color: #ffce8a; border-style: dashed; }
+.tile-emoji { font-size: 34rpx; }
+.tile-name {
+  font-size: 18rpx; font-weight: 700;
+  max-width: 100%; overflow: hidden; white-space: nowrap;
+}
+
+/* 房间清单 */
+.room-list { margin: 20rpx 0 4rpx; }
+.room-row {
+  display: flex; align-items: center; gap: 16rpx;
+  padding: 16rpx 0; border-bottom: 1rpx solid #eef2f8;
+}
+.room-row:last-child { border-bottom: none; }
+.rr-emoji { font-size: 40rpx; }
+.rr-main { flex: 1; min-width: 0; }
+.rr-name {
+  font-size: 27rpx; font-weight: 700; color: #1f2d3d;
+  display: flex; align-items: center; gap: 10rpx;
+}
+.rr-badge {
+  font-size: 20rpx; font-weight: 700; color: #8a5b16;
+  background: #fff7e8; border: 1rpx solid #ffe0a8;
+  border-radius: 20rpx; padding: 2rpx 12rpx;
+}
+.rr-desc {
+  font-size: 23rpx; color: #7c8798; margin-top: 4rpx;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+
+/* 隐私说明（同画像页风格） */
+.privacy-note {
+  margin: 8rpx 32rpx 0; padding: 20rpx 24rpx;
+  background: #f2f7ff; border-radius: 12rpx;
+  font-size: 23rpx; color: #5a6b82; line-height: 1.6;
+}

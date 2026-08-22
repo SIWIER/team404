@@ -446,6 +446,11 @@ Page({
     this.setData({ savingLayout: false });
   },
 
+  // 跳转拍照识别户型页（识别结果由该页确认后写入画像，返回本页可继续手动微调）
+  goLayoutScan() {
+    wx.navigateTo({ url: '/pages/layout-scan/layout-scan' });
+  },
+
   goHome() {
     wx.reLaunch({ url: '/pages/home/home' });
   }

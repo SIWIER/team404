@@ -66,7 +66,7 @@ find-my-glasses-pro/
 ├─ public/                   # Web 前端（已完成）
 │  └─ js/views/*.view.js     # 每页面一文件
 ├─ miniprogram/              # 微信小程序（3/6 页完成）
-├─ test/                     # 54 项自动化测试
+├─ test/                     # 98 项自动化测试
 ├─ scripts/smoke.js          # 演示前一键自检
 ├─ hardware/                 # 3D 外壳模型与 STL
 └─ docs/                     # SDD / DEMO / 本文档
@@ -86,7 +86,7 @@ cd find-my-glasses-pro
 node server.js            # 或双击 start.bat → http://localhost:8081
 
 # 测试（改完代码先跑这个）
-node --test               # 54 项应全绿
+node --test               # 98 项应全绿
 
 # 演示前自检
 node scripts/smoke.js
@@ -137,6 +137,7 @@ node scripts/smoke.js
 | ✅ 完成 | 设备轮询契约（GET pending + POST ack + 模拟/真实设备区分） | 成员 D |
 | ✅ 完成 | 防丢标签固件 v1（`hardware/firmware/`，零第三方库，待实机联调） | 成员 D |
 | 🟢 低 | 3D 外壳按实板微调、组装测试（STL 已可打印） | 成员 D |
+| ✅ 完成 | **户型图照片智能识别**（后端 `layout` 模块 + 小程序 `layout-scan` 页；视觉模型识图 → 预览确认 → 应用到户型网格） | 成员 E |
 
 > 📋 需求调查问卷已存档于 `docs/SURVEY.md`（含回收结论填写模板）；跨对话交接模板见 `docs/HANDOFF_PROMPT.md`——任何新对话粘贴对应提示词即可继续任一成员的任务。
 

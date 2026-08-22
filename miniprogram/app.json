@@ -5,7 +5,8 @@
     "pages/reason/reason",
     "pages/data/data",
     "pages/hardware/hardware",
-    "pages/profile/profile"
+    "pages/profile/profile",
+    "pages/layout-scan/layout-scan"
   ],
   "window": {
     "navigationBarTitleText": "找眼镜助手",
