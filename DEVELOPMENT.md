@@ -44,7 +44,7 @@ find-my-glasses-pro/
 git clone <仓库地址>
 cd find-my-glasses-pro
 node server.js        # 零依赖，不需要 npm install
-node --test           # 跑测试，78 条应全绿
+node --test           # 跑测试，98 条应全绿
 node scripts/smoke.js # 演示前自检
 ```
 

@@ -12,7 +12,9 @@ const { spawn } = require('node:child_process');
 const svc = require('../src/modules/layout/layout.service');
 
 const ROOT = path.resolve(__dirname, '..');
-const PORT = 18087;
+// 端口需与其他测试文件互不重叠：node --test 并行跑各文件，抢同一端口会串到别人的服务器上
+// （m1-m5 占 18081-18086、ws 占 18085、m6 占 18087 及 18088-18092 子服务器）
+const PORT = 18093;
 const TEST_DB = 'data/test_layout.db';
 let serverProc = null;
 
@@ -212,7 +214,7 @@ test('未配置视觉模型时 recognizeLayout 直接返回 null（不发请求�
 // baseUrl 指向 127.0.0.1:1（必然连不上），确保任何情况下都不会产生真实的付费调用；
 // 且下面用例全部在 fetch 之前就返回，不会真的发请求。
 test('参数校验与限流：缺字段/非法格式 → 422，超频 → 429', async () => {
-  const subPort = 18088;
+  const subPort = 18094;   // 同上：避开 m6 的 18088-18092 子服务器
   const subDb = 'data/test_layout_sub.db';
   for (const suffix of ['', '-shm', '-wal']) {
     try { fs.rmSync(path.join(ROOT, subDb + suffix), { force: true }); } catch { /* 不存在则忽略 */ }

@@ -102,7 +102,7 @@ find-my-glasses-pro/
 ## 测试与自检
 
 ```bash
-node --test            # 全量回归（78 项：单元 + HTTP 端到端 + WebSocket 协议级 + 户型识别）
+node --test            # 全量回归（98 项：单元 + HTTP 端到端 + WebSocket 协议级 + 微信登录 + 户型识别）
 node scripts/smoke.js  # 演示前一键自检（9 项链路，含真实 LLM 验证）
 ```
 
