@@ -158,7 +158,10 @@ Page({
   // ---------- 应用 ----------
   async applyLayout() {
     if (!this.data.layout || !this.data.layout.length) return;
-    const had = (store.getUser().profile.homeLayout || []).length;
+    // 防御性取值：onLoad 已挡过未登录，但本方法在用户操作后才触发，
+    // 期间若令牌失效（api.js 的 401 分支会 store.clear()）user 可能已为 null
+    const u = store.getUser() || {};
+    const had = ((u.profile && u.profile.homeLayout) || []).length;
     const msg = had
       ? `将用识别结果替换你现有的 ${had} 个房间布局，替换后仍可在画像页手动拖拽微调。确定吗？`
       : '将把识别结果保存为你的家庭布局，之后仍可在画像页手动拖拽微调。确定吗？';
