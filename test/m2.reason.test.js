@@ -104,7 +104,7 @@ test('画像写入家庭布局并往返', async () => {
   });
   assert.strictEqual(r.status, 200);
   const me = await req('/api/auth/me', { token });
-  assert.deepStrictEqual(me.json.user.profile.homeLayout, [{ name: '阳台', desc: '封闭阳台', spots: ['晾衣架', '花架'], x: null, y: null }]);
+  assert.deepStrictEqual(me.json.user.profile.homeLayout, [{ name: '阳台', desc: '封闭阳台', spots: ['晾衣架', '花架'], x: null, y: null, cells: [] }]);
 });
 
 test('家庭布局格式非法 → 422', async () => {

@@ -30,8 +30,8 @@ miniprogram/
    ├─ home/       # 首页菜单 + 画像卡 + 户型图 ✅
    ├─ reason/     # 引导推理（问答→结果→闭环）✅
    ├─ data/       # 统计可视化 🚧（接口已就绪，Canvas 图表开发中）
-   ├─ hardware/   # 设备接入 🚧（接口+WS 已就绪，实时流开发中）
-   └─ profile/    # 画像/户型拖拽 🚧（movable-view 拖拽开发中）
+   ├─ hardware/   # 设备接入 ✅（卡片/指令/注册/WS 实时事件流）
+   └─ profile/    # 画像/户型拖拽 ✅（表单 + movable-view 6×6 网格）
 ```
 
 ## 四、页面开发约定（对应 DEVELOPMENT.md 规范）
@@ -47,8 +47,8 @@ miniprogram/
 |---|---|---|
 | auth / home / reason | ✅ 已完成（可演示核心闭环） | — |
 | data（统计+Canvas 图表） | 🚧 | 成员 C |
-| hardware（设备+WS 实时） | 🚧 | 成员 D |
-| profile（画像+movable-view 户型拖拽） | 🚧 | 成员 A |
+| hardware（设备+WS 实时） | ✅ 已完成 | 成员 D |
+| profile（画像+movable-view 户型拖拽） | ✅ 已完成 | 成员 A |
 | 微信一键登录（后端 /api/auth/wxlogin + 前端 wx.login） | 🚧 第二步 | 成员 B |
 
 ## 六、常见坑

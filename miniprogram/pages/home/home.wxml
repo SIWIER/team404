@@ -27,14 +27,14 @@
 
     <block wx:if="{{placedCount}}">
       <view class="muted" style="font-size:24rpx;font-weight:600;margin-top:16rpx;">🏠 家庭户型图</view>
-      <view class="floor">
+      <view class="floor" bindtap="goProfile">
         <view class="floor-row" wx:for="{{floorRows}}" wx:for-item="row" wx:key="index" style="grid-template-columns: repeat({{row.cols}}, 1fr);">
-          <view class="floor-cell {{item.empty ? 'empty' : ''}}" wx:for="{{row.cells}}" wx:for-item="item" wx:key="index">
+          <view class="floor-cell {{item.empty ? 'empty' : ''}} {{item.corridor ? 'corridor' : ''}}" wx:for="{{row.cells}}" wx:for-item="item" wx:key="index">
             {{item.e}} {{item.n}}
           </view>
         </view>
       </view>
-      <view class="hint">相邻格 = 相邻房间，影响推理的距离权重（画像页可拖拽调整）</view>
+      <view class="hint">相邻格 = 相邻房间（走廊为多格链），影响推理的距离权重；点击户型图可编辑</view>
     </block>
     <view wx:elif="{{layoutCount}}" class="muted" style="font-size:22rpx;margin-top:16rpx;">户型未摆放：去画像页拖拽房间到网格中</view>
   </view>
@@ -53,16 +53,16 @@
       <view class="d">找回记录、高频地点、房间热力（小程序版开发中）。</view>
     </view>
     <view class="menu-card" bindtap="go" data-url="hardware">
-      <view class="badge gray">开发中</view>
+      <view class="badge">硬件端口</view>
       <view class="ico">📡</view>
       <view class="t">硬件设备接入</view>
-      <view class="d">定位器/近场呼唤器（小程序版开发中）。</view>
+      <view class="d">定位器 / 近场呼唤器 / 防丢标签，指令与实时事件流。</view>
     </view>
     <view class="menu-card" bindtap="go" data-url="profile">
-      <view class="badge gray">开发中</view>
+      <view class="badge">个性化</view>
       <view class="ico">🧠</view>
       <view class="t">个性化智能体</view>
-      <view class="d">生活习惯、常用地点、户型图拖拽（小程序版开发中）。</view>
+      <view class="d">生活习惯、常用地点、户型图拖拽与走廊塑形。</view>
     </view>
   </view>
 

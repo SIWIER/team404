@@ -32,9 +32,16 @@ page {
 .btn[disabled] { opacity: .5; }
 .btn-row { display: flex; gap: 16rpx; flex-wrap: wrap; margin-top: 24rpx; }
 
+/* 输入框：input 组件用固定高度+行高实现文字垂直居中（不能用上下 padding，会导致文字/占位符错位） */
 .input {
   background: #fbfdff; border: 1rpx solid #e3e9f2; border-radius: 16rpx;
-  padding: 20rpx 24rpx; font-size: 30rpx; width: 100%; box-sizing: border-box;
+  font-size: 30rpx; width: 100%; box-sizing: border-box;
+  height: 88rpx; line-height: 88rpx; padding: 0 24rpx;
+}
+/* textarea 组件：多行输入，恢复上下内边距与自然行高 */
+textarea.input {
+  height: auto; min-height: 160rpx;
+  line-height: 1.6; padding: 20rpx 24rpx;
 }
 .field { margin-bottom: 24rpx; }
 .field label { display: block; font-size: 24rpx; color: #7b8794; margin-bottom: 10rpx; font-weight: 600; }
