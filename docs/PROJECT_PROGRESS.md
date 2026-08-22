@@ -136,6 +136,7 @@ node scripts/smoke.js
 | ✅ 完成 | 设备轮询契约（GET pending + POST ack + 模拟/真实设备区分） | 成员 D |
 | ✅ 完成 | 防丢标签固件 v1（`hardware/firmware/`，零第三方库，待实机联调） | 成员 D |
 | 🟢 低 | 3D 外壳按实板微调、组装测试（STL 已可打印） | 成员 D |
+| ✅ 完成 | **户型图照片智能识别**（后端 `layout` 模块 + 小程序 `layout-scan` 页；视觉模型识图 → 预览确认 → 应用到户型网格） | 成员 E |
 
 > 📋 需求调查问卷已存档于 `docs/SURVEY.md`（含回收结论填写模板）；跨对话交接模板见 `docs/HANDOFF_PROMPT.md`——任何新对话粘贴对应提示词即可继续任一成员的任务。
 

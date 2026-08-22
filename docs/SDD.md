@@ -117,7 +117,27 @@ find-my-glasses-pro/
 | 硬件 | POST …/:id/report · …/:id/command | 上行上报 / 下行指令 |
 | 硬件 | GET …/:id/pending · POST …/:id/ack | 真实设备轮询待执行指令 / 执行回报（固件契约） |
 | 硬件 | GET /api/hardware/events · POST /api/hardware/simulate | 事件 / 模拟触发 |
+| 户型识别 | GET /api/layout/config | 探测视觉模型是否可用 `{visionEnabled}`（前端据此置灰按钮） |
+| 户型识别 | POST /api/layout/recognize | 户型图照片 → 候选 homeLayout（限流 5 次/分/IP；不落库） |
 | 系统 | GET /api/health | 健康检查 |
+
+**户型图识别接口示例**（`POST /api/layout/recognize`，需登录）：
+
+```jsonc
+// 请求：image 为压缩后图片的裸 base64（可带 data URL 前缀，服务端会剥离）
+{ "image": "iVBORw0KGgoAAAANS...", "mimeType": "image/png" }
+
+// 200 成功：layout 已清洗为合法网格，可直接提交给 PUT /api/auth/profile
+{ "ok": true, "note": "识别到三室一厅，走廊居中",
+  "layout": [ { "name": "走廊", "desc": "", "spots": [], "x": 2, "y": 2,
+                "cells": [ {"x":2,"y":2}, {"x":2,"y":3} ] } ] }
+```
+
+状态码：`401` 未登录 · `422` 参数非法/图片过大/未识别出房间 · `429` 超频 ·
+`502` 模型调用或解析失败 · `503` 后端未配置视觉模型（前端降级为手动拖拽）。
+
+**隐私**：上传图片仅在内存中转发给视觉模型，不落盘、不写库、不进日志；识别结果不自动保存，
+由用户在小程序预览确认后再走 `PUT /api/auth/profile` 落库（复用其 `sanitizeLayout` 做最终清洗）。
 
 ### 4.3 WebSocket 协议
 - 端点 `/ws?token=<令牌>`；服务端推送：
@@ -158,6 +178,25 @@ scrypt（N=16384）密码 + 时间恒定比较；画像含**家庭布局**（≤
 ### 5.4 hardware：硬件端口
 设备注册（locator/nfc/tag）、上下行双通道、事件日志、模拟器（8s 心跳）、`getLastHint()` 供推理联动。
 
+### 5.5 layout：户型图照片识别
+**目的**：降低户型录入成本——原本需在小程序手动拖十来个房间方块，现在拍一张户型图即可生成初稿。
+
+- `layout.service.js`
+  - `recognizeLayout(cfg, base64, mime)`：OpenAI 兼容的多模态调用（`content` 数组 +
+    `image_url` 传 data URL），低温 0.2 求稳定；超时/失败重试一次；`extractJson()` 容错解析；
+    任何异常返回 `null` 交由路由层转友好错误
+  - `normalizeLayout(raw)`：**纯函数**，把模型的自由输出收敛成合法布局——坐标裁进 0-5、
+    房间内去重格、跨房间抢格先到先得、非走廊房间塌缩单格、走廊只保留连通链（剔除飞地）、
+    `x/y` 对齐 `cells[0]`、≤10 房间。**输出契约与 `accounts.sanitizeLayout` 完全对齐**
+  - `alignRoomName(raw)`：别名归一（主卧→卧室、过道→走廊、洗手间→卫生间…），
+    保证房间名落在推理知识库认识的词表内；词表外的自定义名保留
+- `layout.routes.js`：`GET /config` 探测可用性；`POST /recognize` 需登录 + 限流 5 次/分，
+  校验 mime 白名单与 base64 体积后转调 service
+- **模块边界**：不 require accounts 内部实现；保存走 `PUT /api/auth/profile` 公开接口。
+  `extractJson` 与 reason 模块同策略但各自实现，不跨模块引用（遵守 DEVELOPMENT.md 铁律）
+- **视觉模型独立配置**：文本模型 `deepseek-chat` 不支持读图，故 `LLM_VISION_*` 与
+  `LLM_*` 相互独立；未配置时接口返回 503，小程序按钮置灰，手动拖拽路径不受影响
+
 ---
 
 ## 6. 安全设计
@@ -186,7 +225,8 @@ scrypt（N=16384）密码 + 时间恒定比较；画像含**家庭布局**（≤
 | DB_FILE | data/find_glasses.db | 数据库路径 |
 | TOKEN_SECRET | — | **生产必须改**为随机长字符串 |
 | TOKEN_TTL_HOURS / _REMEMBER | 24 / 720 | 会话时长 |
-| LLM_ENABLED / _BASE_URL / _API_KEY / _MODEL / _TIMEOUT_MS | — | 大模型配置 |
+| LLM_ENABLED / _BASE_URL / _API_KEY / _MODEL / _TIMEOUT_MS | — | 大模型配置（文本推理） |
+| LLM_VISION_ENABLED / _BASE_URL / _API_KEY / _MODEL / _TIMEOUT_MS | true / — / — / — / 40000 | 视觉模型配置（户型图识别；留空则该功能返回 503 降级） |
 | SIMULATOR_ENABLED / _INTERVAL_MS | true / 8000 | 硬件模拟器 |
 
 ### 8.2 启动方式
