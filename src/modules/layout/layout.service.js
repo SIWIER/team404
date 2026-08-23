@@ -180,6 +180,10 @@ async function callVision(cfg, imageBase64, mimeType) {
   const timer = setTimeout(() => controller.abort(), cfg.timeoutMs || 40000);
   try {
     const url = String(cfg.baseUrl || '').replace(/\/+$/, '') + '/chat/completions';
+    // DeepSeek V4 系视觉模型（deepseek-v4-flash-vision-exp 实测）支持 thinking:{type:'disabled'}：
+    // 关掉思维链后 content 直接输出 JSON，省 token 省时间。
+    // 仅对 deepseek 系模型加该参数；OpenAI 系（gpt-4o 等）遇到未知字段会返回 400，故不加。
+    const extraBody = /deepseek/i.test(String(cfg.model || '')) ? { thinking: { type: 'disabled' } } : {};
     const resp = await fetch(url, {
       method: 'POST',
       headers: {
@@ -197,7 +201,8 @@ async function callVision(cfg, imageBase64, mimeType) {
         }],
         temperature: 0.2,      // 识图任务要稳定，低温
         max_tokens: 1200,
-        stream: false
+        stream: false,
+        ...extraBody
       }),
       signal: controller.signal
     });

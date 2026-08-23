@@ -213,8 +213,10 @@ scrypt（N=16384）密码 + 时间恒定比较；画像含**家庭布局**（≤
   `LLM_*` 相互独立；未配置时接口返回 503，小程序按钮置灰，手动拖拽路径不受影响
 - **选型实测**（同一张五房间测试户型图，含中间竖向走廊）：
   `gpt-4o` 房间齐全 + 走廊多格链正确（约 4s，推荐）；`gpt-4o-mini` 漏走廊只认出 4 房间；
-  DeepSeek 系为推理型模型，token 全部计入 `reasoning_content` 而 `content` 返回空
-  （`finish_reason: length`），无论 `max_tokens` 调到多大都解析不出 JSON，不可用。
+  旧 DeepSeek 推理型模型 token 全部计入 `reasoning_content` 而 `content` 返回空
+  （`finish_reason: length`），不可用；
+  **`deepseek-v4-flash-vision-exp` 可用**：`callVision` 对 deepseek 系模型自动加
+  `thinking:{type:'disabled'}`，禁用思维链后 `content` 直接输出 JSON（OpenAI 系不加该参数，避免未知字段 400）。
   更换服务商前先确认模型支持 `image_url` 多模态输入
 
 ---
