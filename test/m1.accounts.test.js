@@ -133,10 +133,52 @@ test('家庭布局坐标 x/y 保存并往返（含四舍五入）', async () => 
   const hl = r.json.user.profile.homeLayout;
   assert.strictEqual(hl[0].x, 2);
   assert.strictEqual(hl[0].y, 3);
+  assert.deepStrictEqual(hl[0].cells, [{ x: 2, y: 3 }]);
   assert.strictEqual(hl[1].x, 2);   // 1.6 四舍五入
   assert.strictEqual(hl[1].y, 0);   // 0.2 四舍五入
+  assert.deepStrictEqual(hl[1].cells, [{ x: 2, y: 0 }]);
   assert.strictEqual(hl[2].x, null); // 未放置
   assert.strictEqual(hl[2].y, null);
+  assert.deepStrictEqual(hl[2].cells, []);
+});
+
+test('走廊多格形状 cells 保存并往返（去重、裁剪）', async () => {
+  const login = await req('/api/auth/login', { method: 'POST', body: { username: 'xiaoming', password: '123456' } });
+  const token = login.json.token;
+  const r = await req('/api/auth/profile', {
+    method: 'PUT', token,
+    body: { homeLayout: [
+      { name: '走廊', spots: [], cells: [{ x: 1, y: 2 }, { x: 2, y: 2 }, { x: 3, y: 2 }, { x: 2, y: 2 }, { x: 99, y: 0 }] },
+      { name: '卧室', spots: [], x: 0, y: 2 }
+    ] }
+  });
+  assert.strictEqual(r.status, 200);
+  const hl = r.json.user.profile.homeLayout;
+  // 走廊：去重(2,2)与越界(99,0→5,0)处理
+  assert.deepStrictEqual(hl[0].cells, [{ x: 1, y: 2 }, { x: 2, y: 2 }, { x: 3, y: 2 }, { x: 5, y: 0 }]);
+  assert.strictEqual(hl[0].x, 1);
+  assert.strictEqual(hl[0].y, 2);
+  // 普通房间自动生成单格 cells
+  assert.deepStrictEqual(hl[1].cells, [{ x: 0, y: 2 }]);
+});
+test('家庭布局同名房间自动编号（卧室、卧室2…）', async () => {
+  const login = await req('/api/auth/login', { method: 'POST', body: { username: 'xiaoming', password: '123456' } });
+  const token = login.json.token;
+  const r = await req('/api/auth/profile', {
+    method: 'PUT', token,
+    body: { homeLayout: [
+      { name: '卧室', spots: ['床头柜'], x: 0, y: 0 },
+      { name: '卧室', spots: ['梳妆台'], x: 1, y: 0 },
+      { name: '卫生间', spots: [] }
+    ] }
+  });
+  assert.strictEqual(r.status, 200);
+  const hl = r.json.user.profile.homeLayout;
+  assert.deepStrictEqual(hl.map((x) => x.name), ['卧室', '卧室2', '卫生间']);
+  assert.strictEqual(hl[0].x, 0);
+  assert.strictEqual(hl[1].x, 1);
+  assert.deepStrictEqual(hl[0].spots, ['床头柜']);
+  assert.deepStrictEqual(hl[1].spots, ['梳妆台']);
 });
 
 test('家庭布局房间尺寸 w/h 保存并往返（仅提供时保留，夹在 1-12，四舍五入）', async () => {

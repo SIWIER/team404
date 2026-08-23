@@ -1,8 +1,113 @@
-<view class="card center" style="padding:100rpx 20rpx;">
-  <view style="font-size:100rpx;">🚧</view>
-  <view style="font-weight:800;font-size:36rpx;margin:24rpx 0 12rpx;">个性化智能体（开发中）</view>
-  <view class="muted">画像编辑、家庭布局与户型图拖拽（movable-view 实现）即将上线；后端接口已就绪。</view>
-  <view class="btn-row" style="justify-content:center;">
-    <view class="btn ghost" bindtap="goHome">← 返回首页</view>
+<view class="page-title">🧠 个性化智能体</view>
+<view class="page-sub">画像越准确，后续推理越贴合你的习惯</view>
+
+<!-- 基础画像表单 -->
+<view class="card">
+  <view class="field">
+    <label>智能体昵称</label>
+    <input class="input" value="{{agentName}}" data-k="agentName" bindinput="onInput" placeholder="例如：小明的小镜助手" />
   </view>
+  <view class="field">
+    <label>智能体风格</label>
+    <input class="input" value="{{agentStyle}}" data-k="agentStyle" bindinput="onInput" placeholder="例如：温和、爱追问、擅长生活常识" />
+  </view>
+  <view class="field">
+    <label>生活习惯（每行一条，最多 20 条）</label>
+    <textarea class="input area" value="{{habitsText}}" data-k="habitsText" bindinput="onInput" placeholder="例如：睡前刷手机后常随手把眼镜放床头" />
+  </view>
+  <view class="field">
+    <label>常用放眼镜地点（每行一条，最多 20 条）</label>
+    <textarea class="input area-s" value="{{favsText}}" data-k="favsText" bindinput="onInput" placeholder="例如：床头柜" />
+  </view>
+  <view class="field">
+    <label>备注（度数 / 眼镜情况等）</label>
+    <textarea class="input area-s" value="{{notes}}" data-k="notes" bindinput="onInput" />
+  </view>
+  <button class="btn btn-block" loading="{{saving}}" disabled="{{saving}}" bindtap="saveBasic">💾 保存画像</button>
+</view>
+
+<!-- 家庭布局 -->
+<view class="card">
+  <view class="layout-head">
+    <view class="layout-head-l">
+      <view class="layout-title">🏠 家庭布局（辅助推理）</view>
+      <view class="hint">填写你家有哪些房间、各房间常放眼镜的位置，推理会按你的实际户型调整</view>
+    </view>
+    <button class="btn sm" loading="{{savingLayout}}" disabled="{{savingLayout}}" bindtap="saveLayout">💾 保存布局</button>
+  </view>
+
+  <!-- 房间编辑列表 -->
+  <view class="empty-layout" wx:if="{{!rooms.length}}">还没有添加房间，点下方按钮快速添加 👇</view>
+  <view class="room-card" wx:for="{{rooms}}" wx:key="idx">
+    <view class="room-top">
+      <text class="room-emoji">{{item.emoji || '🏠'}}</text>
+      <input class="input room-name" value="{{item.name}}" data-idx="{{item.idx}}" data-k="name" bindinput="onRoomInput" placeholder="房间名（如 卧室 / 阳台）" />
+      <view class="room-del" data-idx="{{item.idx}}" bindtap="removeRoom">✕</view>
+    </view>
+    <input class="input" value="{{item.desc}}" data-idx="{{item.idx}}" data-k="desc" bindinput="onRoomInput" placeholder="房间描述（可选，如：有床头柜和书桌）" />
+    <input class="input" value="{{item.spotsText}}" data-idx="{{item.idx}}" data-k="spotsText" bindinput="onRoomInput" placeholder="常放眼镜的位置，用逗号分隔（如：床头柜，书桌/电脑桌，窗台）" />
+  </view>
+
+  <!-- 快捷添加 -->
+  <view class="btn-row">
+    <button class="btn ghost sm" wx:for="{{presets}}" wx:key="name" data-name="{{item.name}}" bindtap="addPreset">＋ {{item.emoji}} {{item.name}}</button>
+    <button class="btn ghost sm" bindtap="addCustom">＋ ✏️ 自定义房间</button>
+  </view>
+
+  <!-- 待放置托盘（可直接拖进网格） -->
+  <view class="tray" wx:if="{{unplaced.length}}">
+    <view class="tray-title">待放置（按住拖进下方网格；或点一下先放入再拖动）：</view>
+    <view class="tray-chips">
+      <view class="tray-chip" wx:for="{{unplaced}}" wx:key="idx" data-idx="{{item.idx}}"
+            bindtap="onChipTap" bindtouchstart="onChipTouchStart" catchtouchmove="onChipTouchMove" bindtouchend="onChipTouchEnd">
+        {{item.emoji}} {{item.name}}
+      </view>
+    </view>
+  </view>
+
+  <!-- 6×6 户型图（自研触摸拖拽） -->
+  <view class="floor-wrap">
+    <view class="floor-tip" wx:if="{{!extendMode}}">👆 拖动方块到目标格；从托盘把房间拖进网格；拖到别的房间上会交换；点 ✕ 移出</view>
+    <view class="floor-tip extend" wx:else>✏️ 延长模式：点一个高亮的 ＋ 格子来延长走廊（可连续点，弯折成任意形状）；点「✅ 完成延长」退出</view>
+    <view class="floor-area" style="width:{{grid.area}}px;height:{{grid.area}}px;">
+      <!-- 虚线网格底图 -->
+      <view class="grid-cell" wx:for="{{grid.cells}}" wx:key="index"
+            style="left:{{item.x}}px;top:{{item.y}}px;width:{{grid.cell}}px;height:{{grid.cell}}px;"></view>
+      <!-- 延长模式：候选格 -->
+      <view wx:if="{{extendMode}}" class="ext-cand" wx:for="{{extendCands}}" wx:key="index"
+            style="left:{{item.px}}px;top:{{item.py}}px;width:{{grid.cell}}px;height:{{grid.cell}}px;"
+            data-x="{{item.x}}" data-y="{{item.y}}" catchtap="onExtendCell">＋</view>
+      <!-- 房间方块（走廊多格链每格一段） -->
+      <view class="floor-tile {{item.corridor ? 'cor-seg' : ''}} {{drag.idx === item.roomIdx ? 'dragging' : ''}}"
+            wx:for="{{tiles}}" wx:key="key"
+            style="left:{{item.px + (drag.idx === item.roomIdx ? drag.dx : 0)}}px;top:{{item.py + (drag.idx === item.roomIdx ? drag.dy : 0)}}px;width:{{grid.cell}}px;height:{{grid.cell}}px;"
+            data-idx="{{item.roomIdx}}" data-ci="{{item.ci}}"
+            bindtouchstart="onTileTouchStart" catchtouchmove="onTileTouchMove" bindtouchend="onTileTouchEnd">
+        <view class="tile-x" data-idx="{{item.roomIdx}}" data-ci="{{item.ci}}" catchtap="removeFromGrid">✕</view>
+        <view class="tile-emoji">{{item.emoji}}</view>
+        <view class="tile-name">{{item.name}}</view>
+      </view>
+    </view>
+
+    <view class="btn-row" style="justify-content:center;">
+      <button class="btn ghost sm" bindtap="applyTemplate">🏠 生成标准户型</button>
+      <button class="btn ghost sm" bindtap="clearLayout">🗑 全部移出</button>
+      <button class="btn ghost sm" wx:if="{{corridorExists}}" bindtap="toggleExtend">{{extendMode ? '✅ 完成延长' : '➕ 延长走廊'}}</button>
+      <button class="btn ghost sm" wx:if="{{corridorExists && !extendMode}}" bindtap="shrinkCorridor">➖ 缩短走廊</button>
+    </view>
+    <view class="hint">「生成标准户型」会把所有房间围绕走廊摆放、彼此相连；走廊可延长/缩短/整体拖动，塑造成你家的形状。相邻格 = 相邻房间，影响推理的"距离远近"权重。</view>
+  </view>
+</view>
+
+<!-- 托盘拖拽的幽灵方块（跟手显示） -->
+<view wx:if="{{ghost.show}}" class="drag-ghost" style="left:{{ghost.x}}px;top:{{ghost.y}}px;width:{{grid.cell}}px;height:{{grid.cell}}px;">
+  <view class="tile-emoji">{{ghost.emoji}}</view>
+  <view class="tile-name">{{ghost.name}}</view>
+</view>
+
+<!-- 隐私说明：问卷第14题结果未回收前默认显示，若统计显示接受度高可移除 -->
+<view class="privacy-note">🔒 数据仅用于本地推理：你的画像、户型与找回记录只保存在你自己的账号下，不会公开或用于其他用途。</view>
+
+<view style="padding: 16rpx 32rpx 60rpx; text-align: center;">
+  <button class="btn ghost" bindtap="goHome">← 返回首页</button>
 </view>

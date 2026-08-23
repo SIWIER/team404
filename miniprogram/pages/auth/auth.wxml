@@ -49,6 +49,42 @@
     </button>
   </view>
 
+  <!-- 微信一键登录（登录页主流程下） -->
+  <view class="card wx-card" wx:if="{{tab === 'login'}}">
+    <view class="divider"><text class="line"></text><text class="txt">其他登录方式</text><text class="line"></text></view>
+    <button
+      class="btn btn-wx {{wxEnabled ? '' : 'disabled'}}"
+      loading="{{wxBusy}}"
+      disabled="{{wxBusy || !wxEnabled}}"
+      bindtap="onWxLogin"
+      hover-class="{{wxEnabled ? 'btn-wx-hover' : 'none'}}"
+    >
+      <text class="wx-ico">💬</text>
+      <text>{{wxBusy ? '登录中…' : '微信一键登录'}}</text>
+    </button>
+    <view class="wx-hint" wx:if="{{!wxEnabled}}">{{wxConfigHint || '微信登录暂未启用'}}</view>
+  </view>
+
   <view class="demo-tip">演示账号：xiaoming / 123456 ｜ xiaohong / 123456</view>
-  <view class="demo-tip muted">微信一键登录将在后续版本上线</view>
+
+  <!-- 绑定已有账号 弹窗 -->
+  <view class="bind-mask" wx:if="{{bindShow}}" bindtap="closeBind">
+    <view class="bind-dialog" catchtap="">
+      <view class="bind-title">绑定已有账号</view>
+      <view class="bind-sub">该微信尚未绑定任何账号，请输入您在本应用的用户名与密码完成绑定</view>
+      <view class="field">
+        <label>用户名</label>
+        <input class="input" placeholder="如 xiaoming" value="{{bindUsername}}" data-k="bindUsername" bindinput="onBindInput" />
+      </view>
+      <view class="field">
+        <label>密码</label>
+        <input class="input" password placeholder="密码" value="{{bindPassword}}" data-k="bindPassword" bindinput="onBindInput" />
+      </view>
+      <view class="err-msg" wx:if="{{bindError}}">{{bindError}}</view>
+      <view class="btn-row">
+        <button class="btn btn-ghost" bindtap="closeBind" disabled="{{bindBusy}}">取 消</button>
+        <button class="btn btn-main" bindtap="confirmBind" loading="{{bindBusy}}" disabled="{{bindBusy}}">绑 定 并 登 录</button>
+      </view>
+    </view>
+  </view>
 </view>

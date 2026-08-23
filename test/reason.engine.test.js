@@ -168,3 +168,118 @@ test('回家进门：有走廊的户型走廊位置进入候选，无走廊则�
   assert.ok(a.ranked.some((x) => x.name === '走廊矮柜/鞋柜'));
   assert.ok(!b.ranked.some((x) => x.name === '走廊矮柜/鞋柜'));
 });
+// ---------- 已检查区域（勾选排除） ----------
+test('勾选已检查区域 → 该房间候选大幅降权并给出理由', () => {
+  const base = engine.infer({ activity: '洗澡/冲凉', room: '卫生间', timeOfDay: '晚上' }, noHistory, noProfile);
+  const checked = engine.infer({ activity: '洗澡/冲凉', room: '卫生间', timeOfDay: '晚上', checkedRooms: ['卫生间'] }, noHistory, noProfile);
+  assert.strictEqual(base.topLocation, '洗手台边');
+  const baseBath = base.ranked.find((x) => x.name === '洗手台边');
+  const checkedBath = checked.ranked.find((x) => x.name === '洗手台边');
+  assert.ok(baseBath, '基准场景应包含洗手台边候选');
+  assert.strictEqual(checkedBath, undefined, '已检查卫生间后洗手台边应跌出候选前 8');
+  assert.notStrictEqual(checked.topRoom, '卫生间', '已检查卫生间后首推不应再是卫生间');
+  assert.ok(checked.summary.includes('排除'));
+});
+
+test('勾选「厨房」→ 「厨房/餐厅」家族位置同样降权', () => {
+  const base = engine.infer({ activity: '做饭/吃饭' }, noHistory, noProfile);
+  const checked = engine.infer({ activity: '做饭/吃饭', checkedRooms: ['厨房'] }, noHistory, noProfile);
+  const a = base.ranked.find((x) => x.name === '餐桌');
+  const b = checked.ranked.find((x) => x.name === '餐桌');
+  assert.ok(a, '基准场景应包含餐桌候选');
+  assert.strictEqual(b, undefined, '勾选厨房后餐桌应跌出候选前 8');
+  assert.notStrictEqual(checked.topRoom, '厨房/餐厅');
+});
+
+test('多房间勾选：摘要列出已排除区域', () => {
+  const r = engine.infer({ activity: '不确定/忘记了', checkedRooms: ['卧室', '客厅'] }, noHistory, noProfile);
+  assert.ok(r.summary.includes('卧室'));
+  assert.ok(r.summary.includes('客厅'));
+});
+test('定位强证据与已检查区域并存：候选仍在但保留已检查提示', () => {
+  const p = { ...noProfile, homeLayout: [
+    { name: '卧室', spots: [], x: 0, y: 0 },
+    { name: '卫生间', spots: [], x: 1, y: 0 }
+  ] };
+  const r = engine.infer(
+    { activity: '洗澡/冲凉', room: '卫生间', deviceHint: { room: '卫生间', distance_m: 1 }, checkedRooms: ['卫生间'] },
+    noHistory, p
+  );
+  const bath = r.ranked.find((x) => x.name === '洗手台边');
+  assert.ok(bath, '定位强证据下候选应仍在列表中');
+  assert.ok(bath.reasons.some((t) => t.includes('检查过')));
+  assert.ok(bath.reasons.some((t) => t.includes('定位器')));
+});
+// ---------- 复数同类型房间（编号区分） ----------
+test('房间类型归一：卧室2/卧室3 → 卧室，厨房/餐厅 不变', () => {
+  assert.strictEqual(engine.roomTypeOf('卧室2'), '卧室');
+  assert.strictEqual(engine.roomTypeOf('卧室12'), '卧室');
+  assert.strictEqual(engine.roomTypeOf('厨房/餐厅'), '厨房/餐厅');
+  assert.strictEqual(engine.roomTypeOf('主卧'), '主卧');
+});
+
+test('户型含卧室与卧室2：编号房间坐标精确匹配，自定义放置点独立', () => {
+  const p = { ...noProfile, homeLayout: [
+    { name: '卧室', spots: ['飘窗'], x: 0, y: 0 },
+    { name: '卧室2', spots: ['梳妆台'], x: 2, y: 1 },
+    { name: '客厅', spots: [], x: 1, y: 0 }
+  ] };
+  assert.strictEqual(engine.roomDist(p.homeLayout, '卧室', '客厅'), 1);
+  assert.strictEqual(engine.roomDist(p.homeLayout, '卧室2', '客厅'), 2);
+  const r = engine.infer({ room: '卧室2' }, noHistory, p);
+  const desk = r.ranked.find((x) => x.name === '梳妆台');
+  assert.ok(desk, '卧室2 的自定义放置点应成为候选');
+  assert.ok(desk.reasons.some((t) => t.includes('卧室2')), '应提示与卧室2 同房间');
+});
+
+test('勾选「卧室2」→ 卧室2 与同类型卧室位置跌出候选前 8', () => {
+  const p = { ...noProfile, homeLayout: [
+    { name: '卧室', spots: ['飘窗'], x: 0, y: 0 },
+    { name: '卧室2', spots: ['梳妆台'], x: 2, y: 1 },
+    { name: '客厅', spots: [], x: 1, y: 0 }
+  ] };
+  const r = engine.infer({ room: '卧室2', checkedRooms: ['卧室2'] }, noHistory, p);
+  const names = r.ranked.map((x) => x.name);
+  assert.ok(!names.includes('梳妆台'), '卧室2 放置点应跌出前 8');
+  assert.ok(!names.includes('飘窗'), '同类型卧室的放置点应按类型归并降权');
+  assert.ok(r.summary.includes('卧室2'));
+});
+
+// ---------- 走廊多格链（cells） ----------
+const corridorLayout = [
+  { name: '走廊', spots: ['走廊挂钩'], x: 2, y: 2, cells: [{ x: 2, y: 2 }, { x: 2, y: 3 }, { x: 2, y: 4 }] },
+  { name: '卫生间', spots: [], x: 3, y: 4 },
+  { name: '书房', spots: [], x: 4, y: 4 }
+];
+
+test('多格走廊：距离取最近格（而非锚点格）', () => {
+  // 卫生间(3,4) 距走廊最近格 (2,4)=1；距锚点(2,2)=3
+  assert.strictEqual(engine.roomDist(corridorLayout, '走廊', '卫生间'), 1);
+  // 书房(4,4) 距走廊最近格 (2,4)=2；距锚点(2,2)=4
+  assert.strictEqual(engine.roomDist(corridorLayout, '走廊', '书房'), 2);
+});
+
+test('多格走廊：定位提示按最近格加权相邻房间', () => {
+  const p = { ...noProfile, homeLayout: corridorLayout };
+  const r = engine.infer({ deviceHint: { room: '走廊', distance_m: 3 } }, noHistory, p);
+  const bath = r.ranked.find((x) => x.name === '洗手台边');
+  assert.ok(bath, '卫生间位置应在候选');
+  assert.ok(bath.reasons.some((t) => t.includes('定位器')));
+  assert.ok(bath.reasons.some((t) => t.includes('相距 1 格')));
+});
+
+test('同房间面积加成：多格走廊的同房间权重高于单格（同一布局对照）', () => {
+  const single = { ...noProfile, homeLayout: [
+    { name: '走廊', spots: [], x: 2, y: 2, cells: [{ x: 2, y: 2 }] },
+    { name: '卫生间', spots: [], x: 3, y: 4 },
+    { name: '书房', spots: [], x: 4, y: 4 }
+  ] };
+  const multi = { ...noProfile, homeLayout: corridorLayout };
+  const a = engine.infer({ room: '走廊' }, noHistory, single);
+  const b = engine.infer({ room: '走廊' }, noHistory, multi);
+  const locA = a.ranked.find((x) => x.name === '走廊矮柜/鞋柜');
+  const locB = b.ranked.find((x) => x.name === '走廊矮柜/鞋柜');
+  assert.ok(locA && locB);
+  assert.ok(locB.probability > locA.probability);
+  assert.ok(locB.reasons.some((t) => t.includes('面积加成')));
+});

@@ -103,6 +103,7 @@ node scripts/smoke.js
 | 模块 | 主要接口 |
 |---|---|
 | 账户 | POST `/api/auth/register|login|logout` · GET `/api/auth/me` · PUT `/api/auth/profile`（含 homeLayout 户型坐标） |
+| 账户（微信） | POST `/api/auth/wxlogin`（返回 `mode=login|autoRegister|needBind`）· POST `/api/auth/wxbind`（bindToken+账号密码绑定）· GET `/api/auth/wxconfig`（能力探测） |
 | 推理 | GET `/api/reason/flow` · POST `/api/reason/infer` · POST `/api/reason/record` |
 | 数据 | GET `/api/data/stats|records|export` · DELETE `/api/data/records/:id` · POST `/api/data/import` |
 | 硬件 | GET/POST/DELETE `/api/hardware/devices(/:id)` · POST `…/:id/report`（上行）· POST `…/:id/command`（下行）· WS `/ws?token=` 实时推送 |
@@ -130,8 +131,8 @@ node scripts/smoke.js
 | 优先级 | 事项 | 认领建议 |
 |---|---|---|
 | 🔴 高 | 小程序 data 页（ECharts ec-canvas 图表 + 户型热力网格） | 成员 C |
-| 🔴 高 | 小程序 profile 页（movable-area 户型拖拽） | 成员 A |
-| 🟡 中 | 微信一键登录（后端 `/api/auth/wxlogin` + 前端 wx.login） | 成员 B |
+| ✅ 完成 | 小程序 profile 页（画像表单 + movable-view 户型拖拽 + 隐私说明） | 成员 A |
+| ✅ 完成 | 微信一键登录（后端 `/api/auth/wxlogin` + 前端 wx.login + 自动注册/绑定二选一） | 成员 B |
 | ✅ 完成 | 小程序 hardware 页（设备卡片/指令/注册/WS 实时事件流） | 成员 D |
 | ✅ 完成 | 设备轮询契约（GET pending + POST ack + 模拟/真实设备区分） | 成员 D |
 | ✅ 完成 | 防丢标签固件 v1（`hardware/firmware/`，零第三方库，待实机联调） | 成员 D |

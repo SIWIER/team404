@@ -6,10 +6,27 @@ const { hashPassword, verifyPassword, issueToken } = require('../../core/auth');
 function now() { return new Date().toISOString(); }
 function safeJson(s, d) { try { const v = JSON.parse(s); return v === null ? d : v; } catch { return d; } }
 
+<<<<<<< HEAD
 // 家庭布局清洗：最多 10 个房间，每房间最多 20 个放置点；坐标 x/y 为户型图网格位置（0-5）；w/h 为房间内部布局尺寸（1-12 格，仅当输入提供时保留）；furn 为房间内家具格（仅当输入提供时保留）
+=======
+// 家庭布局清洗：最多 10 个房间，每房间最多 20 个放置点；
+// 坐标 x/y 为户型图网格位置（0-5）；cells 为多格形状（走廊链），x/y 始终等于 cells[0]
+// 同名房间自动编号区分（卧室、卧室2、卧室3…），避免同类型房间被当作同一房间
+>>>>>>> c55931c9038a155a9a4e408daa814a25b3cb1be1
 function sanitizeLayout(layout) {
   if (!Array.isArray(layout)) return [];
+  const seen = new Set();
+  const uniqueName = (base) => {
+    if (!seen.has(base)) { seen.add(base); return base; }
+    let n = 2;
+    while (seen.has(base + n)) n++;
+    seen.add(base + n);
+    return base + n;
+  };
+  const num = (v) => (v !== null && v !== undefined && Number.isFinite(Number(v)) ? Number(v) : null);
+  const clamp5 = (v) => Math.min(5, Math.max(0, Math.round(v)));
   return layout.slice(0, 10).map((r) => {
+<<<<<<< HEAD
     const num = (v) => (v !== null && v !== undefined && Number.isFinite(Number(v)) ? Number(v) : null);
     const x = num(r && r.x);
     const y = num(r && r.y);
@@ -40,6 +57,38 @@ function sanitizeLayout(layout) {
     }).filter(Boolean).slice(0, 144) : [];
     if (furn.length) room.furn = furn;
     return room;
+=======
+    const raw = String((r && r.name) || '').trim().slice(0, 20);
+    const desc = String((r && r.desc) || '').trim().slice(0, 100);
+    const spots = Array.isArray(r && r.spots) ? r.spots.slice(0, 20).map((s) => String(s).trim().slice(0, 30)).filter(Boolean) : [];
+    let x = num(r && r.x);
+    let y = num(r && r.y);
+    let cells;
+    if (Array.isArray(r && r.cells) && r.cells.length) {
+      // 多格形状：去重、裁剪到网格内
+      const seenCells = new Set();
+      cells = r.cells.slice(0, 36).map((c) => {
+        const cx = num(c && c.x);
+        const cy = num(c && c.y);
+        if (cx === null || cy === null) return null;
+        return { x: clamp5(cx), y: clamp5(cy) };
+      }).filter((c) => {
+        if (!c) return false;
+        const k = c.x + ',' + c.y;
+        if (seenCells.has(k)) return false;
+        seenCells.add(k);
+        return true;
+      });
+      if (cells.length) { x = cells[0].x; y = cells[0].y; } else { cells = []; }
+    } else if (x !== null && y !== null) {
+      cells = [{ x: clamp5(x), y: clamp5(y) }];
+      x = cells[0].x;
+      y = cells[0].y;
+    } else {
+      cells = [];
+    }
+    return { name: raw ? uniqueName(raw) : '', desc, spots, x, y, cells };
+>>>>>>> c55931c9038a155a9a4e408daa814a25b3cb1be1
   }).filter((r) => r.name);
 }
 
