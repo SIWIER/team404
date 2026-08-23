@@ -17,6 +17,7 @@ const accountsRoutes = require('./src/modules/accounts/accounts.routes');
 const reasonRoutes = require('./src/modules/reason/reason.routes');
 const dataRoutes = require('./src/modules/data/data.routes');
 const hardwareRoutes = require('./src/modules/hardware/hardware.routes');
+const layoutRoutes = require('./src/modules/layout/layout.routes');
 const hardware = require('./src/modules/hardware/hardware.service');
 const accounts = require('./src/modules/accounts/accounts.service');
 
@@ -33,6 +34,7 @@ accountsRoutes.registerRoutes(router);
 reasonRoutes.registerRoutes(router);
 dataRoutes.registerRoutes(router);
 hardwareRoutes.registerRoutes(router);
+layoutRoutes.registerRoutes(router);
 
 // 静态资源（public/）
 const PUBLIC = path.join(config.root, 'public');

@@ -36,6 +36,11 @@
     <button class="btn sm" loading="{{savingLayout}}" disabled="{{savingLayout}}" bindtap="saveLayout">💾 保存布局</button>
   </view>
 
+  <!-- 拍照识别入口（新功能：视觉模型识别户型图照片，省去手动拖拽） -->
+  <view class="btn-row" style="margin-bottom:8rpx;">
+    <button class="btn ghost sm" bindtap="goLayoutScan">📷 拍照识别户型</button>
+  </view>
+
   <!-- 房间编辑列表 -->
   <view class="empty-layout" wx:if="{{!rooms.length}}">还没有添加房间，点下方按钮快速添加 👇</view>
   <view class="room-card" wx:for="{{rooms}}" wx:key="idx">

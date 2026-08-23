@@ -40,7 +40,16 @@ const config = {
     baseUrl: env('LLM_BASE_URL', 'https://api.deepseek.com'),
     apiKey: env('LLM_API_KEY', ''),
     model: env('LLM_MODEL', 'deepseek-chat'),
-    timeoutMs: envNum('LLM_TIMEOUT_MS', 25000)
+    timeoutMs: envNum('LLM_TIMEOUT_MS', 25000),
+    // 视觉模型（户型图照片识别专用；OpenAI 兼容的多模态接口）
+    // 与上面的文本模型相互独立：文本模型 deepseek-chat 不支持读图，故单独配置
+    vision: {
+      enabled: envBool('LLM_VISION_ENABLED', true),
+      baseUrl: env('LLM_VISION_BASE_URL', ''),
+      apiKey: env('LLM_VISION_API_KEY', ''),
+      model: env('LLM_VISION_MODEL', ''),
+      timeoutMs: envNum('LLM_VISION_TIMEOUT_MS', 40000)
+    }
   },
   hardware: {
     simulatorEnabled: envBool('SIMULATOR_ENABLED', true),
