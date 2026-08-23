@@ -85,8 +85,13 @@ find-my-glasses-pro/
 
 | 表 | 关键字段 | 说明 |
 |---|---|---|
+<<<<<<< HEAD
+| users | username(唯一), password_hash, nickname | 账户（scrypt 哈希） |
+| profiles | agent_name, agent_style, habits, favorite_places, **home_layout**, notes | 画像与户型 JSON（房间含 x/y 坐标、w/h 尺寸与 furn 家具格） |
+=======
 | users | username(唯一), password_hash, nickname, **wechat_openid**(唯一可空) | 账户（scrypt 哈希；微信登录/绑定用 openid 关联，UNIQUE 部分索引） |
 | profiles | agent_name, agent_style, habits, favorite_places, **home_layout**, notes | 画像与户型 JSON |
+>>>>>>> c55931c9038a155a9a4e408daa814a25b3cb1be1
 | loss_records | user_id, started_at, found_location, found_room, confidence, success, clues, reasoning, duration_sec, **conversation** | 找回记录（正/负样本） |
 | devices | id, name, type(locator/nfc/tag), room, battery, status, last_signal | 硬件设备 |
 | device_events | device_id, ts, type(report/command/ping_result/beep), payload | 事件流 |
@@ -107,10 +112,14 @@ find-my-glasses-pro/
 | 模块 | 方法/路径 | 说明 |
 |---|---|---|
 | 账户 | POST /api/auth/register · login · logout | 限流 20 次/分/IP；字段级 422 |
+<<<<<<< HEAD
+| 账户 | GET /api/auth/me · PUT /api/auth/profile | 画像/户型读写（房间含 x/y、w/h 尺寸、furn 家具格） |
+=======
 | 账户 | GET /api/auth/me · PUT /api/auth/profile | 画像/户型读写 |
 | 账户（微信） | POST /api/auth/wxlogin | 小程序 `wx.login` 拿 `code` → 调 jscode2session 换 openid；返回 `mode=login|autoRegister|needBind`（详见 §5.5） |
 | 账户（微信） | POST /api/auth/wxbind | `wxlogin` 返回 `needBind` 时使用：拿 `bindToken` + 已有账号密码完成绑定，颁发 token |
 | 账户（微信） | GET /api/auth/wxconfig | 前端能力探测：`{enabled, autoRegister}`；未配置 AppID 时 `enabled=false` |
+>>>>>>> c55931c9038a155a9a4e408daa814a25b3cb1be1
 | 推理 | GET /api/reason/flow | 问答流程（房间选项按户型动态化） |
 | 推理 | POST /api/reason/infer | `{facts}` → 排序候选+依据+摘要 |
 | 推理 | POST /api/reason/record | 保存结果（成功/未找到 + 对话转录） |
@@ -173,6 +182,9 @@ score(L) = base(L) × 行为加成 × 追问加成 × 空间距离衰减 × 路�
 **编排 reason.service.js**：LLM 优先 → 失败回退本地引擎（engine 字段标注），自动注入定位器最近上报（10 分钟内）作为强证据。
 
 ### 5.2 accounts：账户与个性化
+<<<<<<< HEAD
+scrypt（N=16384）密码 + 时间恒定比较；画像含**家庭布局**（≤10 房间 × ≤20 放置点 + **户型图网格坐标 x/y** + **房间内部尺寸 w/h** + **房间家具 furn**，w/h 取值 1-12 格，缺省时前端按 12×12 展示）；户型联动：流程房间/路过房间选项、引擎距离衰减与降权、自定义候选、LLM 提示词。房间尺寸与家具由画像页户型图上**双击房间**弹出的 12×12 网格编辑器设定：左上角方块为起点、右下角滑块为终点，拖动滑块确定房间大致尺寸；编辑器内可选择家具并放置，家具选项**按房间类型自适应**——通用家具（柜子/架子/窗台/桌子）任何房间都有，卧室附加「床」，卫生间/厕所附加「洗手池/便池/浴池」，客厅附加「沙发/电视」，厨房附加「灶台/冰箱/洗手池」，自定义及其他房间含全部家具；在房间范围内点击格子放置、再次点击删除，上下左右相邻的相同家具自动合并为一块，家具格存于房间 `furn` 字段（`{name,x,y}` 数组）；纯前端交互，复用 `PUT /api/auth/profile` 保存。
+=======
 scrypt（N=16384）密码 + 时间恒定比较；画像含**家庭布局**（≤10 房间 × ≤20 放置点 + **户型图网格坐标 x/y** + **多格形状 cells**：走廊可占多个相邻格，x/y 恒等于 cells[0] 以兼容 Web 版与推理引擎）；户型联动：流程房间/路过房间选项、引擎距离衰减与降权、自定义候选、LLM 提示词。
 
 ### 5.5 微信登录（accounts.wx）
@@ -186,6 +198,7 @@ scrypt（N=16384）密码 + 时间恒定比较；画像含**家庭布局**（≤
 - **能力探测**：`GET /api/auth/wxconfig` → `{enabled, autoRegister}`；未配置 `WX_APPID`/`WX_MOCK_OPENID` 时 `enabled=false`，前端按钮置灰
 - **安全**：openid 持久化到 `users.wechat_openid`（UNIQUE 部分索引，NULL 不参与）；`WX_SECRET` 仅读取 `.env`，不入库不进日志；自动注册用户使用不可登录的随机占位密码，必须经 `wxbind` 才能用密码登录（避免与未来"账号密码"流程冲突）
 - **未配置降级**：`/api/auth/wxlogin` 在未配置 WX_APPID 时返回 `503 {code: 'WX_NOT_CONFIGURED'}`；前端应通过 `/wxconfig` 提前发现并把按钮置灰
+>>>>>>> c55931c9038a155a9a4e408daa814a25b3cb1be1
 
 ### 5.3 data：数据与分析
 统计指标 + 自然语言洞察（高频地点/房间占比/时段/效率趋势）+ SVG 图表 + 户型热力 + 分页管理 + JSON 导入导出（≤200 条/次）。

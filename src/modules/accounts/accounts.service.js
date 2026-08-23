@@ -6,9 +6,13 @@ const { hashPassword, verifyPassword, issueToken } = require('../../core/auth');
 function now() { return new Date().toISOString(); }
 function safeJson(s, d) { try { const v = JSON.parse(s); return v === null ? d : v; } catch { return d; } }
 
+<<<<<<< HEAD
+// 家庭布局清洗：最多 10 个房间，每房间最多 20 个放置点；坐标 x/y 为户型图网格位置（0-5）；w/h 为房间内部布局尺寸（1-12 格，仅当输入提供时保留）；furn 为房间内家具格（仅当输入提供时保留）
+=======
 // 家庭布局清洗：最多 10 个房间，每房间最多 20 个放置点；
 // 坐标 x/y 为户型图网格位置（0-5）；cells 为多格形状（走廊链），x/y 始终等于 cells[0]
 // 同名房间自动编号区分（卧室、卧室2、卧室3…），避免同类型房间被当作同一房间
+>>>>>>> c55931c9038a155a9a4e408daa814a25b3cb1be1
 function sanitizeLayout(layout) {
   if (!Array.isArray(layout)) return [];
   const seen = new Set();
@@ -22,6 +26,38 @@ function sanitizeLayout(layout) {
   const num = (v) => (v !== null && v !== undefined && Number.isFinite(Number(v)) ? Number(v) : null);
   const clamp5 = (v) => Math.min(5, Math.max(0, Math.round(v)));
   return layout.slice(0, 10).map((r) => {
+<<<<<<< HEAD
+    const num = (v) => (v !== null && v !== undefined && Number.isFinite(Number(v)) ? Number(v) : null);
+    const x = num(r && r.x);
+    const y = num(r && r.y);
+    const w = num(r && r.w);
+    const h = num(r && r.h);
+    const room = {
+      name: String((r && r.name) || '').trim().slice(0, 20),
+      desc: String((r && r.desc) || '').trim().slice(0, 100),
+      spots: Array.isArray(r && r.spots) ? r.spots.slice(0, 20).map((s) => String(s).trim().slice(0, 30)).filter(Boolean) : [],
+      x: x === null ? null : Math.min(5, Math.max(0, Math.round(x))),
+      y: y === null ? null : Math.min(5, Math.max(0, Math.round(y)))
+    };
+    // 房间尺寸：仅在客户端提供时保留，四舍五入并夹在 [1,12]
+    if (w !== null) room.w = Math.min(12, Math.max(1, Math.round(w)));
+    if (h !== null) room.h = Math.min(12, Math.max(1, Math.round(h)));
+    // 家具格：name 非空、坐标整数且落在房间尺寸范围内，最多 144 格
+    const furn = Array.isArray(r && r.furn) ? r.furn.map((f) => {
+      const fx = num(f && f.x);
+      const fy = num(f && f.y);
+      const fname = String((f && f.name) || '').trim().slice(0, 10);
+      if (!fname || fx === null || fy === null) return null;
+      const rx = Math.round(fx);
+      const ry = Math.round(fy);
+      if (rx < 0 || ry < 0 || rx > 11 || ry > 11) return null;
+      if (room.w !== undefined && rx >= room.w) return null;
+      if (room.h !== undefined && ry >= room.h) return null;
+      return { name: fname, x: rx, y: ry };
+    }).filter(Boolean).slice(0, 144) : [];
+    if (furn.length) room.furn = furn;
+    return room;
+=======
     const raw = String((r && r.name) || '').trim().slice(0, 20);
     const desc = String((r && r.desc) || '').trim().slice(0, 100);
     const spots = Array.isArray(r && r.spots) ? r.spots.slice(0, 20).map((s) => String(s).trim().slice(0, 30)).filter(Boolean) : [];
@@ -52,6 +88,7 @@ function sanitizeLayout(layout) {
       cells = [];
     }
     return { name: raw ? uniqueName(raw) : '', desc, spots, x, y, cells };
+>>>>>>> c55931c9038a155a9a4e408daa814a25b3cb1be1
   }).filter((r) => r.name);
 }
 

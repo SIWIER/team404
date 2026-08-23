@@ -17,7 +17,7 @@ let layout = []; // 编辑中的户型副本
 
 export function renderProfile(root) {
   const p = store.user.profile;
-  layout = (p.homeLayout || []).map((r) => ({ ...r, spots: [...(r.spots || [])] }));
+  layout = (p.homeLayout || []).map((r) => ({ ...r, spots: [...(r.spots || [])], furn: [...(r.furn || [])] }));
 
   root.innerHTML = `
     <div class="page-title">🧠 个性化智能体</div>
@@ -132,10 +132,14 @@ function renderLayout(root) {
     '<button class="btn ghost sm" id="add-custom">＋ ✏️ 自定义房间</button>'
   ].join('');
   presets.querySelectorAll('[data-add]').forEach((b) => {
+<<<<<<< HEAD
+    b.onclick = () => { layout.push({ name: b.dataset.add, desc: '', spots: [], x: null, y: null, w: 12, h: 12 }); renderLayout(root); };
+=======
     b.onclick = () => { layout.push({ name: nextRoomName(b.dataset.add), desc: '', spots: [], x: null, y: null }); renderLayout(root); };
+>>>>>>> c55931c9038a155a9a4e408daa814a25b3cb1be1
   });
   presets.querySelector('#add-custom').onclick = () => {
-    layout.push({ name: '', desc: '', spots: [], x: null, y: null });
+    layout.push({ name: '', desc: '', spots: [], x: null, y: null, w: 12, h: 12 });
     renderLayout(root);
   };
 
@@ -179,13 +183,22 @@ function renderFloor(root) {
         <div class="tile-name">${esc(r.name)}</div>
       </div>`).join('')}</div>` : ''}
     <div class="floor-grid">${cells}</div>
-    <p class="hint" style="margin-top:8px;">相邻格子 = 相邻房间。推理时：与"最后所在房间"越近的位置权重越高；拖到 ✕ 外可移回待放置区。</p>`;
+    <p class="hint" style="margin-top:8px;">相邻格子 = 相邻房间。推理时：与"最后所在房间"越近的位置权重越高；拖到 ✕ 外可移回待放置区。<b>双击房间</b>可设置该房间的大小（内部布局网格）。</p>`;
 
   // 拖放
   box.querySelectorAll('.floor-tile').forEach((el) => {
     el.addEventListener('dragstart', (e) => {
       e.dataTransfer.setData('text/plain', el.dataset.idx);
       e.dataTransfer.effectAllowed = 'move';
+    });
+  });
+  // 双击已放置的房间块：打开房间内部细致布局（12×12 网格，拖右下角滑块定尺寸）
+  box.querySelectorAll('.floor-cell .floor-tile').forEach((el) => {
+    el.addEventListener('dblclick', (e) => {
+      if (e.target.closest('.tile-x')) return;
+      const idx = Number(el.dataset.idx);
+      const room = layout[idx];
+      if (room && room.x != null && room.y != null) openRoomEditor(root, idx);
     });
   });
   box.querySelectorAll('.floor-cell').forEach((cell) => {
@@ -221,6 +234,201 @@ function renderFloor(root) {
   });
 }
 
+// ---------- 房间内部细致布局（12×12 网格，左上角为起点，拖右下角滑块定尺寸，可放置家具） ----------
+const ROOM_GRID = 12;
+// 家具分类：通用家具任何房间都有；特定房间类型再附加专属家具；自定义/其他房间给全部家具
+const FURN_COMMON = ['柜子', '架子', '窗台', '桌子'];
+const FURN_BY_TYPE = {
+  '卧室': ['床'],
+  '卫生间': ['洗手池', '便池', '浴池'],
+  '客厅': ['沙发', '电视'],
+  '厨房': ['灶台', '冰箱', '洗手池']
+};
+const FURN_ALL = [...new Set([...FURN_COMMON, ...Object.values(FURN_BY_TYPE).flat()])];
+const FURN_EMOJI = {
+  '床': '🛏️', '柜子': '🗄️', '架子': '📦', '桌子': '🪑', '窗台': '🪟',
+  '洗手池': '🚰', '便池': '🚽', '浴池': '🛁',
+  '沙发': '🛋️', '电视': '📺',
+  '灶台': '🍳', '冰箱': '🧊'
+};
+const FURN_PALETTE = [
+  ['#e8f0ff', '#5b8def'],
+  ['#fff3e0', '#e8963a'],
+  ['#eaf7ed', '#4caf6d'],
+  ['#fdeef3', '#e05c8e'],
+  ['#e6f7f7', '#2fa3a3'],
+  ['#e0f2ff', '#2f80c9'],
+  ['#f3f0ff', '#7a5fe0'],
+  ['#e0f6ff', '#2a9ec9'],
+  ['#fdf0e6', '#d98a4a'],
+  ['#eef1f6', '#5b7285'],
+  ['#fff5e6', '#d9a03a'],
+  ['#eaf4ff', '#4a90c9']
+];
+function furnEmoji(name) { return FURN_EMOJI[name] || '🪑'; }
+function furnColors(name) {
+  let hash = 0;
+  for (const ch of String(name)) hash = (hash * 31 + ch.codePointAt(0)) % 997;
+  const [bg, bd] = FURN_PALETTE[hash % FURN_PALETTE.length];
+  return { bg, bd };
+}
+// 根据房间名返回家具选项（未匹配到特定类型 → 全部家具）
+function furnOptionsFor(roomName) {
+  const n = String(roomName || '');
+  if (n.includes('卧室')) return [...FURN_COMMON, ...FURN_BY_TYPE['卧室']];
+  if (n.includes('卫生间') || n.includes('厕所') || n.includes('洗手间')) return [...FURN_COMMON, ...FURN_BY_TYPE['卫生间']];
+  if (n.includes('客厅')) return [...FURN_COMMON, ...FURN_BY_TYPE['客厅']];
+  if (n.includes('厨房')) return [...FURN_COMMON, ...FURN_BY_TYPE['厨房']];
+  return [...FURN_ALL];
+}
+
+function openRoomEditor(root, idx) {
+  const room = layout[idx];
+  if (!room) return;
+  if (!Number.isFinite(room.w) || room.w < 1 || room.w > ROOM_GRID) room.w = ROOM_GRID;
+  if (!Number.isFinite(room.h) || room.h < 1 || room.h > ROOM_GRID) room.h = ROOM_GRID;
+  if (!Array.isArray(room.furn)) room.furn = [];
+
+  const furnOptions = furnOptionsFor(room.name);
+  let selectedFurn = null;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'room-size-overlay';
+  overlay.innerHTML = `
+    <div class="room-size-panel" role="dialog" aria-modal="true">
+      <div class="room-size-head">
+        <div style="flex:1;">
+          <div style="font-weight:800;font-size:18px;">${roomEmoji(room.name)} ${esc(room.name)} · 房间细致布局</div>
+          <div class="muted" style="font-size:12px;margin-top:2px;">拖动右下角滑块确定房间尺寸，选择家具后点击格子放置</div>
+        </div>
+        <button class="btn ghost sm" id="rs-close">✕ 关闭</button>
+      </div>
+      <div class="room-size-meta">房间大小：<b id="rs-size">${room.w} × ${room.h} 格</b><span class="muted">（左上角方块为起点，右下角滑块为终点）</span></div>
+      <div class="furn-toolbar" id="furn-toolbar"></div>
+      <p class="hint" style="margin:6px 0 8px;">选择家具后，在房间范围内点击格子放置；<b>再次点击已有家具格可删除</b>；上下左右相邻的相同家具会自动合并成一块。</p>
+      <div class="room-grid-wrap">
+        <div class="room-grid" id="rs-grid"></div>
+        <div class="room-handle" id="rs-handle" title="拖动调整房间大小">⠿</div>
+      </div>
+      <p class="hint" style="margin:10px 0 0;">调整好后点「完成」，再点页面「💾 保存布局」即可生效。</p>
+      <div class="btn-row" style="margin-top:12px;">
+        <button class="btn" id="rs-done">✓ 完成</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const grid = overlay.querySelector('#rs-grid');
+  const handle = overlay.querySelector('#rs-handle');
+  const sizeEl = overlay.querySelector('#rs-size');
+  const toolbar = overlay.querySelector('#furn-toolbar');
+
+  function renderToolbar() {
+    const optsHtml = furnOptions.map((name) => `<button class="furn-opt${name === selectedFurn ? ' active' : ''}" data-furn="${esc(name)}">${furnEmoji(name)} <span>${esc(name)}</span></button>`).join('');
+    toolbar.innerHTML = optsHtml + '<button class="furn-opt furn-add" id="furn-add" title="自行命名添加家具">＋ 自定义</button>';
+    toolbar.querySelectorAll('[data-furn]').forEach((b) => {
+      b.onclick = () => { selectedFurn = b.dataset.furn; renderToolbar(); };
+    });
+    toolbar.querySelector('#furn-add').onclick = () => {
+      toolbar.innerHTML = optsHtml + '<span class="furn-input"><input id="furn-name" class="input" maxlength="10" placeholder="家具名称，回车确定"><button class="btn sm" id="furn-ok">添加</button><button class="btn ghost sm" id="furn-cancel">取消</button></span>';
+      const input = toolbar.querySelector('#furn-name');
+      const commit = () => {
+        const n = String(input.value || '').trim().slice(0, 10);
+        if (n) {
+          if (!furnOptions.includes(n)) furnOptions.push(n);
+          selectedFurn = n;
+        }
+        renderToolbar();
+      };
+      input.focus();
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') commit();
+        else if (e.key === 'Escape') renderToolbar();
+      });
+      toolbar.querySelector('#furn-ok').onclick = commit;
+      toolbar.querySelector('#furn-cancel').onclick = () => renderToolbar();
+    };
+  }
+
+  function render() {
+    const furnMap = new Map();
+    for (const f of room.furn) furnMap.set(f.x + ',' + f.y, f.name);
+    let cells = '';
+    for (let y = 0; y < ROOM_GRID; y++) {
+      for (let x = 0; x < ROOM_GRID; x++) {
+        const inside = x < room.w && y < room.h;
+        const isOrigin = x === 0 && y === 0;
+        const fname = furnMap.get(x + ',' + y);
+        if (fname) {
+          const { bg, bd } = furnColors(fname);
+          const same = (dx, dy) => furnMap.get((x + dx) + ',' + (y + dy)) === fname;
+          const side = (on) => (on ? '1px solid transparent' : '2px solid ' + bd);
+          const style = `background:${bg};border-top:${side(same(0, -1))};border-bottom:${side(same(0, 1))};border-left:${side(same(-1, 0))};border-right:${side(same(1, 0))};`;
+          cells += `<div class="room-cell furn" data-x="${x}" data-y="${y}" style="${style}"><span class="furn-e">${furnEmoji(fname)}</span><span class="furn-n">${esc(fname)}</span></div>`;
+        } else {
+          cells += `<div class="room-cell${inside ? ' in' : ''}${isOrigin ? ' origin' : ''}" data-x="${x}" data-y="${y}">${isOrigin ? '起' : ''}</div>`;
+        }
+      }
+    }
+    grid.innerHTML = cells;
+    handle.style.left = (room.w / ROOM_GRID * 100) + '%';
+    handle.style.top = (room.h / ROOM_GRID * 100) + '%';
+    sizeEl.textContent = `${room.w} × ${room.h} 格`;
+  }
+
+  function onCellClick(x, y) {
+    if (x < 0 || y < 0 || x >= room.w || y >= room.h) return;
+    const i = room.furn.findIndex((f) => f.x === x && f.y === y);
+    if (i >= 0) room.furn.splice(i, 1);
+    else {
+      if (!selectedFurn) { toast('请先选择一种家具'); return; }
+      room.furn.push({ name: selectedFurn, x, y });
+    }
+    render();
+  }
+
+  grid.onclick = (e) => {
+    const cell = e.target.closest('.room-cell');
+    if (!cell) return;
+    onCellClick(Number(cell.dataset.x), Number(cell.dataset.y));
+  };
+
+  render();
+  renderToolbar();
+
+  handle.onpointerdown = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handle.setPointerCapture(e.pointerId);
+    const move = (ev) => {
+      const r = grid.getBoundingClientRect();
+      if (!r.width || !r.height) return;
+      let x = Math.floor((ev.clientX - r.left) / (r.width / ROOM_GRID)) + 1;
+      let y = Math.floor((ev.clientY - r.top) / (r.height / ROOM_GRID)) + 1;
+      x = Math.min(ROOM_GRID, Math.max(1, x));
+      y = Math.min(ROOM_GRID, Math.max(1, y));
+      if (x !== room.w || y !== room.h) {
+        room.w = x;
+        room.h = y;
+        room.furn = room.furn.filter((f) => f.x < room.w && f.y < room.h);
+        render();
+      }
+    };
+    const up = () => {
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', up);
+      handle.removeEventListener('pointercancel', up);
+    };
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', up);
+    handle.addEventListener('pointercancel', up);
+  };
+
+  const close = () => { overlay.remove(); renderFloor(root); };
+  overlay.querySelector('#rs-close').onclick = close;
+  overlay.querySelector('#rs-done').onclick = close;
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+}
+
 async function saveLayout(root) {
   const btn = root.querySelector('#p-save2');
   btn.disabled = true;
@@ -228,7 +436,7 @@ async function saveLayout(root) {
   try {
     const d = await api('/auth/profile', { method: 'PUT', body: { homeLayout: layout } });
     store.setUser(d.user);
-    layout = d.user.profile.homeLayout.map((r) => ({ ...r, spots: [...(r.spots || [])] }));
+    layout = d.user.profile.homeLayout.map((r) => ({ ...r, spots: [...(r.spots || [])], furn: [...(r.furn || [])] }));
     toast('家庭布局已保存 ✓');
     renderLayout(root);
   } catch (e) { toast(e.message); }
