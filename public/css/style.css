@@ -301,3 +301,32 @@ select.input { appearance: auto; }
 .center { text-align: center; }
 .spin { display: inline-block; width: 18px; height: 18px; border: 3px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: sp .7s linear infinite; vertical-align: -3px; margin-right: 6px; }
 @keyframes sp { to { transform: rotate(360deg); } }
+
+/* ---------- 房间内部细致布局（12×12 网格，拖右下角滑块定尺寸） ---------- */
+.room-size-overlay { position: fixed; inset: 0; background: rgba(18, 28, 46, .48); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 120; }
+.room-size-panel { background: #fff; border-radius: 16px; width: 100%; max-width: 560px; max-height: 90vh; overflow: auto; padding: 20px; box-shadow: 0 24px 70px rgba(0, 0, 0, .28); animation: rs-pop .18s ease; }
+@keyframes rs-pop { from { transform: scale(.96); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.room-size-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+.room-size-meta { font-size: 14px; margin-bottom: 12px; }
+.room-size-meta b { color: var(--brand); font-size: 16px; }
+.room-size-meta .muted { font-size: 12px; margin-left: 6px; }
+.room-grid-wrap { position: relative; max-width: 440px; margin: 0 auto; }
+.room-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 0; aspect-ratio: 1; border: 1px solid #cfd8e6; border-radius: 10px; overflow: hidden; }
+.room-cell { aspect-ratio: 1; background: #fafcff; border-right: 1px solid #edf1f7; border-bottom: 1px solid #edf1f7; box-sizing: border-box; display: flex; align-items: center; justify-content: center; }
+.room-cell.in { background: #eaf1ff; border-color: #d6e3ff; }
+.room-cell.origin { background: linear-gradient(135deg, var(--brand), var(--brand2)); color: #fff; font-size: 11px; font-weight: 700; }
+.room-handle { position: absolute; width: 28px; height: 28px; transform: translate(-50%, -50%); background: var(--brand); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: nwse-resize; box-shadow: 0 4px 14px rgba(61, 123, 253, .4); user-select: none; touch-action: none; }
+.room-handle:hover { background: var(--brand2); }
+
+/* 家具工具栏与家具格 */
+.furn-toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
+.furn-opt { cursor: pointer; border: 1.5px solid var(--line); background: #fff; border-radius: 10px; padding: 6px 12px; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; transition: all .15s ease; color: var(--ink); }
+.furn-opt:hover { border-color: var(--brand); background: #f3f7ff; }
+.furn-opt.active { border-color: var(--brand); background: #e8f0ff; color: var(--brand); box-shadow: 0 3px 10px rgba(61, 123, 253, .18); }
+.furn-add { border-style: dashed; color: var(--muted); }
+.furn-add:hover { color: var(--brand); border-color: var(--brand); background: #f8faff; }
+.furn-input { display: inline-flex; align-items: center; gap: 6px; }
+.furn-input .input { width: 160px; padding: 6px 10px; font-size: 13px; }
+.room-cell.furn { flex-direction: column; cursor: pointer; }
+.room-cell.furn .furn-e { font-size: 14px; line-height: 1.1; }
+.room-cell.furn .furn-n { font-size: 9px; font-weight: 700; margin-top: 1px; color: #3d4a5e; line-height: 1.1; white-space: nowrap; overflow: hidden; }
