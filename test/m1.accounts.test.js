@@ -180,3 +180,55 @@ test('家庭布局同名房间自动编号（卧室、卧室2…）', async () =
   assert.deepStrictEqual(hl[0].spots, ['床头柜']);
   assert.deepStrictEqual(hl[1].spots, ['梳妆台']);
 });
+
+test('家庭布局房间尺寸 w/h 保存并往返（仅提供时保留，夹在 1-12，四舍五入）', async () => {
+  const login = await req('/api/auth/login', { method: 'POST', body: { username: 'xiaoming', password: '123456' } });
+  const token = login.json.token;
+  const r = await req('/api/auth/profile', {
+    method: 'PUT', token,
+    body: { homeLayout: [
+      { name: '卧室', x: 0, y: 0, w: 6, h: 8 },
+      { name: '卫生间', x: 1, y: 1 },                 // 缺省 → 不返回 w/h 字段
+      { name: '客厅', x: 2, y: 2, w: 99, h: 0 },      // 越界 → 夹到 12 / 1
+      { name: '书房', x: 3, y: 3, w: 4.6, h: 7.4 }    // 四舍五入 → 5 / 7
+    ] }
+  });
+  assert.strictEqual(r.status, 200);
+  const hl = r.json.user.profile.homeLayout;
+  assert.strictEqual(hl[0].w, 6);
+  assert.strictEqual(hl[0].h, 8);
+  assert.strictEqual(hl[1].w, undefined); // 缺省不注入
+  assert.strictEqual(hl[1].h, undefined);
+  assert.strictEqual(hl[2].w, 12); // 99 越界夹到 12
+  assert.strictEqual(hl[2].h, 1);  // 0 越界夹到 1
+  assert.strictEqual(hl[3].w, 5);  // 4.6 四舍五入
+  assert.strictEqual(hl[3].h, 7);  // 7.4 四舍五入
+});
+
+test('家庭布局房间家具 furn 保存并往返（非法/越界剔除，无 furn 省略）', async () => {
+  const login = await req('/api/auth/login', { method: 'POST', body: { username: 'xiaoming', password: '123456' } });
+  const token = login.json.token;
+  const r = await req('/api/auth/profile', {
+    method: 'PUT', token,
+    body: { homeLayout: [
+      { name: '卧室', x: 0, y: 0, w: 6, h: 6, furn: [
+        { name: '床', x: 1, y: 1 },
+        { name: '床', x: 2, y: 1 },
+        { name: '柜子', x: 0, y: 0 },
+        { name: '', x: 3, y: 3 },          // 空名 → 剔除
+        { name: '桌子', x: 99, y: 2 },     // 越界 → 剔除
+        { name: '架子', x: 1.6, y: 2.4 }   // 四舍五入 → (2,2)
+      ] },
+      { name: '客厅', x: 1, y: 1 }         // 无 furn → 不返回 furn 字段
+    ] }
+  });
+  assert.strictEqual(r.status, 200);
+  const hl = r.json.user.profile.homeLayout;
+  assert.deepStrictEqual(hl[0].furn, [
+    { name: '床', x: 1, y: 1 },
+    { name: '床', x: 2, y: 1 },
+    { name: '柜子', x: 0, y: 0 },
+    { name: '架子', x: 2, y: 2 }
+  ]);
+  assert.strictEqual(hl[1].furn, undefined);
+});
