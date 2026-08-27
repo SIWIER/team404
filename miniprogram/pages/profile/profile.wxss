@@ -38,6 +38,7 @@
   border-radius: 12rpx; padding: 14rpx 20rpx; margin-bottom: 16rpx; line-height: 1.5;
 }
 .floor-tip.extend { background: #fff7e8; color: #8a5b16; border: 1rpx solid #ffe0a8; }
+.floor-tip.shrink { background: #ffefef; color: #a03d3d; border: 1rpx solid #f5c6c6; }
 /* 延长模式候选格 */
 .ext-cand {
   position: absolute; box-sizing: border-box; z-index: 5;
@@ -76,6 +77,13 @@
 .tile-x {
   position: absolute; top: 0; right: 4rpx;
   font-size: 20rpx; color: #ff7a59; line-height: 1; padding: 4rpx; opacity: 0.75;
+}
+/* 缩小模式：可移除格右上角标 − */
+.tile-shrink {
+  position: absolute; top: 0; right: 4rpx;
+  width: 28rpx; height: 28rpx; line-height: 28rpx; text-align: center;
+  border-radius: 50%; background: #e85d5d; color: #fff;
+  font-size: 22rpx; font-weight: 800; opacity: 0.9;
 }
 .tile-emoji { font-size: 34rpx; }
 .tile-name { font-size: 18rpx; font-weight: 700; max-width: 100%; overflow: hidden; white-space: nowrap; }

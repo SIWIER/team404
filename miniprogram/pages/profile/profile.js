@@ -50,9 +50,10 @@ Page({
     unplaced: [],        // 托盘
     presets: [],
     corridorExists: false,
-    extendMode: false,   // 房间扩大模式：先点房间选中，再点高亮 + 格加格（走廊支持弯折）
-    extendTarget: -1,    // 扩大模式选中的房间 idx
-    extendCands: [],     // 可添加的候选格（选中房间四周的空格）
+    extendMode: false,   // 扩大模式：先点房间选中，再点高亮 + 格加格（任何房间，走廊支持弯折）
+    shrinkMode: false,   // 缩小模式：先点房间选中，再点它带 − 的格子减格（至少保留一格）
+    extendTarget: -1,    // 扩大/缩小模式选中的房间 idx
+    extendCands: [],     // 扩大模式的候选格（选中房间四周的空格）
     drag: { idx: -1, dx: 0, dy: 0 },   // 方块拖拽位移
     ghost: { show: false, emoji: '', name: '', x: 0, y: 0 }, // 托盘拖拽幽灵
     grid: { cell: 52, area: 312, size: GRID, cells: [] }
@@ -305,8 +306,8 @@ Page({
     this.renderLayout();
   },
 
-  // ---------- 房间扩大/走廊形状 ----------
-  // 切换扩大模式：点一个房间方块选中它，再点高亮 + 格为其加格（任意房间可用，走廊支持弯折）
+  // ---------- 房间扩大/缩小 ----------
+  // 扩大模式：点房间选中，再点高亮 + 格为其加格（任意房间可用，走廊支持弯折）
   toggleExtend() {
     const turningOn = !this.data.extendMode;
     let extendTarget = -1;
@@ -314,25 +315,43 @@ Page({
       const corridor = this.rooms.find((r) => r.name.includes('走廊'));
       extendTarget = corridor ? corridor.idx : -1;
     }
-    this.setData({ extendMode: turningOn, extendTarget });
+    this.setData({ extendMode: turningOn, shrinkMode: false, extendTarget });
+    this.renderLayout();
+  },
+
+  // 缩小模式：点房间选中，再点它带 − 的格子减格（至少保留一格）
+  toggleShrink() {
+    const turningOn = !this.data.shrinkMode;
+    let extendTarget = -1;
+    if (turningOn) {
+      const corridor = this.rooms.find((r) => r.name.includes('走廊'));
+      extendTarget = corridor ? corridor.idx : -1;
+    }
+    this.setData({ shrinkMode: turningOn, extendMode: false, extendTarget });
     this.renderLayout();
   },
 
   onTileTap(e) {
-    if (!this.data.extendMode) return;
+    if (!this.data.extendMode && !this.data.shrinkMode) return;
     const idx = Number(e.currentTarget.dataset.idx);
     const ci = Number(e.currentTarget.dataset.ci);
     const room = this.rooms.find((r) => r.idx === idx);
     if (!room) return;
-    if (this.data.extendTarget === idx) {
-      // 扩大模式下点自己房间的格子 → 移除该格（缩小房间）
-      if (room.cells.length <= 1) { toast('至少保留一格'); return; }
-      room.cells.splice(ci, 1);
-      this.renderLayout();
-    } else {
-      this.setData({ extendTarget: idx });
-      this.renderLayout();
+    if (this.data.shrinkMode) {
+      // 缩小模式：选中状态下点自己房间的格子 → 移除该格
+      if (this.data.extendTarget === idx) {
+        if (room.cells.length <= 1) { toast('至少保留一格'); return; }
+        room.cells.splice(ci, 1);
+        this.renderLayout();
+      } else {
+        this.setData({ extendTarget: idx });
+        this.renderLayout();
+      }
+      return;
     }
+    // 扩大模式：只负责选中房间
+    this.setData({ extendTarget: idx });
+    this.renderLayout();
   },
 
   onExtendCell(e) {
@@ -345,19 +364,12 @@ Page({
     this.renderLayout(); // 保持扩大模式，继续点下一个格可连成任意形状
   },
 
-  shrinkCorridor() {
-    const room = this.rooms.find((r) => r.name.includes('走廊'));
-    if (!room) return;
-    if (room.cells.length <= 1) { toast('走廊至少保留一格'); return; }
-    room.cells.pop();
-    this.renderLayout();
-  },
-
   // ---------- 一键清空房间（删除全部房间并立即保存生效） ----------
   async clearAllRooms() {
     if (!this.rooms.length) { toast('还没有房间'); return; }
     if (!(await confirm('确认清空全部房间？所有房间（含托盘里的）将被删除并立即保存。'))) return;
     this.rooms = [];
+    this.setData({ extendMode: false, shrinkMode: false, extendTarget: -1 });
     await this.saveLayout();
   },
 
@@ -367,7 +379,7 @@ Page({
     const named = this.rooms.filter((r) => r.name);
     if (!named.length) { toast('还没有添加房间，先点上方按钮添加'); return; }
     this.rooms.forEach((r) => { r.cells = []; });
-    this.setData({ extendMode: false, extendTarget: -1 });
+    this.setData({ extendMode: false, shrinkMode: false, extendTarget: -1 });
     const occupied = () => this.rooms.flatMap((r) => r.cells);
     const isFree = (cs) => cs.every((c) => !occupied().some((o) => o.x === c.x && o.y === c.y));
     let n = 0;
@@ -389,7 +401,7 @@ Page({
 
   clearLayout() {
     this.rooms.forEach((r) => { r.cells = []; });
-    this.setData({ extendMode: false, extendTarget: -1 });
+    this.setData({ extendMode: false, shrinkMode: false, extendTarget: -1 });
     this.renderLayout();
     toast('已全部移出网格');
   },
@@ -417,6 +429,7 @@ Page({
   renderLayout() {
     const cell = this.data.grid.cell;
     const tiles = [];
+    const selIdx = (this.data.extendMode || this.data.shrinkMode) ? this.data.extendTarget : -1;
     this.rooms.forEach((r, roomPos) => {
       r.emoji = roomEmoji(r.name);
       const corridor = r.name.includes('走廊');
@@ -427,7 +440,9 @@ Page({
           roomIdx: r.idx,
           ci,
           name: ci === 0 ? r.name : '',   // 房间名只显示在首格（多格房间避免重复挤压）
-          showX: ci === 0,                 // ✕ 只在首格显示，减少多格房间的视觉噪音
+          showX: ci === 0 && !this.data.shrinkMode,   // ✕ 只在首格显示；缩小模式改用 − 徽标
+          shrinkBadge: this.data.shrinkMode && r.idx === selIdx && r.cells.length > 1,   // 缩小模式：可移除格标 −
+          selected: r.idx === selIdx,
           emoji: roomEmoji(r.name),
           corridor,
           px: c.x * cell,
@@ -482,7 +497,7 @@ Page({
       toast('房间数量超过上限（36 个），请删除多余房间后再保存');
       return;
     }
-    this.setData({ savingLayout: true, extendMode: false, extendTarget: -1 });
+    this.setData({ savingLayout: true, extendMode: false, shrinkMode: false, extendTarget: -1 });
     const homeLayout = this.rooms
       .filter((r) => r.name)
       .map((r) => ({
