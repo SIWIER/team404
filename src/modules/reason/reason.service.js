@@ -31,11 +31,15 @@ async function infer(userId, facts) {
   const hs = historyStats(userId);
   facts = { ...(facts || {}) };
 
-  // 硬件联动：若定位器最近有上报，作为强证据注入
-  try {
-    const hint = hardware.getLastHint();
-    if (hint && !facts.deviceHint) facts.deviceHint = hint;
-  } catch (e) { logger.warn('[reason] 获取硬件提示失败:', e.message); }
+  // 硬件联动：仅当用户画像登记了硬件设备时才注入定位提示
+  // （无硬件用户不注入模拟设备数据，改走引擎的"无硬件补偿"）
+  const ownsHardware = Array.isArray(profile.hardware) && profile.hardware.length > 0;
+  if (ownsHardware) {
+    try {
+      const hint = hardware.getLastHint();
+      if (hint && !facts.deviceHint) facts.deviceHint = hint;
+    } catch (e) { logger.warn('[reason] 获取硬件提示失败:', e.message); }
+  }
 
   let result = await llmInfer(config.llm, facts, hs, profile);
   if (!result) {

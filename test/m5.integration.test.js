@@ -117,7 +117,8 @@ test('完整旅程：注册→画像户型→推理→记录→统计→导出',
   assert.strictEqual(exp.json.records.length, 1);
   assert.strictEqual(exp.json.user.username, uname);
 
-  // 9 硬件联动：定位器上报卫生间 → 推理以卫生间位置居首（强证据优先）
+  // 9 硬件联动：用户登记硬件后，定位器上报卫生间 → 推理以卫生间位置居首（强证据优先）
+  await req('/api/auth/profile', { method: 'PUT', token, body: { hardware: ['case_locator'] } });
   await req('/api/hardware/devices/loc-01/report', { method: 'POST', token, body: { room: '卫生间', distance_m: 1.5 } });
   const infer2 = await req('/api/reason/infer', { method: 'POST', token, body: { facts: { activity: '不确定/忘记了' } } });
   const rooms = infer2.json.result.ranked.slice(0, 3).map((x) => x.room);

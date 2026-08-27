@@ -222,3 +222,29 @@ test('复数同类型房间：户型编号保存、流程含编号选项、勾�
   assert.ok(r.json.result.summary.includes('卧室2'));
   assert.strictEqual(r.json.result.ranked.find((x) => x.name === '梳妆台'), undefined, '卧室2 放置点应跌出前 8');
 });
+
+test('无硬件用户不注入模拟定位提示；登记了硬件的用户才注入', async () => {
+  // 制造一条新鲜的定位上报（模拟设备 loc-01 在服务器启动时已预置）
+  const xm = await req('/api/auth/login', { method: 'POST', body: { username: 'xiaoming', password: '123456' } });
+  const xmToken = xm.json.token;
+  const rep = await req('/api/hardware/devices/loc-01/report', {
+    method: 'POST', token: xmToken, body: { room: '客厅', distance_m: 2.5, rssi_dbm: -50, battery: 80 }
+  });
+  assert.strictEqual(rep.status, 200);
+  const facts = { activity: '看电视', room: '卧室' };
+
+  // xiaoming 已登记硬件（seed 注入眼镜盒定位器）→ 应注入定位提示
+  const r1 = await req('/api/reason/infer', { method: 'POST', token: xmToken, body: { facts } });
+  assert.strictEqual(r1.status, 200);
+  const hintInjected = r1.json.result.ranked.some((x) => (x.reasons || []).some((t) => t.includes('定位器')));
+  assert.strictEqual(hintInjected, true, '有硬件用户的推理应包含定位器证据');
+
+  // 新注册无硬件用户 → 即使全局有模拟设备上报，也不应注入
+  const uname = 'nohw_' + Date.now();
+  await req('/api/auth/register', { method: 'POST', body: { username: uname, password: 'abcd1234' } });
+  const lg = await req('/api/auth/login', { method: 'POST', body: { username: uname, password: 'abcd1234' } });
+  const r2 = await req('/api/reason/infer', { method: 'POST', token: lg.json.token, body: { facts } });
+  assert.strictEqual(r2.status, 200);
+  const nohwHint = r2.json.result.ranked.some((x) => (x.reasons || []).some((t) => t.includes('定位器')));
+  assert.strictEqual(nohwHint, false, '无硬件用户的推理不应包含定位器证据');
+});
