@@ -30,7 +30,7 @@
       <view class="floor" bindtap="goProfile">
         <view class="floor-row" wx:for="{{floorRows}}" wx:for-item="row" wx:key="index" style="grid-template-columns: repeat({{row.cols}}, 1fr);">
           <view class="floor-cell {{item.empty ? 'empty' : ''}} {{item.corridor ? 'corridor' : ''}}" wx:for="{{row.cells}}" wx:for-item="item" wx:key="index">
-            {{item.e}} {{item.n}}
+            {{item.e}}
           </view>
         </view>
       </view>

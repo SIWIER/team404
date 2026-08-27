@@ -24,7 +24,7 @@ Page({
       const corridor = r.name.includes('走廊');
       cells.forEach((c, ci) => placed.push({ x: c.x, y: c.y, name: r.name, first: ci === 0, corridor }));
     });
-    // 户型图行数据（迷你网格，含多格房间；名字只在房间首格显示）
+    // 户型图行数据（迷你网格，紧凑模式：每格只显示 emoji）
     const rows = [];
     if (placed.length) {
       const w = Math.min(10, Math.max(...placed.map((c) => c.x)) + 1);
@@ -34,7 +34,7 @@ Page({
         for (let x = 0; x < w; x++) {
           const c = placed.find((cc) => cc.x === x && cc.y === y);
           cells.push(c
-            ? { e: roomEmoji(c.name), n: c.first ? c.name : '', empty: false, corridor: c.corridor }
+            ? { e: roomEmoji(c.name), n: '', empty: false, corridor: c.corridor }
             : { e: '', n: '', empty: true, corridor: false });
         }
         rows.push({ cells, cols: w });

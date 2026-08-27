@@ -7,12 +7,12 @@
 .profile-main { flex: 1; }
 .p-name { font-weight: 800; font-size: 32rpx; }
 .divider { border-top: 1rpx solid #eef1f6; margin: 24rpx 0; }
-.floor { margin-top: 12rpx; display: flex; flex-direction: column; gap: 6rpx; padding: 12rpx; background: #fafcff; border: 1rpx dashed #d5ddeb; border-radius: 14rpx; }
-.floor-row { display: grid; gap: 6rpx; }
+.floor { margin-top: 12rpx; display: flex; flex-direction: column; gap: 4rpx; padding: 10rpx; background: #fafcff; border: 1rpx dashed #d5ddeb; border-radius: 14rpx; }
+.floor-row { display: grid; gap: 4rpx; }
 .floor-cell {
-  border: 1rpx dashed #d5ddeb; border-radius: 10rpx; background: #fff;
-  font-size: 22rpx; font-weight: 700; text-align: center; padding: 10rpx 4rpx;
-  min-height: 56rpx; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border: 1rpx dashed #d5ddeb; border-radius: 8rpx; background: #fff;
+  font-size: 24rpx; text-align: center; padding: 2rpx;
+  min-height: 44rpx; display: flex; align-items: center; justify-content: center;
 }
 .floor-cell.empty { background: #f7f9fc; }
 /* 走廊多格链：琥珀色虚线，与画像页编辑器一致，凸显连通走廊 */
