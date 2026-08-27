@@ -33,6 +33,7 @@ Page({
     devices: [],
     events: [],
     wsOk: false,
+    noHardware: false,   // 画像未登记任何硬件设备 → 不展示全局共享的模拟设备
     showForm: false,
     name: '',
     typeIndex: 0,
@@ -52,6 +53,13 @@ Page({
 
   async refresh() {
     try {
+      // 无硬件用户（注册引导选了"都没有"）：不展示全局共享的模拟设备，显示引导空态
+      const u = store.getUser();
+      if (u && (u.profile.hardware || []).length === 0) {
+        this.setData({ devices: [], events: [], noHardware: true });
+        return;
+      }
+      this.setData({ noHardware: false });
       const d = await api.request('/hardware/devices');
       const devices = (d.devices || []).map((x) => ({
         ...x,
@@ -130,5 +138,6 @@ Page({
     } catch (err) { toast(err.message); }
   },
 
-  goHome() { wx.reLaunch({ url: '/pages/home/home' }); }
+  goHome() { wx.reLaunch({ url: '/pages/home/home' }); },
+  goProfile() { wx.navigateTo({ url: '/pages/profile/profile' }); }
 });

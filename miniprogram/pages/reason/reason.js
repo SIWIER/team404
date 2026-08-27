@@ -68,7 +68,9 @@ Page({
       return { label: o[0], emoji: o[1], active };
     });
     const multiLabel = q.type === 'multi'
-      ? (this.multiArr.length ? `下一步 →（已选 ${this.multiArr.length} 个）` : '没路过，跳过 →')
+      ? (this.multiArr.length
+        ? `下一步 →（已选 ${this.multiArr.length} 个）`
+        : (q.id === 'passedRooms' ? '没路过，跳过 →' : '都还没检查，跳过 →'))
       : '';
     this.setData({
       phase: 'questions',
@@ -102,7 +104,10 @@ Page({
       if (v) { this.answers[q.id] = v; this.conversation.push({ q: q.q, a: v }); }
     } else if (q.type === 'multi') {
       this.answers[q.id] = [...this.multiArr];
-      this.conversation.push({ q: q.q, a: this.multiArr.length ? this.multiArr.join('、') : '没路过' });
+      this.conversation.push({
+        q: q.q,
+        a: this.multiArr.length ? this.multiArr.join('、') : (q.id === 'passedRooms' ? '没路过' : '还没检查过')
+      });
     }
     this.multiArr = [];
     this.setData({ step: this.data.step + 1 });

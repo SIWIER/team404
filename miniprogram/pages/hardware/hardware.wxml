@@ -1,13 +1,25 @@
 <view class="page-title">📡 硬件设备接入</view>
 <view class="page-sub">REST 上下行 + WebSocket 实时推送（模拟设备演示，可注册真实硬件）</view>
 
-<view class="toolbar">
+<view class="toolbar" wx:if="{{!noHardware}}">
   <view class="ws-status">
     <view class="dot {{wsOk ? 'on' : 'off'}}"></view>
     <text class="muted">{{wsOk ? '实时通道已连接' : '实时通道断开'}}</text>
   </view>
   <view class="btn sm" bindtap="doSim">🎲 模拟事件</view>
   <view class="btn ghost sm" bindtap="toggleForm">＋ 注册设备</view>
+</view>
+
+<!-- 无硬件用户：引导空态（不展示全局共享的模拟设备） -->
+<view class="card" wx:if="{{noHardware}}">
+  <view class="center" style="padding:40rpx 0;">
+    <view style="font-size:80rpx;">🔒</view>
+    <view style="font-weight:800;margin:16rpx 0 8rpx;">你未接入硬件设备</view>
+    <view class="muted">问答式推理不依赖任何硬件。若你有 UHF 手持机或眼镜盒定位器，可去画像页开启设备清单后体验设备功能。</view>
+    <view class="btn-row" style="justify-content:center;margin-top:24rpx;">
+      <view class="btn ghost sm" bindtap="goProfile">去画像页设置</view>
+    </view>
+  </view>
 </view>
 
 <!-- 注册表单 -->

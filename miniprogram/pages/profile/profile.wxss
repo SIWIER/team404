@@ -113,6 +113,13 @@
   border-radius: 16rpx; font-size: 24rpx; line-height: 1.6;
 }
 
+/* 我的硬件设备开关 */
+.hw-opt {
+  border: 2rpx solid #e3e9f2; background: #fff; border-radius: 12rpx;
+  padding: 16rpx 20rpx; margin-bottom: 12rpx; font-size: 26rpx; font-weight: 600;
+}
+.hw-opt.on { border-color: #3d7bfd; background: #eef4ff; color: #3d7bfd; }
+
 /* 底部固定操作栏：拍照识别 / 保存布局 / 一键清空房间 */
 page { padding-bottom: 220rpx; }
 .layout-actions {

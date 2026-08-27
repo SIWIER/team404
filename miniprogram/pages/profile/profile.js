@@ -44,6 +44,8 @@ Page({
     // 表单
     agentName: '', agentStyle: '', habitsText: '', favsText: '', notes: '',
     saving: false, savingLayout: false,
+    // 我的硬件设备（注册引导可改，这里也可随时改；空 = 无硬件）
+    hwPicks: { uhf_reader: false, case_locator: false },
     // 布局
     rooms: [],           // 编辑副本 {idx,name,desc,spotsText,cells:[{x,y}]}（cells 空=在托盘）
     tiles: [],           // 网格方块（含走廊每格一段）{key,roomIdx,ci,name,emoji,corridor,px,py}
@@ -97,7 +99,11 @@ Page({
       agentStyle: p.agentStyle || '',
       habitsText: (p.habits || []).join('\n'),
       favsText: (p.favoritePlaces || []).join('\n'),
-      notes: p.notes || ''
+      notes: p.notes || '',
+      hwPicks: {
+        uhf_reader: (p.hardware || []).includes('uhf_reader'),
+        case_locator: (p.hardware || []).includes('case_locator')
+      }
     });
     this.renderLayout();
   },
@@ -110,6 +116,7 @@ Page({
   async saveBasic() {
     this.setData({ saving: true });
     try {
+      const hardware = Object.keys(this.data.hwPicks).filter((k) => this.data.hwPicks[k]);
       const d = await api.request('/auth/profile', {
         method: 'PUT',
         data: {
@@ -117,13 +124,19 @@ Page({
           agentStyle: this.data.agentStyle.trim(),
           habits: lines(this.data.habitsText),
           favoritePlaces: lines(this.data.favsText),
-          notes: this.data.notes.trim()
+          notes: this.data.notes.trim(),
+          hardware
         }
       });
       store.setUser(d.user);
       toast('画像已保存 ✓');
     } catch (e) { toast(e.message); }
     this.setData({ saving: false });
+  },
+
+  toggleHw(e) {
+    const key = e.currentTarget.dataset.key;
+    this.setData({ ['hwPicks.' + key]: !this.data.hwPicks[key] });
   },
 
   // ---------- 房间增删改 ----------

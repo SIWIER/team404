@@ -23,6 +23,11 @@
     <label>备注（度数 / 眼镜情况等）</label>
     <textarea class="input area-s" value="{{notes}}" data-k="notes" bindinput="onInput" />
   </view>
+  <view class="field">
+    <label>我的硬件设备（没有可不选；无硬件时推理会强化行为与历史证据）</label>
+    <view class="hw-opt {{hwPicks.uhf_reader ? 'on' : ''}}" data-key="uhf_reader" bindtap="toggleHw">📡 UHF 手持机（RFID 读取器）{{hwPicks.uhf_reader ? ' ✓' : ''}}</view>
+    <view class="hw-opt {{hwPicks.case_locator ? 'on' : ''}}" data-key="case_locator" bindtap="toggleHw">🎒 眼镜盒定位器{{hwPicks.case_locator ? ' ✓' : ''}}</view>
+  </view>
   <button class="btn btn-block" loading="{{saving}}" disabled="{{saving}}" bindtap="saveBasic">💾 保存画像</button>
 </view>
 

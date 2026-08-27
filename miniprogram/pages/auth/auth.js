@@ -118,7 +118,12 @@ Page({
       }
       store.setAuth(r.token, r.user);
       toast('微信登录成功，欢迎 ' + r.user.nickname + ' 👋');
-      wx.reLaunch({ url: '/pages/home/home' });
+      // 微信自动注册的新用户 → 跳转独立引导页询问"有无硬件设备"；老用户直接进首页
+      if (r.mode === 'autoRegister') {
+        wx.redirectTo({ url: '/pages/onboarding/onboarding' });
+      } else {
+        wx.reLaunch({ url: '/pages/home/home' });
+      }
     } catch (e) {
       const msg = e && e.message ? e.message : '微信登录失败';
       this.setData({ error: msg, wxBusy: false });
