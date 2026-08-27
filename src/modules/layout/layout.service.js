@@ -248,6 +248,8 @@ function normalizeLayout(raw) {
   };
 
   const corridorIdx = out.findIndex((r) => isCorridor(r.name));
+
+  // 3a) 声明连走廊的房间 → 贴到走廊旁
   if (corridorIdx >= 0) {
     const cCells = out[corridorIdx].cells;
     for (let i = 0; i < out.length; i++) {
@@ -257,6 +259,49 @@ function normalizeLayout(raw) {
       }
     }
   }
+
+  // 3b) 走廊门前让位：声明连走廊的房间若仍未贴到走廊旁，而走廊门前
+  //     被"未声明连走廊"的普通房间占着格 → 两者交换位置（套内空间不得挡住主房间的走廊门）
+  if (corridorIdx >= 0) {
+    const cCells = out[corridorIdx].cells;
+    const corridorFront = new Set();
+    for (const t of cCells) {
+      for (const d of DIRS) {
+        const nx = t.x + d.x;
+        const ny = t.y + d.y;
+        if (nx >= 0 && nx < GRID && ny >= 0 && ny < GRID) corridorFront.add(nx + ',' + ny);
+      }
+    }
+    const wantsCorridor = (r, i) => constraints[i].includes(corridorIdx);
+    for (let i = 0; i < out.length; i++) {
+      const r = out[i];
+      if (i === corridorIdx || !r.cells.length || isCorridor(r.name)) continue;
+      if (!wantsCorridor(r, i)) continue;
+      if (isNear(r.cells, cCells)) continue;                 // 已贴走廊
+      let donor = -1;
+      for (let j = 0; j < out.length; j++) {
+        const o = out[j];
+        if (j === corridorIdx || !o.cells.length || isCorridor(o.name)) continue;
+        if (wantsCorridor(o, j)) continue;
+        if (corridorFront.has(keyOf(o.cells[0]))) { donor = j; break; }
+      }
+      if (donor < 0) continue;
+      const donorCell = out[donor].cells[0];
+      const rCell = r.cells[0];
+      taken.delete(keyOf(donorCell));
+      taken.delete(keyOf(rCell));
+      taken.add(keyOf(donorCell));
+      taken.add(keyOf(rCell));
+      out[donor].cells = [rCell];
+      out[donor].x = rCell.x;
+      out[donor].y = rCell.y;
+      r.cells = [donorCell];
+      r.x = donorCell.x;
+      r.y = donorCell.y;
+    }
+  }
+
+  // 3c) 房间两两相邻约束：优先移动"不连走廊"的一方，保护主房间的走廊门
   for (let i = 0; i < out.length; i++) {
     const a = out[i];
     if (!a.cells.length || isCorridor(a.name)) continue;
@@ -265,7 +310,10 @@ function normalizeLayout(raw) {
       const b = out[j];
       if (!b.cells.length || isCorridor(b.name)) continue;
       if (isNear(a.cells, b.cells)) continue;
-      reloc(j, a.cells);
+      const bWantsCorridor = corridorIdx >= 0 && constraints[j].includes(corridorIdx);
+      const aWantsCorridor = corridorIdx >= 0 && constraints[i].includes(corridorIdx);
+      if (bWantsCorridor && !aWantsCorridor) { reloc(i, b.cells); }
+      else { reloc(j, a.cells); }
     }
   }
 
@@ -287,10 +335,17 @@ function buildVisionPrompt() {
 - 同名房间请自行编号区分（如两个卧室分别写 "卧室" 和 "卧室2"）
 - 最多识别 ${MAX_ROOMS} 个房间
 
-【相邻关系（重要：程序会按此校验并修正布局）】
-- 每个房间输出 adjacent 数组：列出与它共享墙/门、直接相邻的房间名（只写词表里的名字；不挨着的不要列）
+【相邻关系与动线（重要：程序会按此校验并修正布局）】
+- adjacent 列出的是"有门相通"的房间名（只写词表里的名字）；仅仅共墙但没有门的不要列
 - 两个互列 adjacent 的房间，其格子必须上下左右紧挨（曼哈顿距离为 1）
-- 与走廊相邻的房间，其格子必须紧挨走廊链的某一格；被走廊串联的房间请在 adjacent 里写上「走廊」
+- 与走廊相邻的房间，其格子必须紧挨走廊链的某一格
+- 【动线规则——先想清楚"人从走廊进入每个房间要经过哪扇门"，再写 adjacent】
+  1. 主房间（卧室/客厅/餐厅/厨房/书房等）的门通常直接开向走廊：这些房间的 adjacent 必须写上「走廊」
+  2. 套内卫生间（卧室自带的独立卫生间）：门开在卧室里、不直接通走廊 → 它只与卧室相邻
+     （adjacent 只写卧室），不要写「走廊」，不要挡在走廊和卧室之间
+  3. 公卫（走廊边的公用卫生间）：门开向走廊 → adjacent 写「走廊」
+  4. 衣帽间/储物间：通常从卧室或玄关进入，不走走廊门；阳台：从客厅或卧室进入
+  5. 一句话：走廊直接相连的一定是主房间；套内空间挂在主房间后面，形成"走廊→主房间→套内"的动线
 
 【输出格式】严格只输出一个 JSON 对象，不要 markdown 代码块，不要任何多余文字：
 {"rooms":[{"name":"房间名","cells":[{"x":0,"y":0}],"adjacent":["相邻房间名"],"desc":"可选的简短说明"}],"note":"一句话说明识别到的户型概况"}

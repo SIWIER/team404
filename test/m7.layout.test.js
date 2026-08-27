@@ -195,6 +195,39 @@ test('走廊链后输出也保持完整：抢占走廊格的房间改放走廊�
   assert.ok(d.some((x) => x === 1));
 });
 
+test('走廊门前让位：声明连走廊的主房间优先占走廊门，未声明的房间让位', () => {
+  const out = svc.normalizeLayout({ rooms: [
+    { name: '卫生间', cells: [{ x: 1, y: 0 }] },       // 占走廊门前，未声明连走廊
+    { name: '客厅', cells: [{ x: 0, y: 2 }] },
+    { name: '厨房', cells: [{ x: 1, y: 1 }] },
+    { name: '卧室', cells: [{ x: 5, y: 5 }], adjacent: ['走廊'] },
+    { name: '走廊', cells: [{ x: 0, y: 0 }, { x: 0, y: 1 }] }
+  ] });
+  const c = out.find((r) => r.name === '走廊');
+  const b = out.find((r) => r.name === '卧室');
+  const wc = out.find((r) => r.name === '卫生间');
+  const d = c.cells.map((cc) => Math.abs(b.cells[0].x - cc.x) + Math.abs(b.cells[0].y - cc.y));
+  assert.ok(d.some((x) => x === 1));                 // 卧室拿到了走廊门
+  assert.strictEqual(wc.cells[0].x, 5);              // 卫生间让位到卧室原位置
+  assert.strictEqual(wc.cells[0].y, 5);
+});
+
+test('套内卫生间挂在卧室后：动线为 走廊→卧室→卫生间，卫生间不挡走廊门', () => {
+  const out = svc.normalizeLayout({ rooms: [
+    { name: '卧室', cells: [{ x: 5, y: 5 }], adjacent: ['走廊', '卫生间'] },
+    { name: '卫生间', cells: [{ x: 5, y: 4 }], adjacent: ['卧室'] },   // 套内：只与卧室相连
+    { name: '走廊', cells: [{ x: 0, y: 0 }, { x: 0, y: 1 }] }
+  ] });
+  const c = out.find((r) => r.name === '走廊');
+  const b = out.find((r) => r.name === '卧室');
+  const wc = out.find((r) => r.name === '卫生间');
+  const nearC = (cells) => cells.some((x) => c.cells.some((cc) => Math.abs(x.x - cc.x) + Math.abs(x.y - cc.y) === 1));
+  assert.ok(nearC(b.cells));                          // 主房间直连走廊
+  assert.ok(!nearC(wc.cells));                        // 套内卫生间不占走廊门
+  assert.strictEqual(
+    Math.abs(b.cells[0].x - wc.cells[0].x) + Math.abs(b.cells[0].y - wc.cells[0].y), 1);  // 卫生间紧贴卧室
+});
+
 test('房间名别名对齐到标准词表', () => {
   assert.strictEqual(svc.alignRoomName('主卧'), '卧室');
   assert.strictEqual(svc.alignRoomName('洗手间'), '卫生间');
