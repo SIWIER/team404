@@ -234,7 +234,7 @@ test('家庭布局房间尺寸 w/h 保存并往返（仅提供时保留，夹在
   assert.strictEqual(hl[3].h, 7);  // 7.4 四舍五入
 });
 
-test('家庭布局房间家具 furn 保存并往返（非法/越界剔除，无 furn 省略）', async () => {
+test('家庭布局房间家具 furn 保存并往返（多格 cells 保留、非法/越界剔除、无 furn 省略）', async () => {
   const login = await req('/api/auth/login', { method: 'POST', body: { username: 'xiaoming', password: '123456' } });
   const token = login.json.token;
   const r = await req('/api/auth/profile', {
@@ -246,7 +246,13 @@ test('家庭布局房间家具 furn 保存并往返（非法/越界剔除，无 
         { name: '柜子', x: 0, y: 0 },
         { name: '', x: 3, y: 3 },          // 空名 → 剔除
         { name: '桌子', x: 99, y: 2 },     // 越界 → 剔除
-        { name: '架子', x: 1.6, y: 2.4 }   // 四舍五入 → (2,2)
+        { name: '架子', x: 1.6, y: 2.4 },  // 四舍五入 → (2,2)
+        { name: '书桌', x: 4, y: 4, cells: [   // 多格模块保留 cells
+          { x: 4, y: 4 }, { x: 5, y: 4 }, { x: 4, y: 5 }, { x: 5, y: 4 }
+        ] },                                 // 重复格 (5,4) 去重
+        { name: '壁橱', x: 0, y: 0, cells: [ // cells 覆盖 x/y 锚点
+          { x: 3, y: 3 }, { x: 3, y: 4 }
+        ] }
       ] },
       { name: '客厅', x: 1, y: 1 }         // 无 furn → 不返回 furn 字段
     ] }
@@ -254,10 +260,12 @@ test('家庭布局房间家具 furn 保存并往返（非法/越界剔除，无 
   assert.strictEqual(r.status, 200);
   const hl = r.json.user.profile.homeLayout;
   assert.deepStrictEqual(hl[0].furn, [
-    { name: '床', x: 1, y: 1 },
-    { name: '床', x: 2, y: 1 },
-    { name: '柜子', x: 0, y: 0 },
-    { name: '架子', x: 2, y: 2 }
+    { name: '床', x: 1, y: 1, cells: [{ x: 1, y: 1 }] },
+    { name: '床2', x: 2, y: 1, cells: [{ x: 2, y: 1 }] },   // 同名物件自动编号
+    { name: '柜子', x: 0, y: 0, cells: [{ x: 0, y: 0 }] },
+    { name: '架子', x: 2, y: 2, cells: [{ x: 2, y: 2 }] },
+    { name: '书桌', x: 4, y: 4, cells: [{ x: 4, y: 4 }, { x: 5, y: 4 }, { x: 4, y: 5 }] },
+    { name: '壁橱', x: 3, y: 3, cells: [{ x: 3, y: 3 }, { x: 3, y: 4 }] }
   ]);
   assert.strictEqual(hl[1].furn, undefined);
 });

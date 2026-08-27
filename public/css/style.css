@@ -123,6 +123,12 @@ textarea.input { min-height: 90px; resize: vertical; font-family: inherit; line-
 .tag-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0; }
 .tag { font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 999px; background: #eaf1ff; color: var(--brand); }
 .tag a { color: var(--brand); }
+.space-chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 11px; margin: 0 6px 6px 0; border-radius: 999px; border: 1px solid var(--line); background: var(--card); cursor: pointer; font-size: 13px; }
+.space-chip b { font-weight: 700; }
+.space-chip .space-act { font-style: normal; opacity: .7; cursor: pointer; padding: 0 2px; }
+.space-chip .space-act:hover { opacity: 1; }
+.space-chip.on { background: var(--brand); border-color: var(--brand); color: #fff; }
+.space-chip.on .space-act { color: #fff; }
 
 /* 家庭布局编辑 */
 .layout-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }

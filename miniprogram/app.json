@@ -3,6 +3,7 @@
     "pages/auth/auth",
     "pages/onboarding/onboarding",
     "pages/home/home",
+    "pages/layout/layout",
     "pages/reason/reason",
     "pages/data/data",
     "pages/hardware/hardware",
@@ -10,7 +11,7 @@
     "pages/layout-scan/layout-scan"
   ],
   "window": {
-    "navigationBarTitleText": "找眼镜助手",
+    "navigationBarTitleText": "物品数字化存放系统",
     "navigationBarBackgroundColor": "#3d7bfd",
     "navigationBarTextStyle": "white",
     "backgroundColor": "#eef3fb",

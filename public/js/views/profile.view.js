@@ -45,11 +45,12 @@ export function renderProfile(root) {
     <div class="card">
       <div class="layout-head">
         <div>
-          <div style="font-weight:800;font-size:17px;">🏠 家庭布局（辅助推理）</div>
-          <p class="hint" style="margin:2px 0 0;">填写你家有哪些房间、各房间常放眼镜的位置；同类房间可重复添加，自动编号区分（如 卧室2）</p>
+      <div style="font-weight:800;font-size:17px;">🗂 户型图（按目录管理）</div>
+          <p class="hint" style="margin:2px 0 0;">一个目录对应一个空间（家 / 公司 / 宿舍…），每个目录有独立的户型图；推理使用当前目录的户型。</p>
         </div>
         <button class="btn sm" id="p-save2">💾 保存布局</button>
       </div>
+      <div id="space-bar" style="margin-bottom:10px;"></div>
       <div id="layout-list"></div>
       <div class="btn-row" id="layout-presets"></div>
       <div id="layout-preview" style="margin-top:14px;"></div>
@@ -58,6 +59,83 @@ export function renderProfile(root) {
   root.querySelector('#p-save').onclick = () => saveBasic(root);
   root.querySelector('#p-save2').onclick = () => saveLayout(root);
   renderLayout(root);
+  renderSpaces(root);
+}
+
+// ---------- 目录（家/公司/宿舍…）管理 ----------
+function renderSpaces(root) {
+  const bar = root.querySelector('#space-bar');
+  if (!bar) return;
+  const p = store.user.profile;
+  const spaces = p.spaces || [];
+  if (!spaces.length) { bar.innerHTML = ''; return; }
+  bar.innerHTML = `
+    <span class="muted" style="font-size:12px;font-weight:600;">目录：</span>
+    ${spaces.map((s) => `
+      <span class="space-chip ${s.id === p.activeSpaceId ? 'on' : ''}" data-id="${s.id}">
+        <b data-id="${s.id}" title="切换到该目录">${esc(s.name)}</b>
+        ${s.id === p.activeSpaceId ? `<i class="space-act" data-act="rename" title="重命名">✎</i><i class="space-act" data-act="del" title="删除目录">✕</i>` : ''}
+      </span>`).join('')}
+    <button class="btn ghost sm" id="space-add">＋ 新建目录</button>`;
+  bar.querySelectorAll('b[data-id]').forEach((el) => {
+    el.onclick = () => switchSpace(root, Number(el.dataset.id));
+  });
+  bar.querySelectorAll('.space-act').forEach((el) => {
+    el.onclick = (e) => {
+      e.stopPropagation();
+      const id = Number(el.closest('.space-chip').dataset.id);
+      if (el.dataset.act === 'rename') renameSpace(root, id);
+      else deleteSpace(root, id);
+    };
+  });
+  bar.querySelector('#space-add').onclick = () => addSpace(root);
+}
+
+async function switchSpace(root, id) {
+  if (id === store.user.profile.activeSpaceId) return;
+  try {
+    const d = await api('/spaces/' + id + '/active', { method: 'PUT' });
+    store.setUser(d.user);
+    renderProfile(root);
+    const name = (d.user.profile.spaces || []).find((s) => s.id === id);
+    toast('已切换到「' + (name ? name.name : '') + '」');
+  } catch (e) { toast(e.message); }
+}
+
+async function addSpace(root) {
+  const name = (window.prompt('新建目录名称（如：家 / 公司 / 宿舍）') || '').trim();
+  if (!name) return;
+  try {
+    const d = await api('/spaces', { method: 'POST', body: { name } });
+    const fresh = await api('/auth/me');
+    store.setUser(fresh.user);
+    renderProfile(root);
+    toast('已创建并切换到「' + d.space.name + '」');
+  } catch (e) { toast(e.message); }
+}
+
+async function renameSpace(root, id) {
+  const cur = (store.user.profile.spaces || []).find((s) => s.id === id);
+  const name = (window.prompt('重命名目录', cur ? cur.name : '') || '').trim();
+  if (!name) return;
+  try {
+    await api('/spaces/' + id, { method: 'PUT', body: { name } });
+    const fresh = await api('/auth/me');
+    store.setUser(fresh.user);
+    renderProfile(root);
+    toast('已重命名');
+  } catch (e) { toast(e.message); }
+}
+
+async function deleteSpace(root, id) {
+  if (!window.confirm('删除该目录会一并删除其户型图，确定？')) return;
+  try {
+    await api('/spaces/' + id, { method: 'DELETE' });
+    const fresh = await api('/auth/me');
+    store.setUser(fresh.user);
+    renderProfile(root);
+    toast('目录已删除');
+  } catch (e) { toast(e.message); }
 }
 
 // ---------- 基础画像保存 ----------
@@ -102,12 +180,22 @@ function renderLayout(root) {
         <div class="room-card-row">
           <input class="input" data-i="${i}" data-k="spots" value="${esc((r.spots || []).join('，'))}" placeholder="常放眼镜的位置，用逗号分隔（如：床头柜，书桌/电脑桌，窗台）">
         </div>
+        <div class="btn-row" style="margin-top:8px;">
+          <button class="btn ghost sm room-mod" data-i="${i}" ${(r.cells || []).length ? '' : 'disabled'} title="编辑房间内部模块（书桌/书架/壁橱…）">🧩 内部模块${(r.furn || []).length ? `（${r.furn.length}）` : ''}</button>
+        </div>
       </div>`).join('');
   }
 
   // 事件绑定
   list.querySelectorAll('.room-del').forEach((btn) => {
     btn.onclick = () => { layout.splice(Number(btn.dataset.i), 1); renderLayout(root); };
+  });
+  list.querySelectorAll('.room-mod').forEach((btn) => {
+    btn.onclick = () => {
+      const i = Number(btn.dataset.i);
+      const room = layout[i];
+      if (room && (room.cells || []).length) openRoomEditor(root, i);
+    };
   });
   list.querySelectorAll('input[data-k]').forEach((inp) => {
     const commit = () => {

@@ -112,6 +112,22 @@ const MIGRATIONS = [
     // 注册时的"有无硬件设备"提问：用户拥有的设备清单（JSON 数组，如 ["uhf_reader","case_locator"]）
     // 空数组/未填 = 无硬件（推理引擎启用无硬件补偿）
     up: `ALTER TABLE profiles ADD COLUMN hardware TEXT;`
+  },
+  {
+    version: 9,
+    name: 'spaces-directories',
+    // 物品管理目录：每个用户可有多个空间（家/公司/宿舍…），每个空间独立户型图
+    // 存量数据自动回填：为每个已有画像的用户建默认空间「家」，并把原 home_layout 迁入
+    up(db) {
+      db.exec("CREATE TABLE spaces (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, name TEXT NOT NULL, sort_order INTEGER NOT NULL DEFAULT 0, layout TEXT NOT NULL DEFAULT '[]', created_at TEXT NOT NULL, updated_at TEXT NOT NULL, FOREIGN KEY(user_id) REFERENCES users(id), UNIQUE(user_id, name)); ALTER TABLE profiles ADD COLUMN active_space_id INTEGER;");
+      const ts = new Date().toISOString();
+      const rows = db.prepare('SELECT user_id, home_layout FROM profiles').all();
+      const ins = db.prepare('INSERT INTO spaces (user_id, name, sort_order, layout, created_at, updated_at) VALUES (?,?,?,?,?,?)');
+      for (const r of rows) {
+        const info = ins.run(r.user_id, '家', 0, r.home_layout || '[]', ts, ts);
+        db.prepare('UPDATE profiles SET active_space_id = ? WHERE user_id = ?').run(Number(info.lastInsertRowid), r.user_id);
+      }
+    }
   }
   // 后续模块在此追加 v9、v10…
 ];
@@ -129,7 +145,11 @@ function init() {
     if (m.version > current) {
       db.exec('BEGIN');
       try {
+      if (typeof m.up === 'function') {
+        m.up(db);
+      } else {
         db.exec(m.up);
+      }
         db.prepare('INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value')
           .run('schema_version', String(m.version));
         db.exec('COMMIT');

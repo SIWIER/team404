@@ -20,6 +20,7 @@ const hardwareRoutes = require('./src/modules/hardware/hardware.routes');
 const layoutRoutes = require('./src/modules/layout/layout.routes');
 const hardware = require('./src/modules/hardware/hardware.service');
 const accounts = require('./src/modules/accounts/accounts.service');
+const spacesRoutes = require('./src/modules/spaces/spaces.routes');
 
 // ---------- 初始化 ----------
 initDb();
@@ -35,6 +36,7 @@ reasonRoutes.registerRoutes(router);
 dataRoutes.registerRoutes(router);
 hardwareRoutes.registerRoutes(router);
 layoutRoutes.registerRoutes(router);
+spacesRoutes.registerRoutes(router);
 
 // 静态资源（public/）
 const PUBLIC = path.join(config.root, 'public');
@@ -82,7 +84,7 @@ server.on('upgrade', (req, socket) => {
 
 server.listen(config.port, () => {
   logger.info('============================================');
-  logger.info('  👓 找眼镜助手 · 正式版服务已启动');
+  logger.info('  📦 物品数字化存放系统 · 服务已启动');
   logger.info(`  地址：http://localhost:${config.port}`);
   logger.info('  演示账号：xiaoming / 123456（或 xiaohong / 123456）');
   logger.info('============================================');

@@ -4,9 +4,9 @@
 <!-- 未配置视觉模型：降级提示 -->
 <view class="card notice" wx:if="{{!checking && !visionEnabled}}">
   <view class="notice-t">⚠️ 后端未配置视觉模型</view>
-  <view class="hint">识别功能暂不可用（需在后端 .env 配置 LLM_VISION_* ）。你仍可在画像页手动拖拽摆放户型，功能不受影响。</view>
+  <view class="hint">识别功能暂不可用（需在后端 .env 配置 LLM_VISION_* ）。你仍可在「户型图配置」页手动拖拽摆放户型，功能不受影响。</view>
   <view class="btn-row" style="justify-content:center;">
-    <button class="btn ghost sm" bindtap="goProfile">→ 去手动编辑户型</button>
+    <button class="btn ghost sm" bindtap="goLayout">→ 去手动编辑户型</button>
   </view>
 </view>
 
@@ -64,12 +64,12 @@
     </view>
   </view>
 
-  <view class="hint">识别结果可能有偏差，应用后可在画像页手动拖拽调整每个房间的位置。</view>
+  <view class="hint">识别结果可能有偏差，应用后可在「户型图配置」页手动拖拽调整每个房间的位置。</view>
   <button class="btn btn-block" loading="{{applying}}" disabled="{{applying}}" bindtap="applyLayout">✅ 应用到我的户型图</button>
 </view>
 
 <view class="privacy-note">🔒 照片仅用于本次识别：上传的图片只在内存中转发给识别模型，不会保存到服务器，也不会存进数据库。</view>
 
 <view style="padding: 16rpx 32rpx 60rpx; text-align: center;">
-  <button class="btn ghost" bindtap="goProfile">← 返回画像页</button>
+  <button class="btn ghost" bindtap="goLayout">← 返回户型图配置</button>
 </view>

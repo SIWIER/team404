@@ -1,0 +1,262 @@
+/* pages/layout/layout.wxss — 户型图配置页样式（风格对齐全局） */
+.area-s { min-height: 110rpx; }
+
+/* 目录（家/公司/宿舍…） */
+.space-bar { margin-bottom: 20rpx; padding-bottom: 16rpx; border-bottom: 1rpx dashed #e3e9f2; }
+.space-title { font-size: 26rpx; font-weight: 800; margin-bottom: 12rpx; }
+.space-scroll { white-space: nowrap; margin-bottom: 12rpx; }
+.space-chip {
+  display: inline-block; padding: 8rpx 24rpx; margin-right: 12rpx;
+  border: 1rpx solid #d8e2f5; border-radius: 999rpx;
+  background: #fff; color: #1f2b3a; font-size: 26rpx; font-weight: 600;
+}
+.space-chip.on { background: #3d7bfd; border-color: #3d7bfd; color: #fff; }
+.space-ops { display: flex; gap: 12rpx; flex-wrap: wrap; }
+
+/* 预设房间托盘（直接拖进网格创建） */
+.palette { margin-bottom: 20rpx; }
+.palette-title { font-size: 24rpx; color: #7b8794; margin-bottom: 12rpx; }
+.palette-chips { display: flex; flex-wrap: wrap; gap: 12rpx; }
+.palette-chip {
+  display: inline-flex; align-items: center; gap: 6rpx;
+  border: 2rpx solid #3d7bfd; background: #eef4ff; color: #3d7bfd; border-radius: 999rpx;
+  padding: 10rpx 22rpx; font-size: 26rpx; font-weight: 700;
+}
+.palette-chip.custom { border-style: dashed; background: #fff; }
+.pc-emoji { font-size: 30rpx; }
+
+/* 户型图（自研触摸拖拽，位置由数据单一来源计算） */
+.floor-wrap { margin-top: 8rpx; }
+.floor-tip {
+  background: #eaf1ff; color: #3d5b9e; font-size: 24rpx;
+  border-radius: 12rpx; padding: 14rpx 20rpx; margin-bottom: 16rpx; line-height: 1.5;
+}
+.floor-tip.size { background: #fff7e8; color: #8a5b16; border: 1rpx solid #ffe0a8; }
+.ext-cand {
+  position: absolute; box-sizing: border-box; z-index: 5;
+  border: 2rpx dashed #22b07d; background: rgba(34, 176, 125, 0.14);
+  color: #22b07d; font-size: 36rpx; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  animation: cand-pulse 1.2s ease-in-out infinite;
+}
+@keyframes cand-pulse { 50% { background: rgba(34, 176, 125, 0.26); } }
+.floor-area {
+  margin: 0 auto; background: #f7f9fc;
+  border: 2rpx dashed #c3cede; border-radius: 12rpx;
+  position: relative; overflow: hidden;
+}
+.grid-cell {
+  position: absolute; box-sizing: border-box;
+  border: 1rpx dashed #d5ddeb; background: #fdfeff;
+}
+.floor-tile {
+  position: absolute; box-sizing: border-box;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  z-index: 1;
+}
+.floor-tile.dragging {
+  z-index: 10;
+  box-shadow: 0 8rpx 24rpx rgba(61, 123, 253, 0.35);
+  transform: scale(1.08);
+}
+.floor-tile.cor-seg {
+  background: #fff7e8; border: 2rpx dashed #ffce8a;
+}
+.floor-tile.ext-sel {
+  box-shadow: 0 0 0 3rpx rgba(61, 123, 253, 0.5);
+}
+.tile-x {
+  position: absolute; top: 0; right: 4rpx;
+  font-size: 20rpx; color: #ff7a59; line-height: 1; padding: 4rpx; opacity: 0.75;
+}
+.tile-shrink {
+  position: absolute; top: 0; right: 4rpx;
+  width: 28rpx; height: 28rpx; line-height: 28rpx; text-align: center;
+  border-radius: 50%; background: #e85d5d; color: #fff;
+  font-size: 22rpx; font-weight: 800; opacity: 0.9;
+}
+.tile-emoji { font-size: 34rpx; }
+.tile-name { font-size: 18rpx; font-weight: 700; max-width: 100%; overflow: hidden; white-space: nowrap; }
+
+/* 房间名悬浮标签 */
+.room-label {
+  position: absolute; z-index: 4; transform: translate(-50%, -50%);
+  background: rgba(255, 255, 255, 0.85); border-radius: 999rpx;
+  padding: 2rpx 10rpx; font-size: 20rpx; font-weight: 800; color: #1f2b3a;
+  white-space: nowrap; pointer-events: none;
+  box-shadow: 0 2rpx 8rpx rgba(40, 60, 110, 0.15);
+}
+
+/* 拖拽幽灵方块（跟手） */
+.drag-ghost {
+  position: fixed; z-index: 999; pointer-events: none;
+  background: #fff; border: 2rpx solid #3d7bfd; border-radius: 10rpx;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  opacity: 0.92; box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.18);
+  box-sizing: border-box;
+}
+
+/* 房间编辑卡片（只留名称 + 模块入口） */
+.empty-layout {
+  color: #7b8794; font-size: 24rpx; padding: 28rpx; text-align: center;
+  border: 2rpx dashed #d5ddeb; border-radius: 16rpx; margin: 20rpx 0;
+}
+.room-card {
+  border: 1rpx solid #e3e9f2; border-radius: 16rpx; padding: 20rpx;
+  margin-bottom: 16rpx; background: #fbfdff;
+  display: flex; flex-direction: column; gap: 14rpx;
+}
+.room-top { display: flex; align-items: center; gap: 12rpx; }
+.room-emoji { font-size: 40rpx; flex-shrink: 0; }
+.room-name { flex: 1; }
+.room-del { color: #ff7a59; font-size: 32rpx; padding: 8rpx 12rpx; }
+.room-mod-btn {
+  flex-shrink: 0; padding: 12rpx 16rpx; text-align: center;
+  background: #f5f8ff; border: 1rpx solid #d8e2f5; border-radius: 10rpx;
+  font-size: 24rpx; color: #3d7bfd; font-weight: 600;
+}
+
+/* 移出待放托盘 */
+.tray { margin-top: 20rpx; }
+.tray-title { font-size: 24rpx; color: #7b8794; margin-bottom: 12rpx; }
+.tray-chips { display: flex; flex-wrap: wrap; gap: 12rpx; }
+.tray-chip {
+  display: inline-flex; align-items: center; gap: 4rpx;
+  border: 2rpx dashed #c3cede; background: #fff; border-radius: 999rpx;
+  padding: 10rpx 22rpx; font-size: 24rpx; font-weight: 600;
+}
+.tray-del { color: #ff7a59; font-weight: 800; }
+
+/* 房间"内有模块"角标 */
+.tile-furn {
+  position: absolute; top: -8rpx; right: -8rpx; z-index: 3;
+  font-size: 20rpx; background: #fff; border-radius: 999rpx;
+  padding: 0 4rpx; box-shadow: 0 2rpx 6rpx rgba(0, 0, 0, 0.15);
+}
+
+/* 房间内部模块（家具）编辑器（与户型图一致的拖拽 + 自由编辑大小） */
+.furn-mask {
+  position: fixed; left: 0; top: 0; right: 0; bottom: 0; z-index: 200;
+  background: rgba(20, 30, 50, 0.55);
+  display: flex; align-items: center; justify-content: center;
+}
+.furn-panel {
+  width: 92%; max-height: 86vh; overflow-y: auto;
+  background: #fff; border-radius: 20rpx; padding: 24rpx;
+  box-sizing: border-box;
+}
+.furn-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14rpx; }
+.furn-title { font-size: 30rpx; font-weight: 800; }
+.furn-close { font-size: 32rpx; color: #8a94a6; padding: 4rpx 12rpx; }
+
+/* 模块托盘（直接拖进画布创建） */
+.furn-palette { display: flex; flex-wrap: wrap; gap: 12rpx; margin-bottom: 14rpx; }
+.furn-chip {
+  display: inline-flex; align-items: center; gap: 6rpx;
+  border: 2rpx solid #22b07d; background: #eaf7ed; color: #22b07d; border-radius: 999rpx;
+  padding: 8rpx 20rpx; font-size: 24rpx; font-weight: 700;
+}
+.fc-emoji { font-size: 28rpx; }
+
+.furn-tip {
+  background: #eaf1ff; color: #3d5b9e; font-size: 24rpx;
+  border-radius: 12rpx; padding: 12rpx 18rpx; margin-bottom: 14rpx; line-height: 1.5;
+}
+.furn-tip.size { background: #fff7e8; color: #8a5b16; border: 1rpx solid #ffe0a8; }
+
+.furn-area {
+  position: relative; margin: 0 auto 14rpx;
+  background: #f7fafd; border: 1rpx solid #e3e9f2; border-radius: 10rpx;
+  overflow: hidden;
+}
+.furn-cell {
+  position: absolute; box-sizing: border-box;
+  border: 1rpx dashed #dde5f0; background: #fdfeff;
+}
+/* 房间外轮廓辅助线（编辑房间内部时，从户型图带入，等比放大只描外圈线条） */
+.room-edge {
+  position: absolute; box-sizing: border-box; z-index: 3;
+  background: rgba(61, 123, 253, 0.85);
+  border-radius: 2rpx;
+  pointer-events: none;
+}
+.furn-tile {
+  position: absolute; box-sizing: border-box;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  z-index: 1;
+}
+.furn-tile.dragging {
+  z-index: 10;
+  box-shadow: 0 8rpx 24rpx rgba(34, 176, 125, 0.35);
+  transform: scale(1.08);
+}
+.furn-tile.furn-sel {
+  box-shadow: 0 0 0 3rpx rgba(34, 176, 125, 0.55);
+}
+.furn-cand {
+  position: absolute; box-sizing: border-box; z-index: 5;
+  border: 2rpx dashed #22b07d; background: rgba(34, 176, 125, 0.14);
+  color: #22b07d; font-size: 26rpx; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  animation: cand-pulse 1.2s ease-in-out infinite;
+}
+.furn-label {
+  position: absolute; z-index: 4; transform: translate(-50%, -50%);
+  background: rgba(255, 255, 255, 0.85); border-radius: 999rpx;
+  padding: 1rpx 8rpx; font-size: 16rpx; font-weight: 800; color: #1f2b3a;
+  white-space: nowrap; pointer-events: none;
+  box-shadow: 0 2rpx 6rpx rgba(40, 60, 110, 0.15);
+}
+
+/* 放大轮廓辅助线（编辑大小模式）：选中房间/模块的虚线包围盒 + 尺寸标注 */
+.size-guide {
+  position: absolute; z-index: 6; box-sizing: border-box;
+  border: 2rpx dashed #3d7bfd; border-radius: 6rpx;
+  pointer-events: none;
+  animation: guide-pulse 1.4s ease-in-out infinite;
+}
+.size-guide.furn { border-color: #22b07d; }
+@keyframes guide-pulse { 50% { border-color: #22b07d; } }
+.size-guide-tag {
+  position: absolute; left: 0; top: calc(100% + 6rpx);
+  background: rgba(31, 43, 58, 0.85); color: #fff;
+  font-size: 18rpx; font-weight: 700;
+  padding: 3rpx 12rpx; border-radius: 999rpx; white-space: nowrap;
+  line-height: 1.4;
+}
+.size-guide-tag.above { top: auto; bottom: calc(100% + 6rpx); }
+
+/* 已放置模块清单 */
+.furn-list { margin: 4rpx 0 14rpx; }
+.furn-row {
+  display: flex; align-items: center; gap: 10rpx;
+  padding: 12rpx 16rpx; margin-bottom: 10rpx;
+  border: 1rpx solid #e3e9f2; border-radius: 12rpx; background: #fbfdff;
+}
+.furn-row-name { flex: 1; font-size: 26rpx; font-weight: 700; }
+.furn-row-cells {
+  display: inline-block; margin-left: 10rpx; font-size: 20rpx; font-weight: 600;
+  padding: 2rpx 12rpx; border-radius: 999rpx; background: #eaf7ed; color: #22b07d;
+}
+
+.furn-actions { display: flex; gap: 12rpx; flex-wrap: wrap; }
+
+/* 隐私说明 */
+.privacy-note {
+  margin: 24rpx; padding: 20rpx 24rpx;
+  background: #eef7f2; border: 1rpx solid #cfe8dc; color: #3d7a5a;
+  border-radius: 16rpx; font-size: 24rpx; line-height: 1.6;
+}
+
+/* 底部固定操作栏 */
+page { padding-bottom: 220rpx; }
+.layout-actions {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 100;
+  display: flex; gap: 16rpx; padding: 16rpx 24rpx calc(16rpx + env(safe-area-inset-bottom));
+  background: rgba(255, 255, 255, 0.97);
+  border-top: 1rpx solid #eef1f6;
+  box-shadow: 0 -6rpx 24rpx rgba(40, 60, 110, 0.12);
+}
+.layout-actions .btn.act { flex: 1; padding: 26rpx 0; font-size: 28rpx; }
+.layout-actions .btn.act.ghost { border: 1rpx solid #d8e2f5; }
+.btn.warn-ghost { background: #fff; color: #e85d5d; border: 1rpx solid #f3c9d0; box-shadow: none; }

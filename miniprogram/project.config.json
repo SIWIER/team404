@@ -1,5 +1,5 @@
 {
-  "description": "找眼镜助手微信小程序（后端复用 find-my-glasses-pro 服务）",
+  "description": "物品数字化存放系统微信小程序（后端复用 find-my-glasses-pro 服务）",
   "packOptions": {
     "ignore": [],
     "include": []
@@ -32,7 +32,7 @@
   },
   "compileType": "miniprogram",
   "libVersion": "3.4.10",
-  "appid": "wxf36df5e3108c220b",
+  "appid": "touristappid",
   "projectname": "find-my-glasses-mp",
   "condition": {},
   "simulatorPluginLibVersion": {},

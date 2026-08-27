@@ -179,7 +179,7 @@ Page({
       });
       store.setUser(d.user);
       toast('户型已应用 ✓');
-      setTimeout(() => wx.reLaunch({ url: '/pages/profile/profile' }), 800);
+      setTimeout(() => wx.reLaunch({ url: '/pages/layout/layout' }), 800);
     } catch (e) {
       toast(e.message);
     }
@@ -194,7 +194,7 @@ Page({
     if (this.data.imgPath) wx.previewImage({ urls: [this.data.imgPath] });
   },
 
-  goProfile() {
-    wx.reLaunch({ url: '/pages/profile/profile' });
+  goLayout() {
+    wx.reLaunch({ url: '/pages/layout/layout' });
   }
 });

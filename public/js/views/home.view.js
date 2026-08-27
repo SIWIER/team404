@@ -99,7 +99,8 @@ export function renderHome(root) {
         <div class="tag-list">${habits}</div>
         <div class="muted" style="font-size:12px;font-weight:600;margin-top:8px;">常用放眼镜地点</div>
         <div class="tag-list">${favs}</div>
-        <div class="muted" style="font-size:12px;font-weight:600;margin-top:8px;">🏠 家庭户型（辅助推理）</div>
+        <div id="home-space-bar" style="margin:10px 0 4px;"></div>
+        <div class="muted" style="font-size:12px;font-weight:600;">🏠 家庭户型（辅助推理）</div>
         <div class="tag-list">${layoutHtml}</div>
         ${floorHtml}
       </div>
@@ -124,6 +125,35 @@ export function renderHome(root) {
     </div>`;
 
   bindFloorCells(root, layout);
+  bindSpaceBar(root);
+}
+
+// ---------- 目录（家/公司/宿舍…）切换 ----------
+function bindSpaceBar(root) {
+  const bar = root.querySelector('#home-space-bar');
+  if (!bar) return;
+  const p = store.user.profile;
+  const spaces = p.spaces || [];
+  if (!spaces.length) { bar.innerHTML = ''; return; }
+  if (spaces.length === 1) {
+    bar.innerHTML = `<span class="muted" style="font-size:12px;">当前目录：<b>${esc(spaces[0].name)}</b>（在画像页可新建家/公司/宿舍等目录）</span>`;
+    return;
+  }
+  bar.innerHTML = '<span class="muted" style="font-size:12px;font-weight:600;">目录：</span>' +
+    spaces.map((s) => `<button class="space-chip ${s.id === p.activeSpaceId ? 'on' : ''}" data-id="${s.id}">${esc(s.name)}</button>`).join('');
+  bar.querySelectorAll('button[data-id]').forEach((el) => {
+    el.onclick = async () => {
+      const id = Number(el.dataset.id);
+      if (id === store.user.profile.activeSpaceId) return;
+      try {
+        const d = await api('/spaces/' + id + '/active', { method: 'PUT' });
+        store.setUser(d.user);
+        renderHome(root);
+        const name = (d.user.profile.spaces || []).find((s) => s.id === id);
+        toast('已切换到「' + (name ? name.name : '') + '」');
+      } catch (e) { toast(e.message); }
+    };
+  });
 }
 
 // ---------- 房间细致布局（家具级搜查） ----------

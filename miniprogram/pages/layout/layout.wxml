@@ -1,0 +1,189 @@
+<view class="page-title">🏠 户型图配置</view>
+<view class="page-sub">直接拖拽房间方块到网格中布置；点房间可展开内部模块（书桌/书架/壁橱…）</view>
+
+<view class="card">
+  <!-- 目录：每个目录一套户型图 -->
+  <view class="space-bar">
+    <view class="space-title">🗂 目录（每个目录一套户型图，如 家 / 公司 / 宿舍）</view>
+    <scroll-view scroll-x class="space-scroll" wx:if="{{spaces.length}}">
+      <view class="space-chip {{activeSpaceId === item.id ? 'on' : ''}}" wx:for="{{spaces}}" wx:key="id"
+            data-id="{{item.id}}" bindtap="switchSpace">{{item.name}}</view>
+    </scroll-view>
+    <view class="space-ops">
+      <button class="btn ghost sm" bindtap="addSpace">＋ 新建目录</button>
+      <button class="btn ghost sm" bindtap="renameSpace">✎ 重命名</button>
+      <button class="btn ghost sm warn" bindtap="deleteSpace">🗑 删除</button>
+    </view>
+  </view>
+
+  <!-- 预设房间托盘：直接拖进网格 = 自动创建摆放；点一下 = 放入第一个空位 -->
+  <view class="palette">
+    <view class="palette-title">👆 按住房间拖进网格直接放置（点一下 = 放入第一个空位）：</view>
+    <view class="palette-chips">
+      <view class="palette-chip" wx:for="{{presets}}" wx:key="name" data-name="{{item.name}}"
+            bindtap="onPaletteTap" bindtouchstart="onPaletteTouchStart" catchtouchmove="onPaletteTouchMove" bindtouchend="onPaletteTouchEnd">
+        <text class="pc-emoji">{{item.emoji}}</text>{{item.name}}
+      </view>
+      <view class="palette-chip custom" bindtap="addCustom">＋ 自定义</view>
+    </view>
+  </view>
+
+  <!-- 户型图网格 -->
+  <view class="floor-wrap">
+    <view class="floor-tip size" wx:if="{{sizeMode}}">📐 编辑大小：点房间选中，点 ＋ 加格、点 − 减格（至少保留一格），完成后点下方「完成编辑大小」</view>
+    <view class="floor-tip" wx:else>👆 网格中的房间可按住拖动换位；点房间进入内部模块（🧩）；点 ✕ 移出网格</view>
+    <view class="floor-area" style="width:{{grid.area}}px;height:{{grid.area}}px;">
+      <view class="grid-cell" wx:for="{{grid.cells}}" wx:key="index"
+            style="left:{{item.x}}px;top:{{item.y}}px;width:{{grid.cell}}px;height:{{grid.cell}}px;"></view>
+      <view class="floor-tile {{item.corridor ? 'cor-seg' : ''}} {{item.selected ? 'ext-sel' : ''}} {{drag.idx === item.roomIdx ? 'dragging' : ''}}"
+            wx:for="{{tiles}}" wx:key="key"
+            style="left:{{item.px}}px;top:{{item.py}}px;width:{{grid.cell}}px;height:{{grid.cell}}px;background:{{item.bg}};{{item.borderStyle}};transform:translate({{drag.idx === item.roomIdx ? drag.dx : 0}}px,{{drag.idx === item.roomIdx ? drag.dy : 0}}px);"
+            data-idx="{{item.roomIdx}}" data-ci="{{item.ci}}"
+            bindtouchstart="onTileTouchStart" catchtouchmove="onTileTouchMove" bindtouchend="onTileTouchEnd"
+            bindtap="onTileTap">
+        <view class="tile-x" wx:if="{{item.showX}}" data-idx="{{item.roomIdx}}" data-ci="{{item.ci}}" catchtap="removeFromGrid">✕</view>
+        <view class="tile-furn" wx:if="{{item.hasFurn}}">🧩</view>
+        <view class="tile-shrink" wx:if="{{item.shrinkBadge}}" data-idx="{{item.roomIdx}}" data-ci="{{item.ci}}" catchtap="onRemoveCell">−</view>
+        <view class="tile-emoji">{{item.emoji}}</view>
+      </view>
+      <!-- ＋ 候选格（编辑大小模式） -->
+      <view class="ext-cand" wx:for="{{sizeCands}}" wx:key="index"
+            style="left:{{item.px}}px;top:{{item.py}}px;width:{{grid.cell}}px;height:{{grid.cell}}px;"
+            data-x="{{item.x}}" data-y="{{item.y}}" catchtap="onAddCell">＋</view>
+      <!-- 房间名悬浮标签：不受格子宽度裁切，完整显示 -->
+      <view class="room-label" wx:for="{{roomLabels}}" wx:key="key"
+            style="left:{{item.cx}}px;top:{{item.cy}}px;">{{item.text}}</view>
+      <!-- 放大轮廓辅助线（编辑大小模式）：虚线包围盒 + 尺寸标注 -->
+      <view wx:if="{{sizeGuide.show}}" class="size-guide" style="left:{{sizeGuide.x}}px;top:{{sizeGuide.y}}px;width:{{sizeGuide.w}}px;height:{{sizeGuide.h}}px;">
+        <view class="size-guide-tag {{sizeGuide.tagBelow ? '' : 'above'}}">{{sizeGuide.text}}</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 房间编辑列表（只留名称；描述与常用存放位置在「模块」浮层里） -->
+  <view class="empty-layout" wx:if="{{!rooms.length}}">还没有房间：把上方房间方块拖进网格即可创建 👆</view>
+  <view class="room-card" wx:for="{{rooms}}" wx:key="idx">
+    <view class="room-top">
+      <text class="room-emoji">{{item.emoji || '🏠'}}</text>
+      <input class="input room-name" value="{{item.name}}" data-idx="{{item.idx}}" data-k="name" bindinput="onRoomInput" placeholder="房间名（如 卧室 / 阳台）" />
+      <view class="room-mod-btn" data-idx="{{item.idx}}" bindtap="openFurnFromCard">🧩 模块{{item.furn.length ? ' ' + item.furn.length : ''}}</view>
+      <view class="room-del" data-idx="{{item.idx}}" bindtap="removeRoom">✕</view>
+    </view>
+  </view>
+
+  <!-- 移出待放托盘 -->
+  <view class="tray" wx:if="{{unplaced.length}}">
+    <view class="tray-title">移出的房间（按住拖回网格，或点 ✕ 删除）：</view>
+    <view class="tray-chips">
+      <view class="tray-chip" wx:for="{{unplaced}}" wx:key="idx" data-idx="{{item.idx}}"
+            bindtap="onTrayTap" bindtouchstart="onTrayTouchStart" catchtouchmove="onTrayTouchMove" bindtouchend="onTrayTouchEnd">
+        <text class="pc-emoji">{{item.emoji}}</text>{{item.name}}
+        <text class="tray-del" data-idx="{{item.idx}}" catchtap="removeRoom"> ✕</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="btn-row" style="justify-content:center;">
+    <button class="btn ghost sm" bindtap="applyTemplate">🏠 生成标准户型</button>
+    <button class="btn ghost sm" bindtap="toggleSize">{{sizeMode ? '✅ 完成编辑大小' : '📐 编辑大小'}}</button>
+  </view>
+  <view class="hint">「生成标准户型」会把房间围绕走廊摆放、彼此相连；相邻格 = 相邻房间，影响推理的「距离远近」权重。</view>
+</view>
+
+<!-- 房间内部模块（家具）编辑器：与户型图一致的拖拽 + 自由编辑大小 -->
+<view wx:if="{{furnEditor.show}}" class="furn-mask" catchtouchmove="noop">
+  <view class="furn-panel">
+    <view class="furn-head">
+      <text class="furn-title">🧩 {{furnEditor.roomName}} · 内部模块</text>
+      <view class="furn-close" bindtap="closeFurnEditor">✕</view>
+    </view>
+    <view class="field">
+      <label>房间描述（可选）</label>
+      <textarea class="input area-s" value="{{furnEditor.desc}}" data-k="desc" bindinput="onFurnInput" placeholder="例如：靠窗有书桌，柜子在进门右手边" />
+    </view>
+    <view class="field">
+      <label>常用存放位置（可选，逗号分隔）</label>
+      <input class="input" value="{{furnEditor.spotsText}}" data-k="spotsText" bindinput="onFurnInput" placeholder="例如：书桌抽屉，书架第二层" />
+    </view>
+
+    <!-- 模块托盘：按住拖进画布 = 自动创建摆放；点一下 = 放入第一个空位 -->
+    <view class="furn-palette">
+      <view class="furn-chip" wx:for="{{furnEditor.palette}}" wx:key="name" data-name="{{item.name}}"
+            bindtap="onFurnChipTap" bindtouchstart="onFurnChipTouchStart" catchtouchmove="onFurnChipTouchMove" bindtouchend="onFurnChipTouchEnd">
+        <text class="fc-emoji">{{item.emoji}}</text>{{item.name}}
+      </view>
+    </view>
+
+    <view class="furn-tip" wx:if="{{furnEditor.sizeMode}}">📐 编辑大小：点模块选中，点 ＋ 加格、点 − 减格（至少保留一格）</view>
+    <view class="furn-tip" wx:else>👆 按住上方模块拖进画布放置；画布内可拖动换位，点 ✕ 删除</view>
+
+    <view class="furn-area" style="width:{{furnEditor.area}}px;height:{{furnEditor.areaH}}px;">
+      <view class="furn-cell" wx:for="{{furnEditor.gridCells}}" wx:key="index"
+            style="left:{{item.x}}px;top:{{item.y}}px;width:{{furnEditor.cell}}px;height:{{furnEditor.cell}}px;"></view>
+      <!-- 房间外轮廓辅助线（来自户型图，等比放大，只描外圈线条） -->
+      <view class="room-edge" wx:for="{{furnEditor.roomOutline}}" wx:key="key"
+            style="left:{{item.left}}px;top:{{item.top}}px;width:{{item.width}}px;height:{{item.height}}px;"></view>
+      <view class="furn-tile {{item.selected ? 'furn-sel' : ''}} {{furnDrag.idx === item.idx ? 'dragging' : ''}}"
+            wx:for="{{furnEditor.tiles}}" wx:key="key"
+            style="left:{{item.px}}px;top:{{item.py}}px;width:{{furnEditor.cell}}px;height:{{furnEditor.cell}}px;background:{{item.bg}};{{item.borderStyle}};transform:translate({{furnDrag.idx === item.idx ? furnDrag.dx : 0}}px,{{furnDrag.idx === item.idx ? furnDrag.dy : 0}}px);"
+            data-idx="{{item.idx}}" data-ci="{{item.ci}}"
+            bindtouchstart="onFurnTileTouchStart" catchtouchmove="onFurnTileTouchMove" bindtouchend="onFurnTileTouchEnd"
+            bindtap="onFurnTileTap">
+        <view class="tile-x" wx:if="{{item.showX}}" data-idx="{{item.idx}}" data-ci="{{item.ci}}" catchtap="onFurnRemove">✕</view>
+        <view class="tile-shrink" wx:if="{{item.shrinkBadge}}" data-idx="{{item.idx}}" data-ci="{{item.ci}}" catchtap="onFurnRemoveCell">−</view>
+        <view class="tile-emoji">{{item.emoji}}</view>
+      </view>
+      <!-- ＋ 候选格（编辑大小模式） -->
+      <view class="furn-cand" wx:for="{{furnEditor.cands}}" wx:key="index"
+            style="left:{{item.px}}px;top:{{item.py}}px;width:{{furnEditor.cell}}px;height:{{furnEditor.cell}}px;"
+            data-idx="{{item.idx}}" data-x="{{item.x}}" data-y="{{item.y}}" catchtap="onFurnAddCell">＋</view>
+      <!-- 模块名悬浮标签：不受格子宽度裁切，完整显示 -->
+      <view class="furn-label" wx:for="{{furnEditor.labels}}" wx:key="key"
+            style="left:{{item.cx}}px;top:{{item.cy}}px;">{{item.text}}</view>
+      <!-- 放大轮廓辅助线（编辑大小模式）：虚线包围盒 + 尺寸标注 -->
+      <view wx:if="{{furnEditor.guide.show}}" class="size-guide furn" style="left:{{furnEditor.guide.x}}px;top:{{furnEditor.guide.y}}px;width:{{furnEditor.guide.w}}px;height:{{furnEditor.guide.h}}px;">
+        <view class="size-guide-tag {{furnEditor.guide.tagBelow ? '' : 'above'}}">{{furnEditor.guide.text}}</view>
+      </view>
+    </view>
+    <view class="hint" style="margin-bottom:12rpx;">蓝色线条 = 房间外轮廓（来自户型图，等比放大、紧贴网格），家具可自由摆放在画布内</view>
+
+    <!-- 已放置模块清单 -->
+    <view class="furn-list" wx:if="{{furnEditor.items.length}}">
+      <view class="furn-row" wx:for="{{furnEditor.items}}" wx:key="idx">
+        <text class="fc-emoji">{{item.emoji}}</text>
+        <text class="furn-row-name">{{item.name}}<text class="furn-row-cells" wx:if="{{item.cellCount > 1}}">{{item.cellCount}} 格</text></text>
+        <text class="tray-del" data-idx="{{item.idx}}" catchtap="onFurnDelete"> ✕</text>
+      </view>
+    </view>
+
+    <view class="furn-actions">
+      <button class="btn sm" bindtap="toggleFurnSize">{{furnEditor.sizeMode ? '✅ 完成编辑大小' : '📐 编辑大小'}}</button>
+      <button class="btn sm" bindtap="saveFurnEditor">✅ 保存</button>
+      <button class="btn ghost sm" bindtap="closeFurnEditor">取消</button>
+    </view>
+  </view>
+</view>
+<!-- 拖拽幽灵方块（跟手显示） -->
+<view wx:if="{{ghost.show}}" class="drag-ghost" style="left:{{ghost.x}}px;top:{{ghost.y}}px;width:{{grid.cell}}px;height:{{grid.cell}}px;">
+  <view class="tile-emoji">{{ghost.emoji}}</view>
+  <view class="tile-name">{{ghost.name}}</view>
+</view>
+
+<!-- 家具拖拽幽灵方块（跟手显示） -->
+<view wx:if="{{furnGhost.show}}" class="drag-ghost" style="left:{{furnGhost.x}}px;top:{{furnGhost.y}}px;width:{{furnEditor.cell}}px;height:{{furnEditor.cell}}px;">
+  <view class="tile-emoji">{{furnGhost.emoji}}</view>
+  <view class="tile-name">{{furnGhost.name}}</view>
+</view>
+
+<view class="privacy-note">🔒 数据仅保存在你自己的账号下，不会公开或用于其他用途。</view>
+
+<view style="padding: 16rpx 32rpx 60rpx; text-align: center;">
+  <button class="btn ghost" bindtap="goHome">← 返回首页</button>
+</view>
+
+<!-- 底部固定操作栏：拍照识别 / 保存布局 / 一键清空 -->
+<view class="layout-actions">
+  <button class="btn act ghost" bindtap="goLayoutScan">📷 拍照识别户型</button>
+  <button class="btn act" loading="{{savingLayout}}" disabled="{{savingLayout}}" bindtap="saveLayout">💾 保存布局</button>
+  <button class="btn act warn-ghost" bindtap="clearAllRooms">🗑 清空房间</button>
+</view>

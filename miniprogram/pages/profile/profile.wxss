@@ -1,117 +1,19 @@
-/* pages/profile/profile.wxss — 个性化智能体页样式（风格对齐 pages/home/home.wxss） */
+/* pages/profile/profile.wxss — 我的画像页样式（风格对齐全局） */
 .btn-block { width: 100%; margin-top: 8rpx; }
 .area { min-height: 150rpx; }
 .area-s { min-height: 110rpx; }
 
-.layout-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16rpx; margin-bottom: 20rpx; }
-.layout-head-l { flex: 1; }
-.layout-title { font-weight: 800; font-size: 32rpx; }
-
-/* 房间编辑卡片 */
-.empty-layout {
-  color: #7b8794; font-size: 24rpx; padding: 28rpx; text-align: center;
-  border: 2rpx dashed #d5ddeb; border-radius: 16rpx; margin-bottom: 20rpx;
+/* 户型图配置入口 */
+.layout-link {
+  display: flex; align-items: center; gap: 20rpx;
+  background: linear-gradient(135deg, #eef4ff, #f6f0ff);
+  border: 1rpx solid #d8e2f5; padding: 24rpx 28rpx;
 }
-.room-card {
-  border: 1rpx solid #e3e9f2; border-radius: 16rpx; padding: 20rpx;
-  margin-bottom: 16rpx; background: #fbfdff;
-  display: flex; flex-direction: column; gap: 14rpx;
-}
-.room-top { display: flex; align-items: center; gap: 12rpx; }
-.room-emoji { font-size: 40rpx; flex-shrink: 0; }
-.room-name { flex: 1; }
-.room-del { color: #ff7a59; font-size: 32rpx; padding: 8rpx 12rpx; }
-
-/* 待放置托盘 */
-.tray { margin-top: 20rpx; }
-.tray-title { font-size: 24rpx; color: #7b8794; margin-bottom: 12rpx; }
-.tray-chips { display: flex; flex-wrap: wrap; gap: 12rpx; }
-.tray-chip {
-  border: 2rpx solid #e3e9f2; background: #fff; border-radius: 999rpx;
-  padding: 10rpx 22rpx; font-size: 24rpx; font-weight: 600;
-}
-
-/* 户型图（自研触摸拖拽，位置由数据单一来源计算） */
-.floor-wrap { margin-top: 24rpx; }
-.floor-tip {
-  background: #eaf1ff; color: #3d5b9e; font-size: 24rpx;
-  border-radius: 12rpx; padding: 14rpx 20rpx; margin-bottom: 16rpx; line-height: 1.5;
-}
-.floor-tip.extend { background: #fff7e8; color: #8a5b16; border: 1rpx solid #ffe0a8; }
-.floor-tip.shrink { background: #ffefef; color: #a03d3d; border: 1rpx solid #f5c6c6; }
-/* 延长模式候选格 */
-.ext-cand {
-  position: absolute; box-sizing: border-box; z-index: 5;
-  border: 2rpx dashed #3d7bfd; background: rgba(61, 123, 253, 0.12);
-  color: #3d7bfd; font-size: 36rpx; font-weight: 800;
-  display: flex; align-items: center; justify-content: center;
-  animation: cand-pulse 1.2s ease-in-out infinite;
-}
-@keyframes cand-pulse { 50% { background: rgba(61, 123, 253, 0.24); } }
-.floor-area {
-  margin: 0 auto; background: #f7f9fc;
-  border: 2rpx dashed #c3cede; border-radius: 12rpx;
-  position: relative; overflow: hidden;
-}
-.grid-cell {
-  position: absolute; box-sizing: border-box;
-  border: 1rpx dashed #d5ddeb; background: #fdfeff;
-}
-.floor-tile {
-  position: absolute; box-sizing: border-box;
-  /* 背景与描边由内联样式提供：同房间格子拼成同一色块 */
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  z-index: 1;
-}
-.floor-tile.dragging {
-  z-index: 10;
-  box-shadow: 0 8rpx 24rpx rgba(61, 123, 253, 0.35);
-  transform: scale(1.08);
-}
-.floor-tile.cor-seg {
-  background: #fff7e8; border: 2rpx dashed #ffce8a;
-}
-.floor-tile.ext-sel {
-  box-shadow: 0 0 0 3rpx rgba(61, 123, 253, 0.5);
-}
-.tile-x {
-  position: absolute; top: 0; right: 4rpx;
-  font-size: 20rpx; color: #ff7a59; line-height: 1; padding: 4rpx; opacity: 0.75;
-}
-/* 缩小模式：可移除格右上角标 − */
-.tile-shrink {
-  position: absolute; top: 0; right: 4rpx;
-  width: 28rpx; height: 28rpx; line-height: 28rpx; text-align: center;
-  border-radius: 50%; background: #e85d5d; color: #fff;
-  font-size: 22rpx; font-weight: 800; opacity: 0.9;
-}
-.tile-emoji { font-size: 34rpx; }
-.tile-name { font-size: 18rpx; font-weight: 700; max-width: 100%; overflow: hidden; white-space: nowrap; }
-
-/* 房间名悬浮标签：居中于房间色块，文字完整显示不受格子宽度限制（穿透点击，不挡操作） */
-.room-label {
-  position: absolute; z-index: 4; transform: translate(-50%, -50%);
-  background: rgba(255, 255, 255, 0.85); border-radius: 999rpx;
-  padding: 2rpx 10rpx; font-size: 20rpx; font-weight: 800; color: #1f2b3a;
-  white-space: nowrap; pointer-events: none;
-  box-shadow: 0 2rpx 8rpx rgba(40, 60, 110, 0.15);
-}
-
-/* 托盘拖拽幽灵方块（跟手） */
-.drag-ghost {
-  position: fixed; z-index: 999; pointer-events: none;
-  background: #fff; border: 2rpx solid #3d7bfd; border-radius: 10rpx;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  opacity: 0.92; box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.18);
-  box-sizing: border-box;
-}
-
-/* 隐私说明（问卷第14题：数据用途告知） */
-.privacy-note {
-  margin: 24rpx; padding: 20rpx 24rpx;
-  background: #eef7f2; border: 1rpx solid #cfe8dc; color: #3d7a5a;
-  border-radius: 16rpx; font-size: 24rpx; line-height: 1.6;
-}
+.ll-ico { font-size: 52rpx; }
+.ll-main { flex: 1; }
+.ll-t { font-weight: 800; font-size: 30rpx; }
+.ll-d { color: #7b8794; font-size: 22rpx; line-height: 1.5; margin-top: 4rpx; }
+.ll-go { font-size: 44rpx; color: #3d7bfd; }
 
 /* 我的硬件设备开关 */
 .hw-opt {
@@ -120,15 +22,9 @@
 }
 .hw-opt.on { border-color: #3d7bfd; background: #eef4ff; color: #3d7bfd; }
 
-/* 底部固定操作栏：拍照识别 / 保存布局 / 一键清空房间 */
-page { padding-bottom: 220rpx; }
-.layout-actions {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 100;
-  display: flex; gap: 16rpx; padding: 16rpx 24rpx calc(16rpx + env(safe-area-inset-bottom));
-  background: rgba(255, 255, 255, 0.97);
-  border-top: 1rpx solid #eef1f6;
-  box-shadow: 0 -6rpx 24rpx rgba(40, 60, 110, 0.12);
+/* 隐私说明 */
+.privacy-note {
+  margin: 24rpx; padding: 20rpx 24rpx;
+  background: #eef7f2; border: 1rpx solid #cfe8dc; color: #3d7a5a;
+  border-radius: 16rpx; font-size: 24rpx; line-height: 1.6;
 }
-.layout-actions .btn.act { flex: 1; padding: 26rpx 0; font-size: 28rpx; }
-.layout-actions .btn.act.ghost { border: 1rpx solid #d8e2f5; }
-.btn.warn-ghost { background: #fff; color: #e85d5d; border: 1rpx solid #f3c9d0; box-shadow: none; }

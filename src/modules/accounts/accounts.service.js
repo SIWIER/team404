@@ -17,14 +17,18 @@ const GRID = 10;
 const HARDWARE_ALLOWED = ['uhf_reader', 'case_locator'];
 function sanitizeLayout(layout) {
   if (!Array.isArray(layout)) return [];
-  const seen = new Set();
-  const uniqueName = (base) => {
-    if (!seen.has(base)) { seen.add(base); return base; }
-    let n = 2;
-    while (seen.has(base + n)) n++;
-    seen.add(base + n);
-    return base + n;
+  // 同名自动编号工厂：卧室、卧室2、卧室3…（房间与房间内家具各自独立编号）
+  const makeUnique = () => {
+    const seen = new Set();
+    return (base) => {
+      if (!seen.has(base)) { seen.add(base); return base; }
+      let n = 2;
+      while (seen.has(base + n)) n++;
+      seen.add(base + n);
+      return base + n;
+    };
   };
+  const uniqueName = makeUnique();
   const num = (v) => (v !== null && v !== undefined && Number.isFinite(Number(v)) ? Number(v) : null);
   const clampCell = (v) => Math.min(GRID - 1, Math.max(0, Math.round(v)));
   return layout.slice(0, MAX_ROOMS).map((r) => {
@@ -65,30 +69,67 @@ function sanitizeLayout(layout) {
     const h = num(r && r.h);
     if (w !== null) room.w = Math.min(12, Math.max(1, Math.round(w)));
     if (h !== null) room.h = Math.min(12, Math.max(1, Math.round(h)));
-    // 家具格：name 非空、坐标整数且落在房间尺寸范围内，最多 144 格
-    const furn = Array.isArray(r && r.furn) ? r.furn.map((f) => {
-      const fx = num(f && f.x);
-      const fy = num(f && f.y);
-      const fname = String((f && f.name) || '').trim().slice(0, 10);
-      if (!fname || fx === null || fy === null) return null;
-      const rx = Math.round(fx);
-      const ry = Math.round(fy);
-      if (rx < 0 || ry < 0 || rx > 11 || ry > 11) return null;
-      if (room.w !== undefined && rx >= room.w) return null;
-      if (room.h !== undefined && ry >= room.h) return null;
-      return { name: fname, x: rx, y: ry };
-    }).filter(Boolean).slice(0, 144) : [];
+    // 家具模块：与房间同样支持多格形状（cells 优先，兼容旧单格 {name,x,y}）；
+    // name 非空、坐标整数且落在房间尺寸范围内，每房最多 144 格；
+    // 同房间同名物件自动编号（书桌、书桌2、书桌3…）
+    const furn = [];
+    if (Array.isArray(r && r.furn)) {
+      let budget = 144;
+      const uniqueFurn = makeUnique();
+      for (const f of r.furn) {
+        const fname = String((f && f.name) || '').trim().slice(0, 10);
+        if (!fname || budget <= 0) continue;
+        const inRoom = (cx, cy) => cx >= 0 && cy >= 0 && cx <= 11 && cy <= 11 &&
+          (room.w === undefined || cx < room.w) && (room.h === undefined || cy < room.h);
+        let fc = [];
+        if (Array.isArray(f && f.cells) && f.cells.length) {
+          const seenC = new Set();
+          fc = f.cells.slice(0, budget).map((c) => {
+            const cx = num(c && c.x);
+            const cy = num(c && c.y);
+            if (cx === null || cy === null || !inRoom(Math.round(cx), Math.round(cy))) return null;
+            return { x: Math.round(cx), y: Math.round(cy) };
+          }).filter((c) => {
+            if (!c) return false;
+            const k = c.x + ',' + c.y;
+            if (seenC.has(k)) return false;
+            seenC.add(k);
+            return true;
+          });
+        }
+        if (!fc.length) {
+          const fx = num(f && f.x);
+          const fy = num(f && f.y);
+          if (fx !== null && fy !== null && inRoom(Math.round(fx), Math.round(fy))) {
+            fc = [{ x: Math.round(fx), y: Math.round(fy) }];
+          }
+        }
+        if (!fc.length) continue;
+        budget -= fc.length;
+        furn.push({ name: uniqueFurn(fname), x: fc[0].x, y: fc[0].y, cells: fc });
+      }
+    }
     if (furn.length) room.furn = furn;
     return room;
   }).filter((r) => r.name);
 }
 
 // 对外暴露的用户信息（不含密码哈希等敏感字段）
+// 目录（物品管理）：homeLayout 恒等于当前目录（activeSpaceId）的户型图，兼容推理引擎与旧前端
 function getPublicUser(userId) {
   const db = getDb();
   const u = db.prepare('SELECT id, username, nickname, created_at FROM users WHERE id = ?').get(userId);
   if (!u) return null;
   const p = db.prepare('SELECT * FROM profiles WHERE user_id = ?').get(userId) || {};
+  const spaceRows = db.prepare('SELECT id, name FROM spaces WHERE user_id = ? ORDER BY sort_order, id').all(userId);
+  let activeSpaceId = p.active_space_id != null ? Number(p.active_space_id) : null;
+  if (activeSpaceId != null && !spaceRows.some((s) => s.id === activeSpaceId)) activeSpaceId = null;
+  if (activeSpaceId == null && spaceRows.length) activeSpaceId = spaceRows[0].id;
+  let homeLayout = safeJson(p.home_layout, []);
+  if (activeSpaceId != null) {
+    const sp = db.prepare('SELECT layout FROM spaces WHERE id = ?').get(activeSpaceId);
+    if (sp) homeLayout = safeJson(sp.layout, []);
+  }
   return {
     id: u.id,
     username: u.username,
@@ -99,7 +140,9 @@ function getPublicUser(userId) {
       agentStyle: p.agent_style || '温和耐心，擅长生活常识与逻辑推理',
       habits: safeJson(p.habits, []),
       favoritePlaces: safeJson(p.favorite_places, []),
-      homeLayout: safeJson(p.home_layout, []),
+      homeLayout,
+      spaces: spaceRows.map((s) => ({ id: s.id, name: s.name })),
+      activeSpaceId,
       notes: p.notes || '',
       hardware: safeJson(p.hardware, []).filter((h) => HARDWARE_ALLOWED.includes(h)),
       updatedAt: p.updated_at || null
@@ -120,6 +163,11 @@ function register({ username, password, nickname }) {
   db.prepare(`INSERT INTO profiles (user_id, agent_name, agent_style, habits, favorite_places, home_layout, notes, hardware, updated_at)
               VALUES (?,?,?,?,?,?,?,?,?)`)
     .run(userId, `${nick}的小镜助手`, '温和耐心，擅长生活常识与逻辑推理', '[]', '[]', '[]', '', '[]', now());
+  // 默认目录「家」并设为当前目录
+  const sid = db.prepare(
+    'INSERT INTO spaces (user_id, name, sort_order, layout, created_at, updated_at) VALUES (?,?,?,?,?,?)'
+  ).run(userId, '家', 0, '[]', now(), now()).lastInsertRowid;
+  db.prepare('UPDATE profiles SET active_space_id = ? WHERE user_id = ?').run(sid, userId);
   return { user: getPublicUser(userId) };
 }
 
@@ -133,13 +181,14 @@ function login({ username, password, remember }) {
   return { token, expiresInHours, user: getPublicUser(u.id) };
 }
 
-// 注销账号：原子删除该用户的全部个人数据（画像/户型、找回记录、账户行）
+// 注销账号：原子删除该用户的全部个人数据（画像/户型/目录、找回记录、账户行）
 // 设备与设备事件无 user 关联（演示模型全局共享），不涉及个人数据，保留
 function deleteAccount(userId) {
   const db = getDb();
   db.exec('BEGIN');
   try {
     db.prepare('DELETE FROM profiles WHERE user_id = ?').run(userId);
+    db.prepare('DELETE FROM spaces WHERE user_id = ?').run(userId);
     db.prepare('DELETE FROM loss_records WHERE user_id = ?').run(userId);
     const info = db.prepare('DELETE FROM users WHERE id = ?').run(userId);
     db.exec('COMMIT');
@@ -150,7 +199,8 @@ function deleteAccount(userId) {
   }
 }
 
-function updateProfile(userId, patch) {  const db = getDb();
+function updateProfile(userId, patch) {
+  const db = getDb();
   const cur = db.prepare('SELECT * FROM profiles WHERE user_id = ?').get(userId) || {};
   const clamp = (v, max) => String(v ?? '').slice(0, max);
   const agentName = patch.agentName !== undefined ? clamp(patch.agentName, 40) || `${getPublicUser(userId).nickname}的小镜助手` : cur.agent_name;
@@ -164,6 +214,24 @@ function updateProfile(userId, patch) {  const db = getDb();
       ? [...new Set(patch.hardware.filter((h) => HARDWARE_ALLOWED.includes(h)))].slice(0, 10)
       : [])
     : (cur.hardware ?? '[]');
+  // homeLayout 保存到当前目录，并保持 profiles.home_layout 与其同步
+  if (patch.homeLayout !== undefined) {
+    let row = null;
+    const p0 = db.prepare('SELECT active_space_id FROM profiles WHERE user_id = ?').get(userId);
+    if (p0 && p0.active_space_id != null) {
+      row = db.prepare('SELECT id FROM spaces WHERE id = ? AND user_id = ?').get(p0.active_space_id, userId);
+    }
+    let sid;
+    if (row) {
+      db.prepare('UPDATE spaces SET layout = ?, updated_at = ? WHERE id = ?').run(homeLayout, now(), row.id);
+      sid = row.id;
+    } else {
+      sid = db.prepare(
+        'INSERT INTO spaces (user_id, name, sort_order, layout, created_at, updated_at) VALUES (?,?,?,?,?,?)'
+      ).run(userId, '家', 0, homeLayout, now(), now()).lastInsertRowid;
+    }
+    db.prepare('UPDATE profiles SET active_space_id = ? WHERE user_id = ?').run(sid, userId);
+  }
   db.prepare(`
     INSERT INTO profiles (user_id, agent_name, agent_style, habits, favorite_places, home_layout, notes, hardware, updated_at)
     VALUES (?,?,?,?,?,?,?,?,?)

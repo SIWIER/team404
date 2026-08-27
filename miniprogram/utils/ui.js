@@ -20,7 +20,8 @@ const ROOM_EMOJI = {
 };
 
 function roomEmoji(name) {
-  return ROOM_EMOJI[name] || '🏠';
+  // 同名房间自动编号（卧室2/卧室3…）：按基础名查 emoji
+  return ROOM_EMOJI[String(name || '').replace(/\d+$/, '')] || '🏠';
 }
 
 // 户型编辑器的房间配色（bg, 描边色）：同一房间所有格子同色，便于识别同一房间
