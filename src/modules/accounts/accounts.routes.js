@@ -59,7 +59,8 @@ function registerRoutes(router) {
       agentName: [v.maxLen(40)],
       agentStyle: [v.maxLen(200)],
       notes: [v.maxLen(500)],
-      homeLayout: [(val) => (val !== undefined && !Array.isArray(val) ? '家庭布局格式不正确' : null)]
+      homeLayout: [(val) => (val !== undefined && !Array.isArray(val) ? '家庭布局格式不正确' : null)],
+      hardware: [(val) => (val !== undefined && !Array.isArray(val) ? '硬件设备清单格式不正确' : null)]
     });
     if (errs) return ctx.res.json({ ok: false, errors: errs }, 422);
     const user = svc.updateProfile(ctx.user.id, {
@@ -68,7 +69,8 @@ function registerRoutes(router) {
       habits: b.habits,
       favoritePlaces: b.favoritePlaces,
       homeLayout: b.homeLayout,
-      notes: b.notes
+      notes: b.notes,
+      hardware: b.hardware
     });
     ctx.res.ok({ user });
   });

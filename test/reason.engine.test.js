@@ -193,6 +193,29 @@ test('大房间同房间权重：8 格卧室高于 2 格卧室（面积进入评
   assert.ok(bedA.probability > bedB.probability, '大卧室的床头柜概率应更高');
 });
 
+// ---------- 无硬件补偿 ----------
+
+test('无硬件补偿：强化非硬件证据并锐化排名，提高头部预测概率', () => {
+  const layout = { ...noProfile, homeLayout: [{ name: '卧室', spots: [], cells: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }] }] };
+  const noHw = { ...layout, hardware: [] };                       // 无任何硬件 → 补偿开启
+  const hasHw = { ...layout, hardware: ['uhf_reader'] };          // 有硬件（未上报信号）→ 不补偿
+  const facts = { room: '卧室', activity: '睡前刷手机', timeOfDay: '晚上' };
+  const a = engine.infer(facts, noHistory, noHw);
+  const b = engine.infer(facts, noHistory, hasHw);
+  const bedA = a.ranked.find((x) => x.name === '床头柜');
+  const bedB = b.ranked.find((x) => x.name === '床头柜');
+  assert.ok(bedA && bedB);
+  // 无硬件：同房间证据 ×2.10（含 4 格面积因子 1.64 → 2.1×1.64）；有硬件：×1.80
+  assert.ok(bedA.reasons.some((t) => t.includes('×3.44') || t.includes('面积加成')));
+  assert.ok(bedB.reasons.some((t) => t.includes('×2.95') || t.includes('面积加成')));
+  // 无硬件补偿使头部概率更锐化（更高、更果断）
+  assert.ok(a.topLocation === '床头柜');
+  assert.ok(a.confidence > b.confidence, `无硬件置信度 ${a.confidence} 应高于有硬件 ${b.confidence}`);
+  // 摘要透明说明补偿
+  assert.ok(a.summary.includes('未接入硬件设备'));
+  assert.ok(!b.summary.includes('未接入硬件设备'));
+});
+
 // ---------- 走廊房间 ----------
 
 test('回家进门：有走廊的户型走廊位置进入候选，无走廊则降权', () => {

@@ -118,6 +118,13 @@ function infer(facts, historyStats, profile) {
   const layout = Array.isArray(profile && profile.homeLayout) ? profile.homeLayout : [];
   const layoutRooms = layout.map((r) => r.name);
 
+  // 无硬件补偿：用户未拥有任何硬件（画像 hardware 为空）且本次无定位提示时，
+  // 强化行为/历史/偏好/距离证据并锐化排名，尽可能在缺少设备信号的情况下提高预测置信度
+  const owned = Array.isArray(profile && profile.hardware) ? profile.hardware : [];
+  const noHardware = owned.length === 0 && !(facts.deviceHint && facts.deviceHint.room);
+  const W_NO_HARDWARE = { roomMatch: 2.1, nightBedroom: 1.5, historyPerHit: 0.6, favorite: 1.5, passedRoom: 1.7 };
+  const w = (k) => (noHardware && W_NO_HARDWARE[k] !== undefined ? W_NO_HARDWARE[k] : W[k]);
+
   // 候选位置 = 常识词汇表 + 用户户型里的自定义放置点
   const custom = [];
   if (layout.length) {
@@ -167,7 +174,7 @@ function infer(facts, historyStats, profile) {
       let mult;
       if (dRoom === 0) {
         // 同房间：按格数（面积）放大——房间越大，随手放的概率越高
-        mult = W.roomMatch * areaFactor(layout, facts.room);
+        mult = w('roomMatch') * areaFactor(layout, facts.room);
         s *= mult;
         reasons.push(`你记得最后在「${facts.room}」，同房间位置 ×${mult.toFixed(2)}（含面积加成）`);
       } else {
@@ -177,15 +184,15 @@ function infer(facts, historyStats, profile) {
         else reasons.push(`你记得最后在「${facts.room}」，此处离得较远（相距 ${dRoom} 格，×${mult.toFixed(2)}）`);
       }
     } else if (facts.room && facts.room !== '不确定' && roomMatches(L.room, facts.room)) {
-      s *= W.roomMatch;
-      reasons.push(`你记得最后在「${facts.room}」，同房间位置 ×${W.roomMatch}`);
+      s *= w('roomMatch');
+      reasons.push(`你记得最后在「${facts.room}」，同房间位置 ×${w('roomMatch')}`);
     }
 
     // 6) 路过过的房间（多选追问）：途中可能随手放下
     const passed = Array.isArray(facts.passedRooms) ? facts.passedRooms : [];
     if (passed.length && passed.some((p) => roomMatches(L.room, p))) {
-      s *= W.passedRoom;
-      reasons.push(`你路过过「${L.room}」，途中可能随手放下（×${W.passedRoom}）`);
+      s *= w('passedRoom');
+      reasons.push(`你路过过「${L.room}」，途中可能随手放下（×${w('passedRoom')}）`);
     }
 
     // 6b) 已检查过的房间（找过没找到）→ 概率大幅降低
@@ -225,33 +232,36 @@ function infer(facts, historyStats, profile) {
 
     // 9) 时段常识
     if (facts.timeOfDay && (facts.timeOfDay === '晚上' || facts.timeOfDay === '深夜') && L.room === '卧室') {
-      s *= W.nightBedroom;
-      reasons.push(`${facts.timeOfDay}多回卧室，卧室位置 ×${W.nightBedroom}`);
+      s *= w('nightBedroom');
+      reasons.push(`${facts.timeOfDay}多回卧室，卧室位置 ×${w('nightBedroom')}`);
     }
 
     // 10) 个人历史（个性化依据，权重适中）
     const h = (historyStats.byLocation || {})[L.name];
     if (h && h.count > 0) {
-      const mult = 1 + Math.min(h.count, 5) * W.historyPerHit;
+      const mult = 1 + Math.min(h.count, 5) * w('historyPerHit');
       s *= mult;
       reasons.push(`你过去 ${historyStats.total} 次里有 ${h.count} 次在这里找到（×${mult.toFixed(2)}）`);
     }
 
     // 11) 个人偏好地点
     if (favPlaces.includes(L.name)) {
-      s *= W.favorite;
-      reasons.push('这是你画像里标记的常用地点（×' + W.favorite + '）');
+      s *= w('favorite');
+      reasons.push('这是你画像里标记的常用地点（×' + w('favorite') + '）');
     }
 
     return { name: L.name, room: L.room, score: s, reasons };
   });
 
   // 取前 8 名，并对其归一化（展示为候选内相对概率，和 = 100%）
+  // 无硬件时锐化排名（幂次 1.25 抬高头部概率，给出更果断的建议）
   const top8 = scored.sort((a, b) => b.score - a.score).slice(0, 8);
-  const sum8 = top8.reduce((a, c) => a + c.score, 0) || 1;
-  const ranked = top8.map((c) => ({
+  const gamma = noHardware ? 1.25 : 1;
+  const powered = top8.map((c) => Math.pow(c.score, gamma));
+  const sum8 = powered.reduce((a, c) => a + c, 0) || 1;
+  const ranked = top8.map((c, i) => ({
     ...c,
-    probability: Math.round((c.score / sum8) * 1000) / 10
+    probability: Math.round((powered[i] / sum8) * 1000) / 10
   }));
 
   const top = ranked[0];
@@ -262,12 +272,12 @@ function infer(facts, historyStats, profile) {
     ranked,
     activity,
     timeHint: facts.timeOfDay && TIME_HINTS[facts.timeOfDay] ? TIME_HINTS[facts.timeOfDay] : null,
-    summary: buildSummary(top, ranked, activity, facts, historyStats),
+    summary: buildSummary(top, ranked, activity, facts, historyStats, noHardware),
     engine: 'local'
   };
 }
 
-function buildSummary(top, ranked, activity, facts, hs) {
+function buildSummary(top, ranked, activity, facts, hs, noHardware) {
   const checked = Array.isArray(facts.checkedRooms) ? facts.checkedRooms : [];
   const checkedPart = checked.length
     ? `已排除你检查过没找到的「${checked.join('、')}」。`
@@ -277,7 +287,8 @@ function buildSummary(top, ranked, activity, facts, hs) {
     : `根据生活常识和「${activity}」这一行为，`;
   const timePart = facts.timeOfDay && TIME_HINTS[facts.timeOfDay] ? `（${facts.timeOfDay}：${TIME_HINTS[facts.timeOfDay]}）` : '';
   const topReasons = top.reasons.slice(0, 2).join('；');
-  return `${histPart}眼镜最可能在「${top.name}」（${top.room}），置信度约 ${top.probability}%。${timePart} ${checkedPart}主要依据：${topReasons || '通用放置习惯'}。建议优先检查这里，再依次排查：${ranked.slice(1, 4).map((r) => r.name).join('、')}。`;
+  const noHwPart = noHardware ? '未接入硬件设备，本次推理已强化行为与历史证据权重。' : '';
+  return `${histPart}眼镜最可能在「${top.name}」（${top.room}），置信度约 ${top.probability}%。${timePart} ${checkedPart}${noHwPart}主要依据：${topReasons || '通用放置习惯'}。建议优先检查这里，再依次排查：${ranked.slice(1, 4).map((r) => r.name).join('、')}。`;
 }
 
 module.exports = { infer, roomDist, roomPos, roomTypeOf, roomCells, areaFactor, roomDistMult, hintDistMult };

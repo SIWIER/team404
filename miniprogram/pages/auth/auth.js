@@ -20,7 +20,11 @@ Page({
     bindUsername: '',
     bindPassword: '',
     bindBusy: false,
-    bindError: ''
+    bindError: '',
+    // 初次注册后的"有无硬件设备"提问（默认无设备：系统默认用户没有手持机与定位器）
+    deviceAsk: false,
+    deviceBusy: false,
+    devicePicks: { uhf_reader: false, case_locator: false }
   },
   onLoad() {
     if (store.getToken() && store.getUser()) {
@@ -73,13 +77,48 @@ Page({
           method: 'POST',
           data: { username: d.username, password: d.password, nickname: d.nickname }
         });
-        toast('注册成功，请登录 ✓');
-        this.setData({ tab: 'login', busy: false });
+        // 注册后自动登录，并进入"有无硬件设备"提问（默认无设备）
+        const r = await api.request('/auth/login', {
+          method: 'POST',
+          data: { username: d.username, password: d.password, remember: true }
+        });
+        store.setAuth(r.token, r.user);
+        this.setData({
+          busy: false,
+          deviceAsk: true,
+          devicePicks: { uhf_reader: false, case_locator: false }
+        });
       }
     } catch (e) {
       this.setData({ error: (e.errors && Object.values(e.errors)[0]) || e.message, busy: false });
     }
     if (this.data.tab === 'login') this.setData({ busy: false });
+  },
+
+  // ===== 初次注册后的"有无硬件设备"提问 =====
+  toggleDevicePick(e) {
+    if (this.data.deviceBusy) return;
+    const key = e.currentTarget.dataset.key;
+    this.setData({ ['devicePicks.' + key]: !this.data.devicePicks[key] });
+  },
+  async confirmDevice() {
+    if (this.data.deviceBusy) return;
+    this.setData({ deviceBusy: true });
+    const hardware = Object.keys(this.data.devicePicks).filter((k) => this.data.devicePicks[k]);
+    try {
+      const d = await api.request('/auth/profile', { method: 'PUT', data: { hardware } });
+      store.setUser(d.user);
+      toast('欢迎加入找眼镜助手 🎉');
+      wx.reLaunch({ url: '/pages/home/home' });
+    } catch (e) {
+      this.setData({ deviceBusy: false });
+      toast(e.message);
+    }
+  },
+  async skipDevice() {
+    // 默认无硬件：无需额外保存（画像 hardware 缺省即空），直接进入首页
+    toast('没问题，问答推理不依赖硬件 👌');
+    wx.reLaunch({ url: '/pages/home/home' });
   },
 
   // ===== 微信一键登录 =====

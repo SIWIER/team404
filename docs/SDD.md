@@ -86,7 +86,7 @@ find-my-glasses-pro/
 | 表 | 关键字段 | 说明 |
 |---|---|---|
 | users | username(唯一), password_hash, nickname, **wechat_openid**(唯一可空) | 账户（scrypt 哈希；微信登录/绑定用 openid 关联，UNIQUE 部分索引） |
-| profiles | agent_name, agent_style, habits, favorite_places, **home_layout**, notes | 画像与户型 JSON（房间含 x/y 坐标、cells 多格形状、w/h 尺寸与 furn 家具格） |
+| profiles | agent_name, agent_style, habits, favorite_places, **home_layout**, notes, **hardware** | 画像与户型 JSON（房间含 x/y 坐标、cells 多格形状、w/h 尺寸与 furn 家具格）；hardware = 用户拥有的硬件设备清单（如 `["uhf_reader","case_locator"]`，注册时"有无设备"提问，空 = 无硬件） |
 | loss_records | user_id, started_at, found_location, found_room, confidence, success, clues, reasoning, duration_sec, **conversation** | 找回记录（正/负样本） |
 | devices | id, name, type(locator/nfc/tag), room, battery, status, last_signal | 硬件设备 |
 | device_events | device_id, ts, type(report/command/ping_result/beep), payload | 事件流 |
@@ -175,11 +175,14 @@ score(L) = base(L) × 行为加成 × 追问加成 × 空间距离衰减 × 路�
 （旧版 1+0.15×(格数-1) 线性封顶 1.5，4 格以上房间全无区分度）；
 定位提示：同房 ×6.0×面积因子，d≥1 按 `1.8×0.75^(d-1)` 衰减，衰减到 <0.8 视为无信号（不加权）；
 "路过哪些房间"多选追问给路过的房间 ×1.6。
+**无硬件补偿**：画像 `hardware` 为空且本次无定位提示时，强化非硬件证据（同房 ×1.8→2.1、
+时段卧室 ×1.4→1.5、历史每命中 ×0.5→0.6、偏好 ×1.35→1.5、路过 ×1.6→1.7），
+并在概率归一化时用幂次 γ=1.25 锐化排名（抬高头部置信度、结论更果断），摘要中说明补偿已生效。
 **LLM 适配 llm.client.js**：结构化 JSON 输出、25s 超时、1 次重试、markdown 容错提取、**词汇表对齐**（防跑偏保证统计口径）、户型/历史/硬件提示注入提示词。
 **编排 reason.service.js**：LLM 优先 → 失败回退本地引擎（engine 字段标注），自动注入定位器最近上报（10 分钟内）作为强证据。
 
 ### 5.2 accounts：账户与个性化
-scrypt（N=16384）密码 + 时间恒定比较；画像含**家庭布局**（≤36 房间 × ≤20 放置点 + **户型图网格坐标 x/y** + **多格形状 cells**：走廊可占多个相邻格，x/y 恒等于 cells[0] 以兼容 Web 版与推理引擎 + **房间内部尺寸 w/h** + **房间家具 furn**）；同名房间自动编号区分（卧室、卧室2…）；户型联动：流程房间/路过房间选项、引擎距离衰减与降权、自定义候选、LLM 提示词。
+scrypt（N=16384）密码 + 时间恒定比较；画像含**家庭布局**（≤36 房间 × ≤20 放置点 + **户型图网格坐标 x/y** + **多格形状 cells**：走廊可占多个相邻格，x/y 恒等于 cells[0] 以兼容 Web 版与推理引擎 + **房间内部尺寸 w/h** + **房间家具 furn**）+ **hardware 硬件设备清单**（注册时"有无设备"提问，允许值 `uhf_reader`/`case_locator`，空 = 无硬件）；同名房间自动编号区分（卧室、卧室2…）；户型联动：流程房间/路过房间选项、引擎距离衰减与降权、自定义候选、LLM 提示词。
 
 **房间内部细致布局**：w/h 取值 1-12 格，缺省时前端按 12×12 展示。由画像页户型图上**双击房间**弹出的 12×12 网格编辑器设定：左上角方块为起点、右下角滑块为终点，拖动滑块确定房间大致尺寸；编辑器内可选择家具并放置，家具选项**按房间类型自适应**——通用家具（柜子/架子/窗台/桌子）任何房间都有，卧室附加「床」，卫生间/厕所附加「洗手池/便池/浴池」，客厅附加「沙发/电视」，厨房附加「灶台/冰箱/洗手池」，自定义及其他房间含全部家具；在房间范围内点击格子放置、再次点击删除，上下左右相邻的相同家具自动合并为一块，家具格存于房间 `furn` 字段（`{name,x,y}` 数组）；纯前端交互，复用 `PUT /api/auth/profile` 保存。
 
@@ -200,6 +203,8 @@ scrypt（N=16384）密码 + 时间恒定比较；画像含**家庭布局**（≤
 
 ### 5.4 hardware：硬件端口
 设备注册（locator/nfc/tag）、上下行双通道、事件日志、模拟器（8s 心跳）、`getLastHint()` 供推理联动。
+**UHF RFID 方向（无实物设计）**：眼镜本体贴 UHF 无源抗金属标签 + 手持读取机扫描找镜，
+眼镜盒保留有源定位器；设备类型/`rfid_detect` 事件契约与采购规格见 `docs/HARDWARE_RFID.md`（预留，待实物接入）。
 
 ### 5.5 layout：户型图照片识别
 **目的**：降低户型录入成本——原本需在小程序手动拖十来个房间方块，现在拍一张户型图即可生成初稿。

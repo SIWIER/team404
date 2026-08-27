@@ -67,6 +67,32 @@
 
   <view class="demo-tip">演示账号：xiaoming / 123456 ｜ xiaohong / 123456</view>
 
+  <!-- 初次注册后的"有无硬件设备"提问（默认无设备：问答推理不依赖硬件） -->
+  <view class="card device-card" wx:if="{{deviceAsk}}">
+    <view class="device-title">🎉 注册成功！你有以下硬件设备吗？</view>
+    <view class="device-sub">没有也没关系：问答式推理不依赖任何硬件。选"有"可让设备信号辅助定位。</view>
+    <view class="device-opt {{devicePicks.uhf_reader ? 'on' : ''}}" data-key="uhf_reader" bindtap="toggleDevicePick">
+      <view class="opt-ico">📡</view>
+      <view class="opt-main">
+        <view class="opt-name">UHF 手持机（RFID 读取器）</view>
+        <view class="opt-desc">配合贴在眼镜上的无源电子标签，扫房间找眼镜</view>
+      </view>
+      <view class="opt-check">{{devicePicks.uhf_reader ? '✓' : ''}}</view>
+    </view>
+    <view class="device-opt {{devicePicks.case_locator ? 'on' : ''}}" data-key="case_locator" bindtap="toggleDevicePick">
+      <view class="opt-ico">🎒</view>
+      <view class="opt-main">
+        <view class="opt-name">眼镜盒定位器</view>
+        <view class="opt-desc">装在眼镜盒上，找"盒子+眼镜"一起丢的情况，可远程蜂鸣</view>
+      </view>
+      <view class="opt-check">{{devicePicks.case_locator ? '✓' : ''}}</view>
+    </view>
+    <view class="btn-row">
+      <button class="btn btn-ghost" bindtap="skipDevice" disabled="{{deviceBusy}}">都没有，跳过</button>
+      <button class="btn btn-main" bindtap="confirmDevice" loading="{{deviceBusy}}" disabled="{{deviceBusy}}">完成</button>
+    </view>
+  </view>
+
   <!-- 绑定已有账号 弹窗 -->
   <view class="bind-mask" wx:if="{{bindShow}}" bindtap="closeBind">
     <view class="bind-dialog" catchtap="">

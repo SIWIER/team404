@@ -105,8 +105,15 @@ const MIGRATIONS = [
       ALTER TABLE users ADD COLUMN wechat_openid TEXT;
       CREATE UNIQUE INDEX IF NOT EXISTS idx_users_wechat_openid ON users(wechat_openid) WHERE wechat_openid IS NOT NULL;
     `
+  },
+  {
+    version: 8,
+    name: 'profile-hardware',
+    // 注册时的"有无硬件设备"提问：用户拥有的设备清单（JSON 数组，如 ["uhf_reader","case_locator"]）
+    // 空数组/未填 = 无硬件（推理引擎启用无硬件补偿）
+    up: `ALTER TABLE profiles ADD COLUMN hardware TEXT;`
   }
-  // 后续模块在此追加 v8、v9…
+  // 后续模块在此追加 v9、v10…
 ];
 
 function init() {

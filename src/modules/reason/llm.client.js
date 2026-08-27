@@ -16,6 +16,11 @@ function buildPrompt(facts, historyStats, profile) {
   const layoutText = (profile.homeLayout || []).length
     ? profile.homeLayout.map((r) => `${r.name}${r.x != null && r.y != null ? `(网格${r.x},${r.y})` : ''}${r.spots && r.spots.length ? `（常放：${r.spots.join('、')}）` : ''}${r.desc ? `【${r.desc}】` : ''}`).join('；')
     : '未填写（按通用户型考虑）';
+  // 无硬件补偿：画像未登记任何硬件且本次无定位提示 → 引导模型更依赖行为/历史证据并给出更果断结论
+  const owned = Array.isArray(profile.hardware) ? profile.hardware : [];
+  const noHardwareLine = owned.length === 0 && !facts.deviceHint
+    ? '\n- 用户没有接入任何硬件定位设备：请更充分地利用行为线索、户型距离与历史记录推理，并给出更果断的结论（首选置信度可适当提高）。'
+    : '';
 
   const system = '你是一名帮人在家中找回丢失眼镜的生活常识与逻辑推理助手，熟悉居家生活常识。请基于用户本次描述与其历史找回记录，推理眼镜最可能的位置。';
   const user = `【可选位置词汇表（必须尽量从中选择）】${vocabText}
@@ -30,7 +35,7 @@ function buildPrompt(facts, historyStats, profile) {
 - 是否已检查身上：${facts.onPerson || '未提及'}
 - 路过过的房间：${(Array.isArray(facts.passedRooms) && facts.passedRooms.length) ? facts.passedRooms.join('、') : '未提及'}（路过的房间也可能随手放下）
 - 已检查过的区域（在这些区域找过但没找到，推理时应排除其所在房间）：${(Array.isArray(facts.checkedRooms) && facts.checkedRooms.length) ? facts.checkedRooms.join('、') : '未提及'}
-- 硬件定位提示：${facts.deviceHint ? `定位器最近报告眼镜在「${facts.deviceHint.room}」${facts.deviceHint.distance_m != null ? `约 ${facts.deviceHint.distance_m} 米` : ''}（这是强证据，请优先考虑该房间及邻近房间）` : '无'}
+- 硬件定位提示：${facts.deviceHint ? `定位器最近报告眼镜在「${facts.deviceHint.room}」${facts.deviceHint.distance_m != null ? `约 ${facts.deviceHint.distance_m} 米` : ''}（这是强证据，请优先考虑该房间及邻近房间）` : '无'}${noHardwareLine}
 - 补充描述：${facts.extra || '无'}
 
 【用户历史找回统计】

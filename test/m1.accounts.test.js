@@ -261,3 +261,20 @@ test('家庭布局房间家具 furn 保存并往返（非法/越界剔除，无 
   ]);
   assert.strictEqual(hl[1].furn, undefined);
 });
+
+test('画像硬件设备清单保存并往返（注册后"有无设备"提问；非法项剔除、去重）', async () => {
+  const login = await req('/api/auth/login', { method: 'POST', body: { username: 'xiaoming', password: '123456' } });
+  const token = login.json.token;
+  const r = await req('/api/auth/profile', {
+    method: 'PUT', token,
+    body: { hardware: ['uhf_reader', 'case_locator', 'bogus', 'uhf_reader'] }
+  });
+  assert.strictEqual(r.status, 200);
+  assert.deepStrictEqual(r.json.user.profile.hardware, ['uhf_reader', 'case_locator']);
+  // 清空 = 无硬件（默认态）
+  const r2 = await req('/api/auth/profile', { method: 'PUT', token, body: { hardware: [] } });
+  assert.deepStrictEqual(r2.json.user.profile.hardware, []);
+  // 未填过 hardware 的旧账号默认返回空数组
+  const me = await req('/api/auth/me', { token });
+  assert.deepStrictEqual(me.json.user.profile.hardware, []);
+});

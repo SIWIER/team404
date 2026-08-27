@@ -13,6 +13,8 @@ function safeJson(s, d) { try { const v = JSON.parse(s); return v === null ? d :
 // w/h 为房间内部布局尺寸（1-12 格，仅当输入提供时保留）；furn 为房间内家具格（仅当输入提供时保留）
 const MAX_ROOMS = 36;
 const GRID = 10;
+// 用户可拥有的硬件设备类型（注册时"有无设备"提问）；空数组/未填 = 无硬件
+const HARDWARE_ALLOWED = ['uhf_reader', 'case_locator'];
 function sanitizeLayout(layout) {
   if (!Array.isArray(layout)) return [];
   const seen = new Set();
@@ -99,6 +101,7 @@ function getPublicUser(userId) {
       favoritePlaces: safeJson(p.favorite_places, []),
       homeLayout: safeJson(p.home_layout, []),
       notes: p.notes || '',
+      hardware: safeJson(p.hardware, []).filter((h) => HARDWARE_ALLOWED.includes(h)),
       updatedAt: p.updated_at || null
     }
   };
@@ -114,9 +117,9 @@ function register({ username, password, nickname }) {
     'INSERT INTO users (username, password_hash, nickname, created_at) VALUES (?,?,?,?)'
   ).run(uname, hashPassword(password), nick, now());
   const userId = Number(info.lastInsertRowid);
-  db.prepare(`INSERT INTO profiles (user_id, agent_name, agent_style, habits, favorite_places, home_layout, notes, updated_at)
-              VALUES (?,?,?,?,?,?,?,?)`)
-    .run(userId, `${nick}的小镜助手`, '温和耐心，擅长生活常识与逻辑推理', '[]', '[]', '[]', '', now());
+  db.prepare(`INSERT INTO profiles (user_id, agent_name, agent_style, habits, favorite_places, home_layout, notes, hardware, updated_at)
+              VALUES (?,?,?,?,?,?,?,?,?)`)
+    .run(userId, `${nick}的小镜助手`, '温和耐心，擅长生活常识与逻辑推理', '[]', '[]', '[]', '', '[]', now());
   return { user: getPublicUser(userId) };
 }
 
@@ -140,14 +143,19 @@ function updateProfile(userId, patch) {
   const favoritePlaces = patch.favoritePlaces !== undefined ? JSON.stringify(Array.isArray(patch.favoritePlaces) ? patch.favoritePlaces.slice(0, 20) : []) : cur.favorite_places;
   const homeLayout = patch.homeLayout !== undefined ? JSON.stringify(sanitizeLayout(patch.homeLayout)) : cur.home_layout;
   const notes = patch.notes !== undefined ? clamp(patch.notes, 500) : cur.notes;
+  const hardware = patch.hardware !== undefined
+    ? JSON.stringify(Array.isArray(patch.hardware)
+      ? [...new Set(patch.hardware.filter((h) => HARDWARE_ALLOWED.includes(h)))].slice(0, 10)
+      : [])
+    : (cur.hardware ?? '[]');
   db.prepare(`
-    INSERT INTO profiles (user_id, agent_name, agent_style, habits, favorite_places, home_layout, notes, updated_at)
-    VALUES (?,?,?,?,?,?,?,?)
+    INSERT INTO profiles (user_id, agent_name, agent_style, habits, favorite_places, home_layout, notes, hardware, updated_at)
+    VALUES (?,?,?,?,?,?,?,?,?)
     ON CONFLICT(user_id) DO UPDATE SET
       agent_name=excluded.agent_name, agent_style=excluded.agent_style,
       habits=excluded.habits, favorite_places=excluded.favorite_places,
-      home_layout=excluded.home_layout, notes=excluded.notes, updated_at=excluded.updated_at
-  `).run(userId, agentName, agentStyle, habits, favoritePlaces, homeLayout, notes, now());
+      home_layout=excluded.home_layout, notes=excluded.notes, hardware=excluded.hardware, updated_at=excluded.updated_at
+  `).run(userId, agentName, agentStyle, habits, favoritePlaces, homeLayout, notes, hardware, now());
   return getPublicUser(userId);
 }
 
