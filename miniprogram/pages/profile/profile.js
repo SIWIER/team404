@@ -544,6 +544,34 @@ Page({
     wx.navigateTo({ url: '/pages/layout-scan/layout-scan' });
   },
 
+  // ---------- 注销账号（永久删除全部个人数据） ----------
+  deleteAccount() {
+    wx.showModal({
+      title: '注销账号',
+      content: '确定要注销账号吗？你的画像、户型、找回记录等全部个人数据将被永久删除，不可恢复。',
+      confirmText: '继续',
+      confirmColor: '#e85d5d',
+      success: (r1) => {
+        if (!r1.confirm) return;
+        wx.showModal({
+          title: '最后确认',
+          content: '再次确认：注销后数据无法找回，是否仍要注销？',
+          confirmText: '确认注销',
+          confirmColor: '#e85d5d',
+          success: async (r2) => {
+            if (!r2.confirm) return;
+            try {
+              await api.request('/auth/account', { method: 'DELETE' });
+              store.clear();
+              toast('账号已注销，感谢使用 👋');
+              setTimeout(() => wx.reLaunch({ url: '/pages/auth/auth' }), 600);
+            } catch (e) { toast(e.message); }
+          }
+        });
+      }
+    });
+  },
+
   goHome() {
     wx.reLaunch({ url: '/pages/home/home' });
   }

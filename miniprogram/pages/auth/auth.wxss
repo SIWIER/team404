@@ -10,28 +10,6 @@
 .demo-tip { text-align: center; font-size: 22rpx; margin-top: 20rpx; }
 .muted { color: #7b8794; }
 
-/* 初次注册后的"有无硬件设备"提问 */
-.device-card { margin-top: 24rpx; }
-.device-title { font-weight: 800; font-size: 32rpx; }
-.device-sub { color: #7b8794; font-size: 24rpx; margin: 8rpx 0 20rpx; line-height: 1.5; }
-.device-opt {
-  display: flex; align-items: center; gap: 16rpx;
-  border: 2rpx solid #e3e9f2; border-radius: 16rpx; padding: 20rpx; margin-bottom: 16rpx;
-}
-.device-opt.on { border-color: #3d7bfd; background: #eef4ff; }
-.opt-ico { font-size: 44rpx; }
-.opt-main { flex: 1; }
-.opt-name { font-weight: 700; font-size: 28rpx; }
-.opt-desc { color: #7b8794; font-size: 22rpx; margin-top: 4rpx; line-height: 1.5; }
-.opt-check {
-  width: 40rpx; height: 40rpx; border-radius: 50%; flex-shrink: 0;
-  border: 2rpx solid #c3ccd6; color: #fff; font-size: 26rpx; font-weight: 800;
-  display: flex; align-items: center; justify-content: center;
-}
-.device-opt.on .opt-check { background: #3d7bfd; border-color: #3d7bfd; }
-.btn-row { display: flex; gap: 16rpx; margin-top: 8rpx; }
-.btn-row .btn { flex: 1; }
-
 /* 微信登录卡 */
 .wx-card { padding-top: 8rpx; padding-bottom: 32rpx; }
 .divider { display: flex; align-items: center; gap: 16rpx; margin: 8rpx 0 24rpx; }

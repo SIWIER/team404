@@ -116,6 +116,11 @@
   <button class="btn ghost" bindtap="goHome">← 返回首页</button>
 </view>
 
+<!-- 注销账号（删除全部个人数据，需双重确认） -->
+<view style="padding: 0 32rpx 240rpx; text-align: center;">
+  <button class="btn warn sm" bindtap="deleteAccount">⚠️ 注销账号（删除全部个人数据）</button>
+</view>
+
 <!-- 底部固定操作栏：拍照识别 / 保存布局 / 一键清空 -->
 <view class="layout-actions">
   <button class="btn act ghost" bindtap="goLayoutScan">📷 拍照识别户型</button>

@@ -1,0 +1,29 @@
+/* pages/onboarding/onboarding.wxss — 注册后的"有无硬件设备"引导页 */
+.ob-wrap { padding-top: 10vh; }
+.ob-logo { text-align: center; font-size: 110rpx; margin-bottom: 12rpx; }
+.ob-title { text-align: center; font-size: 42rpx; font-weight: 800; }
+.ob-sub { text-align: center; color: #7b8794; font-size: 26rpx; margin: 10rpx 0 40rpx; }
+
+.device-opt {
+  display: flex; align-items: center; gap: 16rpx;
+  border: 2rpx solid #e3e9f2; border-radius: 16rpx; padding: 22rpx; margin-bottom: 16rpx;
+  background: #fff;
+}
+.device-opt.on { border-color: #3d7bfd; background: #eef4ff; }
+.opt-ico { font-size: 48rpx; }
+.opt-main { flex: 1; }
+.opt-name { font-weight: 700; font-size: 28rpx; }
+.opt-desc { color: #7b8794; font-size: 22rpx; margin-top: 4rpx; line-height: 1.5; }
+.opt-check {
+  width: 40rpx; height: 40rpx; border-radius: 50%; flex-shrink: 0;
+  border: 2rpx solid #c3ccd6; color: #fff; font-size: 26rpx; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+}
+.device-opt.on .opt-check { background: #3d7bfd; border-color: #3d7bfd; }
+
+.ob-note {
+  color: #7b8794; font-size: 22rpx; line-height: 1.6; margin: 8rpx 0 24rpx;
+  background: #f7f9fc; border-radius: 12rpx; padding: 16rpx 20rpx;
+}
+.btn-row { display: flex; gap: 16rpx; }
+.btn-row .btn { flex: 1; }

@@ -107,7 +107,8 @@ find-my-glasses-pro/
 | 模块 | 方法/路径 | 说明 |
 |---|---|---|
 | 账户 | POST /api/auth/register · login · logout | 限流 20 次/分/IP；字段级 422 |
-| 账户 | GET /api/auth/me · PUT /api/auth/profile | 画像/户型读写（房间含 x/y、cells 多格形状、w/h 尺寸、furn 家具格） |
+| 账户 | GET /api/auth/me · PUT /api/auth/profile | 画像/户型读写（房间含 x/y、cells 多格形状、w/h 尺寸、furn 家具格、hardware 设备清单） |
+| 账户 | DELETE /api/auth/account | **注销账号**：永久删除全部个人数据（画像/户型、找回记录、账户行），不可恢复 |
 | 账户（微信） | POST /api/auth/wxlogin | 小程序 `wx.login` 拿 `code` → 调 jscode2session 换 openid；返回 `mode=login|autoRegister|needBind`（详见 §5.5） |
 | 账户（微信） | POST /api/auth/wxbind | `wxlogin` 返回 `needBind` 时使用：拿 `bindToken` + 已有账号密码完成绑定，颁发 token |
 | 账户（微信） | GET /api/auth/wxconfig | 前端能力探测：`{enabled, autoRegister}`；未配置 AppID 时 `enabled=false` |

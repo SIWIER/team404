@@ -133,8 +133,24 @@ function login({ username, password, remember }) {
   return { token, expiresInHours, user: getPublicUser(u.id) };
 }
 
-function updateProfile(userId, patch) {
+// 注销账号：原子删除该用户的全部个人数据（画像/户型、找回记录、账户行）
+// 设备与设备事件无 user 关联（演示模型全局共享），不涉及个人数据，保留
+function deleteAccount(userId) {
   const db = getDb();
+  db.exec('BEGIN');
+  try {
+    db.prepare('DELETE FROM profiles WHERE user_id = ?').run(userId);
+    db.prepare('DELETE FROM loss_records WHERE user_id = ?').run(userId);
+    const info = db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+    db.exec('COMMIT');
+    return info.changes > 0;
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  }
+}
+
+function updateProfile(userId, patch) {  const db = getDb();
   const cur = db.prepare('SELECT * FROM profiles WHERE user_id = ?').get(userId) || {};
   const clamp = (v, max) => String(v ?? '').slice(0, max);
   const agentName = patch.agentName !== undefined ? clamp(patch.agentName, 40) || `${getPublicUser(userId).nickname}的小镜助手` : cur.agent_name;
@@ -159,4 +175,4 @@ function updateProfile(userId, patch) {
   return getPublicUser(userId);
 }
 
-module.exports = { getPublicUser, register, login, updateProfile, sanitizeLayout, MAX_ROOMS };
+module.exports = { getPublicUser, register, login, updateProfile, deleteAccount, sanitizeLayout, MAX_ROOMS };

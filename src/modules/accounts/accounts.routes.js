@@ -48,7 +48,9 @@ function registerRoutes(router) {
   // 当前用户
   router.get('/api/auth/me', async (ctx) => {
     if (!ctx.user) return ctx.res.error('请先登录', 401);
-    ctx.res.ok({ user: svc.getPublicUser(ctx.user.id) });
+    const u = svc.getPublicUser(ctx.user.id);
+    if (!u) return ctx.res.error('账号不存在或已注销', 401);
+    ctx.res.ok({ user: u });
   });
 
   // 更新个人画像（个性化智能体 + 家庭布局）
@@ -73,6 +75,14 @@ function registerRoutes(router) {
       hardware: b.hardware
     });
     ctx.res.ok({ user });
+  });
+
+  // 注销账号：永久删除该用户全部个人数据（画像/户型、找回记录、账户行），不可恢复
+  router.delete('/api/auth/account', (ctx) => {
+    if (!ctx.user) return ctx.res.error('请先登录', 401);
+    const ok = svc.deleteAccount(ctx.user.id);
+    if (!ok) return ctx.res.error('账号不存在或已注销', 404);
+    ctx.res.ok();
   });
 
   // ========== 微信登录（小程序 wx.login） ==========

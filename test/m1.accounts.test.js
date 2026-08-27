@@ -278,3 +278,26 @@ test('画像硬件设备清单保存并往返（注册后"有无设备"提问；
   const me = await req('/api/auth/me', { token });
   assert.deepStrictEqual(me.json.user.profile.hardware, []);
 });
+
+test('注销账号：永久删除全部个人数据，用户名可重新注册，旧令牌失效', async () => {
+  const uname = 'del_test_user';
+  const reg = await req('/api/auth/register', { method: 'POST', body: { username: uname, password: 'abcd1234' } });
+  assert.strictEqual(reg.status, 200);
+  const login = await req('/api/auth/login', { method: 'POST', body: { username: uname, password: 'abcd1234' } });
+  const token = login.json.token;
+  // 写入画像与找回记录（个人数据）
+  await req('/api/auth/profile', { method: 'PUT', token, body: { agentName: '待删除', hardware: ['uhf_reader'] } });
+  await req('/api/reason/record', { method: 'POST', token, body: { success: true, foundLocation: '床头柜', foundRoom: '卧室' } });
+  // 注销
+  const del = await req('/api/auth/account', { method: 'DELETE', token });
+  assert.strictEqual(del.status, 200);
+  // 数据已删：登录失败（用户行已删除 → 用户名或密码错误 401）
+  const relogin = await req('/api/auth/login', { method: 'POST', body: { username: uname, password: 'abcd1234' } });
+  assert.strictEqual(relogin.status, 401);
+  // 旧令牌失效：me 返回 401
+  const me = await req('/api/auth/me', { token });
+  assert.strictEqual(me.status, 401);
+  // 用户名释放，可重新注册
+  const re = await req('/api/auth/register', { method: 'POST', body: { username: uname, password: 'abcd1234' } });
+  assert.strictEqual(re.status, 200);
+});
