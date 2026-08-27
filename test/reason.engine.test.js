@@ -152,7 +152,49 @@ test('定位提示按户型图距离衰减：邻近房间加权，远处不加',
   }
 });
 
+// ---------- 连续化评分公式（10×10 多格户型） ----------
+
+test('面积加成对数增长：格数越多加成越高，封顶 2.0（旧版 4 格以上无区分）', () => {
+  const mk = (n) => {
+    const cells = [];
+    for (let i = 0; i < n; i++) cells.push({ x: 0, y: i });
+    return { homeLayout: [{ name: '卧室', spots: [], cells }] };
+  };
+  assert.ok(Math.abs(engine.areaFactor(mk(1).homeLayout, '卧室') - 1.0) < 1e-9);
+  assert.ok(engine.areaFactor(mk(2).homeLayout, '卧室') > 1.15);      // 旧版 1.15
+  assert.ok(engine.areaFactor(mk(4).homeLayout, '卧室') > 1.45);      // 旧版封顶前 1.45
+  assert.ok(engine.areaFactor(mk(8).homeLayout, '卧室') > 1.5);       // 旧版已封顶 1.5，新版继续增长
+  assert.strictEqual(engine.areaFactor(mk(16).homeLayout, '卧室'), 2.0);   // 新封顶 2.0
+});
+
+test('距离衰减连续化：随距离平滑下降，远距离不再一刀切', () => {
+  assert.strictEqual(engine.roomDistMult(1), 1.3);                    // 相邻（与旧版一致）
+  assert.ok(Math.abs(engine.roomDistMult(2) - 1.105) < 1e-9);         // ≈ 旧版 1.08
+  assert.ok(engine.roomDistMult(3) < 1 && engine.roomDistMult(3) > engine.roomDistMult(4));
+  assert.strictEqual(engine.roomDistMult(9), 0.6);                    // 下限 0.6，不再压到 0
+});
+
+test('定位提示衰减连续化：近距离平滑衰减，衰减过深视为无信号', () => {
+  assert.strictEqual(engine.hintDistMult(1), 1.8);
+  assert.ok(Math.abs(engine.hintDistMult(2) - 1.35) < 1e-9);          // ≈ 旧版 1.2 附近
+  assert.ok(engine.hintDistMult(3) > 1 && engine.hintDistMult(3) < 1.2);   // 轻微加权（1.0125）
+  assert.strictEqual(engine.hintDistMult(4), 0);                      // 太远 → 无信号（与旧版"更远不加"一致）
+  assert.strictEqual(engine.hintDistMult(7), 0);
+});
+
+test('大房间同房间权重：8 格卧室高于 2 格卧室（面积进入评分）', () => {
+  const big = { ...noProfile, homeLayout: [{ name: '卧室', spots: [], cells: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }, { x: 2, y: 0 }, { x: 2, y: 1 }, { x: 0, y: 2 }, { x: 1, y: 2 }] }] };
+  const small = { ...noProfile, homeLayout: [{ name: '卧室', spots: [], cells: [{ x: 0, y: 0 }, { x: 1, y: 0 }] }] };
+  const a = engine.infer({ room: '卧室' }, noHistory, big);
+  const b = engine.infer({ room: '卧室' }, noHistory, small);
+  const bedA = a.ranked.find((x) => x.name === '床头柜');
+  const bedB = b.ranked.find((x) => x.name === '床头柜');
+  assert.ok(bedA && bedB);
+  assert.ok(bedA.probability > bedB.probability, '大卧室的床头柜概率应更高');
+});
+
 // ---------- 走廊房间 ----------
+
 test('回家进门：有走廊的户型走廊位置进入候选，无走廊则降权', () => {
   const withHall = { ...noProfile, homeLayout: [
     { name: '卧室', spots: [], x: 0, y: 0 },

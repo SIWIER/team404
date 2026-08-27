@@ -17,10 +17,18 @@ const W = {
   checkedRoom: 0.05        // 勾选已检查过的区域 → 该房间概率大幅降低
 };
 
-// 户型图网格上的曼哈顿距离 → 乘法器
-const ROOM_DIST_BOOST = { 0: 1.8, 1: 1.3, 2: 1.08 }; // 更远 ×0.95
-const ROOM_DIST_FAR = 0.95;
-const HINT_DIST_BOOST = { 0: 6.0, 1: 1.8, 2: 1.2 };  // 更远不加权
+// 户型图网格上的曼哈顿距离 → 乘法器（连续化，贴合 10×10 细网格的真实几何关系）
+// 同房间 d=0 单独乘 W.roomMatch × 面积因子；d≥1 指数衰减，下限 0.6 避免过度压制
+function roomDistMult(d) {
+  if (d === 0) return 1;
+  return Math.max(0.6, 1.3 * Math.pow(0.85, d - 1));
+}
+// 硬件定位提示的距离衰减：点信号随距离快速衰减，衰减到 <0.8 视为无信号（不加权，与旧版"更远不加"一致）
+function hintDistMult(d) {
+  if (d === 0) return 1;
+  const m = 1.8 * Math.pow(0.75, d - 1);
+  return m >= 0.8 ? m : 0;
+}
 
 // 条件追问 → 位置乘法器（单一系数，避免与行为加成过度叠加）
 const BATH_PLACE_BOOST = {
@@ -95,10 +103,11 @@ function roomDist(layout, roomA, roomB) {
   return best;
 }
 
-// 房间格数（面积近似）；同房间加成按格数小幅放大，封顶 1.5 倍
+// 房间格数（面积近似）→ 加成：对数增长、平滑饱和，封顶 2.0
+// （旧版 1+0.15×(n-1) 线性 + 硬顶 1.5，4 格以上房间全无区分度）
 function areaFactor(layout, room) {
-  const n = roomCells(layout, room).length;
-  return Math.min(1.5, 1 + 0.15 * (n - 1));
+  const n = Math.max(1, roomCells(layout, room).length);
+  return Math.min(2.0, 1 + 0.32 * Math.log2(n));
 }
 
 function infer(facts, historyStats, profile) {
@@ -152,18 +161,21 @@ function infer(facts, historyStats, profile) {
       if (b) { s *= b; reasons.push(`身上的位置还没检查，此类位置概率大幅上升（×${b.toFixed(1)}）`); }
     }
 
-    // 5) 最后所在房间：户型图有坐标时按「距离远近」衰减（多格房间取最近格），否则直接匹配
+    // 5) 最后所在房间：户型图有坐标时按「距离远近」连续衰减（多格房间取最近格），否则直接匹配
     const dRoom = roomDist(layout, facts.room, L.room);
     if (dRoom !== null) {
-      let mult = ROOM_DIST_BOOST[dRoom] !== undefined ? ROOM_DIST_BOOST[dRoom] : ROOM_DIST_FAR;
+      let mult;
       if (dRoom === 0) {
-        // 同房间：按格数（面积）小幅放大——房间越大，随手放的概率越高
+        // 同房间：按格数（面积）放大——房间越大，随手放的概率越高
         mult = W.roomMatch * areaFactor(layout, facts.room);
+        s *= mult;
+        reasons.push(`你记得最后在「${facts.room}」，同房间位置 ×${mult.toFixed(2)}（含面积加成）`);
+      } else {
+        mult = roomDistMult(dRoom);
+        s *= mult;
+        if (mult > 1) reasons.push(`你记得最后在「${facts.room}」，此处与它相距 ${dRoom} 格（邻近，×${mult.toFixed(2)}）`);
+        else reasons.push(`你记得最后在「${facts.room}」，此处离得较远（相距 ${dRoom} 格，×${mult.toFixed(2)}）`);
       }
-      s *= mult;
-      if (dRoom === 0) reasons.push(`你记得最后在「${facts.room}」，同房间位置 ×${mult.toFixed(2)}（含面积加成）`);
-      else if (mult > 1) reasons.push(`你记得最后在「${facts.room}」，此处与它相距 ${dRoom} 格（邻近，×${mult}）`);
-      else reasons.push(`你记得最后在「${facts.room}」，此处离得较远（相距 ${dRoom} 格，×${mult}）`);
     } else if (facts.room && facts.room !== '不确定' && roomMatches(L.room, facts.room)) {
       s *= W.roomMatch;
       reasons.push(`你记得最后在「${facts.room}」，同房间位置 ×${W.roomMatch}`);
@@ -193,13 +205,14 @@ function infer(facts, historyStats, profile) {
       reasons.push('这是你户型中自定义的放置点（×1.15）');
     }
 
-    // 8) 硬件定位提示：按与定位房间的户型图距离衰减（多格房间取最近格）
+    // 8) 硬件定位提示：按与定位房间的户型图距离连续衰减（多格房间取最近格；太远视为无信号）
     if (facts.deviceHint && facts.deviceHint.room) {
       const dText = facts.deviceHint.distance_m != null ? `约 ${facts.deviceHint.distance_m} 米` : '信号已收到';
       const dH = roomDist(layout, facts.deviceHint.room, L.room);
       if (dH !== null) {
-        let mult = HINT_DIST_BOOST[dH];
-        if (mult && dH === 0) mult = W.deviceHint * areaFactor(layout, facts.deviceHint.room);
+        const mult = dH === 0
+          ? W.deviceHint * areaFactor(layout, facts.deviceHint.room)
+          : hintDistMult(dH);
         if (mult) {
           s *= mult;
           reasons.push(`📡 定位器报告在「${facts.deviceHint.room}」（${dText}），此处${dH === 0 ? '同房间' : `相距 ${dH} 格`}（×${mult.toFixed(2)}）`);
@@ -267,4 +280,4 @@ function buildSummary(top, ranked, activity, facts, hs) {
   return `${histPart}眼镜最可能在「${top.name}」（${top.room}），置信度约 ${top.probability}%。${timePart} ${checkedPart}主要依据：${topReasons || '通用放置习惯'}。建议优先检查这里，再依次排查：${ranked.slice(1, 4).map((r) => r.name).join('、')}。`;
 }
 
-module.exports = { infer, roomDist, roomPos, roomTypeOf, roomCells };
+module.exports = { infer, roomDist, roomPos, roomTypeOf, roomCells, areaFactor, roomDistMult, hintDistMult };
