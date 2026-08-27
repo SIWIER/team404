@@ -87,8 +87,10 @@
         <view class="tile-x" wx:if="{{item.showX}}" data-idx="{{item.roomIdx}}" data-ci="{{item.ci}}" catchtap="removeFromGrid">✕</view>
         <view class="tile-shrink" wx:if="{{item.shrinkBadge}}">−</view>
         <view class="tile-emoji">{{item.emoji}}</view>
-        <view class="tile-name">{{item.name}}</view>
       </view>
+      <!-- 房间名悬浮标签：不受格子宽度裁切，完整显示 -->
+      <view class="room-label" wx:for="{{roomLabels}}" wx:key="key"
+            style="left:{{item.cx}}px;top:{{item.cy}}px;">{{item.text}}</view>
     </view>
 
     <view class="btn-row" style="justify-content:center;">

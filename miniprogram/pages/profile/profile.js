@@ -47,6 +47,7 @@ Page({
     // 布局
     rooms: [],           // 编辑副本 {idx,name,desc,spotsText,cells:[{x,y}]}（cells 空=在托盘）
     tiles: [],           // 网格方块（含走廊每格一段）{key,roomIdx,ci,name,emoji,corridor,px,py}
+    roomLabels: [],      // 房间名悬浮标签（单格=emoji+名字居中，多格=名字居中于色块）
     unplaced: [],        // 托盘
     presets: [],
     corridorExists: false,
@@ -429,6 +430,7 @@ Page({
   renderLayout() {
     const cell = this.data.grid.cell;
     const tiles = [];
+    const roomLabels = [];
     const selIdx = (this.data.extendMode || this.data.shrinkMode) ? this.data.extendTarget : -1;
     this.rooms.forEach((r, roomPos) => {
       r.emoji = roomEmoji(r.name);
@@ -439,11 +441,10 @@ Page({
           key: r.idx + '-' + ci,
           roomIdx: r.idx,
           ci,
-          name: ci === 0 ? r.name : '',   // 房间名只显示在首格（多格房间避免重复挤压）
           showX: ci === 0 && !this.data.shrinkMode,   // ✕ 只在首格显示；缩小模式改用 − 徽标
           shrinkBadge: this.data.shrinkMode && r.idx === selIdx && r.cells.length > 1,   // 缩小模式：可移除格标 −
           selected: r.idx === selIdx,
-          emoji: roomEmoji(r.name),
+          emoji: (ci === 0 && r.cells.length > 1) ? roomEmoji(r.name) : '',   // 多格房间首格显示 emoji；单格房间由悬浮标签承载
           corridor,
           px: c.x * cell,
           py: c.y * cell,
@@ -452,6 +453,20 @@ Page({
           borderStyle: corridor ? '' : tileBorderStyle(r.cells, ci, bd)
         });
       });
+      // 房间名悬浮标签：单格房间 = "emoji + 名字" 居中；多格房间 = 名字居中于色块中心（不受格子宽度裁切）
+      if (r.cells.length) {
+        const xs = r.cells.map((c) => c.x);
+        const ys = r.cells.map((c) => c.y);
+        const minX = Math.min(...xs), maxX = Math.max(...xs);
+        const minY = Math.min(...ys), maxY = Math.max(...ys);
+        roomLabels.push({
+          key: 'lbl-' + r.idx,
+          text: r.cells.length > 1 ? r.name : roomEmoji(r.name) + ' ' + r.name,
+          cx: ((minX + maxX + 1) / 2) * cell,
+          cy: ((minY + maxY + 1) / 2) * cell,
+          emojiOnly: r.cells.length === 1
+        });
+      }
     });
     const unplaced = this.rooms
       .filter((r) => r.name && !r.cells.length)
@@ -485,6 +500,7 @@ Page({
     this.setData({
       rooms: this.rooms,
       tiles,
+      roomLabels,
       unplaced,
       presets,
       extendCands,

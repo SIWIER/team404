@@ -88,6 +88,15 @@
 .tile-emoji { font-size: 34rpx; }
 .tile-name { font-size: 18rpx; font-weight: 700; max-width: 100%; overflow: hidden; white-space: nowrap; }
 
+/* 房间名悬浮标签：居中于房间色块，文字完整显示不受格子宽度限制（穿透点击，不挡操作） */
+.room-label {
+  position: absolute; z-index: 4; transform: translate(-50%, -50%);
+  background: rgba(255, 255, 255, 0.85); border-radius: 999rpx;
+  padding: 2rpx 10rpx; font-size: 20rpx; font-weight: 800; color: #1f2b3a;
+  white-space: nowrap; pointer-events: none;
+  box-shadow: 0 2rpx 8rpx rgba(40, 60, 110, 0.15);
+}
+
 /* 托盘拖拽幽灵方块（跟手） */
 .drag-ghost {
   position: fixed; z-index: 999; pointer-events: none;
