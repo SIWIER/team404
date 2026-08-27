@@ -73,28 +73,44 @@ function pickConnected(cells) {
  * 模型原始输出 → 合法 homeLayout 候选（纯函数，不联网）
  * 规则：坐标裁进 0-5；同房间内去重格；跨房间抢格时先到先得（后来者让位）；
  *       非走廊房间塌缩为单格；走廊保留连通多格链；x/y 恒等于 cells[0]；≤36 房间
+ * 拓扑修复：
+ *   1) 走廊优先摆放（与模型输出顺序无关），保证走廊链完整不被截断；
+ *   2) 与走廊抢格的房间改放到"走廊旁的空格"而不是被丢弃（普通房间互相抢格仍按旧规则丢弃）；
+ *   3) adjacent 声明的相邻关系强制成立：声明与走廊相邻 → 贴到走廊旁；
+ *      两个房间互列相邻 → 拉近到曼哈顿距离 1（找不到空格则保持原状，不丢房间）。
  */
+const DIRS = [{ x: 0, y: 1 }, { x: 1, y: 0 }, { x: 0, y: -1 }, { x: -1, y: 0 }];
+
 function normalizeLayout(raw) {
   const list = Array.isArray(raw) ? raw : (raw && Array.isArray(raw.rooms) ? raw.rooms : []);
   if (!list.length) return [];
 
-  const taken = new Set();     // 全局已占格 "x,y"，实现跨房间让位
-  const out = [];
+  const seenName = new Set();
+  const uniqueName = (base) => {
+    if (!seenName.has(base)) { seenName.add(base); return base; }
+    let n = 2;
+    while (seenName.has(base + n)) n++;
+    seenName.add(base + n);
+    return base + n;
+  };
 
+  // ---- 第一遍：解析（只做字段清洗，不摆格） ----
+  const parsed = [];
   for (const item of list) {
-    if (out.length >= MAX_ROOMS) break;
+    if (parsed.length >= MAX_ROOMS) break;
     const name = alignRoomName(item && item.name);
     if (!name) continue;
 
-    // 收集候选格：优先 cells，退化到 x/y 单格
     let cells = [];
+    let hadCells = false;
     if (item && Array.isArray(item.cells) && item.cells.length) {
+      hadCells = true;
       cells = item.cells;
     } else if (item && item.x !== undefined && item.y !== undefined) {
       cells = [{ x: item.x, y: item.y }];
     }
 
-    // 裁剪 + 数值校验 + 房间内去重
+    // 数值校验 + 裁剪 + 房间内去重
     const seen = new Set();
     let valid = [];
     for (const c of cells) {
@@ -107,33 +123,154 @@ function normalizeLayout(raw) {
       seen.add(k);
       valid.push(cell);
     }
+    if (hadCells && !valid.length) continue;   // 给了 cells 但全是废格 → 丢弃（与旧行为一致）
 
-    // 非走廊房间只占一格（与编辑器行为一致：改名离开走廊会塌缩）
+    // 非走廊房间只占一格；走廊保留连通多格链
     if (!isCorridor(name)) {
       valid = valid.slice(0, 1);
     } else {
       valid = pickConnected(valid).slice(0, GRID * GRID);
     }
 
-    // 跨房间让位：剔除已被先前房间占用的格
-    valid = valid.filter((c) => !taken.has(c.x + ',' + c.y));
-    if (!valid.length) continue;   // 全被占完 → 丢弃该房间（用户可在编辑器手动补）
-    valid.forEach((c) => taken.add(c.x + ',' + c.y));
-
-    const spots = Array.isArray(item && item.spots)
-      ? item.spots.slice(0, MAX_SPOTS).map((s) => String(s).trim().slice(0, 30)).filter(Boolean)
-      : [];
-
-    out.push({
-      name,
+    parsed.push({
+      name: uniqueName(name),
       desc: String((item && item.desc) || '').trim().slice(0, 100),
-      spots,
-      x: valid[0].x,
-      y: valid[0].y,
+      spots: Array.isArray(item && item.spots)
+        ? item.spots.slice(0, MAX_SPOTS).map((s) => String(s).trim().slice(0, 30)).filter(Boolean)
+        : [],
+      adjacent: Array.isArray(item && item.adjacent)
+        ? item.adjacent.map((s) => String(s).trim()).filter(Boolean).slice(0, 20)
+        : [],
       cells: valid
     });
   }
 
+  // ---- 第二遍：摆格（走廊优先，其余保持原顺序） ----
+  const taken = new Set();
+  const out = [];
+  const keyOf = (c) => c.x + ',' + c.y;
+  const freeNear = (targets) => {
+    const seen = new Set();
+    const res = [];
+    for (const t of targets) {
+      for (const d of DIRS) {
+        const nx = t.x + d.x;
+        const ny = t.y + d.y;
+        if (nx < 0 || nx >= GRID || ny < 0 || ny >= GRID) continue;
+        const k = nx + ',' + ny;
+        if (taken.has(k) || seen.has(k)) continue;
+        seen.add(k);
+        res.push({ x: nx, y: ny });
+      }
+    }
+    return res;
+  };
+  const firstFree = () => {
+    for (let y = 0; y < GRID; y++) {
+      for (let x = 0; x < GRID; x++) {
+        if (!taken.has(x + ',' + y)) return { x, y };
+      }
+    }
+    return null;
+  };
+  const nearest = (cands, from) => {
+    let best = cands[0];
+    let bd = Math.abs(best.x - from.x) + Math.abs(best.y - from.y);
+    for (const c of cands) {
+      const d = Math.abs(c.x - from.x) + Math.abs(c.y - from.y);
+      if (d < bd) { bd = d; best = c; }
+    }
+    return best;
+  };
+
+  const order = parsed.map((_, i) => i)
+    .sort((a, b) => (isCorridor(parsed[a].name) ? 0 : 1) - (isCorridor(parsed[b].name) ? 0 : 1));
+
+  for (const i of order) {
+    const p = parsed[i];
+    if (!p.cells.length) {   // 无格（托盘态）房间保留，x/y 为 null
+      out.push({ ...p, x: null, y: null, cells: [] });
+      continue;
+    }
+
+    if (isCorridor(p.name)) {
+      // 走廊优先占格；冲突格只可能来自更早的走廊
+      const cells = p.cells.filter((c) => !taken.has(keyOf(c)));
+      if (!cells.length) continue;
+      cells.forEach((c) => taken.add(keyOf(c)));
+      out.push({ ...p, x: cells[0].x, y: cells[0].y, cells });
+      continue;
+    }
+
+    const cell = p.cells[0];
+    if (!taken.has(keyOf(cell))) {
+      taken.add(keyOf(cell));
+      out.push({ ...p, x: cell.x, y: cell.y, cells: [cell] });
+      continue;
+    }
+    // 与走廊抢格：救援到走廊旁（最近优先），没有则任意空位，都没有才丢弃
+    const corridorRoom = out.find((r) => isCorridor(r.name) && r.cells.length);
+    if (!corridorRoom) continue;                 // 普通房间互抢 → 丢弃（旧行为，先到先得）
+    const near = freeNear(corridorRoom.cells);
+    let spot = near.length ? nearest(near, cell) : firstFree();
+    if (!spot) continue;                         // 网格满 → 丢弃
+    taken.add(keyOf(spot));
+    out.push({ ...p, x: spot.x, y: spot.y, cells: [spot] });
+  }
+
+  // ---- 第三遍：adjacent 拓扑修复 ----
+  const roomIdx = (nm) => {
+    let i = out.findIndex((r) => r.name === nm);
+    if (i >= 0) return i;
+    return out.findIndex((r) => r.name.startsWith(nm));
+  };
+  const constraints = out.map((r) => {
+    const set = [];
+    for (const nm of r.adjacent) {
+      const i = roomIdx(nm);
+      if (i >= 0 && !set.includes(i)) set.push(i);
+    }
+    return set;
+  });
+  const manhattan = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+  const isNear = (cells, targets) => cells.some((c) => targets.some((t) => manhattan(c, t) === 1));
+  const reloc = (i, targets) => {
+    const r = out[i];
+    if (!r.cells.length || isCorridor(r.name) || isNear(r.cells, targets)) return;
+    const cands = freeNear(targets);
+    if (!cands.length) return;
+    const spot = nearest(cands, r.cells[0]);
+    r.cells.forEach((c) => taken.delete(keyOf(c)));
+    taken.add(keyOf(spot));
+    r.cells = [spot];
+    r.x = spot.x;
+    r.y = spot.y;
+  };
+
+  const corridorIdx = out.findIndex((r) => isCorridor(r.name));
+  if (corridorIdx >= 0) {
+    const cCells = out[corridorIdx].cells;
+    for (let i = 0; i < out.length; i++) {
+      if (i === corridorIdx) continue;
+      if (constraints[i].includes(corridorIdx) || constraints[corridorIdx].includes(i)) {
+        reloc(i, cCells);
+      }
+    }
+  }
+  for (let i = 0; i < out.length; i++) {
+    const a = out[i];
+    if (!a.cells.length || isCorridor(a.name)) continue;
+    for (const j of constraints[i]) {
+      if (j <= i) continue;
+      const b = out[j];
+      if (!b.cells.length || isCorridor(b.name)) continue;
+      if (isNear(a.cells, b.cells)) continue;
+      reloc(j, a.cells);
+    }
+  }
+
+  // adjacent 只用于修复拓扑，不外露、不落库（保持与 accounts.sanitizeLayout 的输出契约一致）
+  for (const r of out) delete r.adjacent;
   return out;
 }
 
@@ -147,11 +284,16 @@ function buildVisionPrompt() {
 - 每个房间占一个格子，用 cells 数组表示，如 "cells":[{"x":2,"y":3}]
 - 唯一例外：走廊/过道可以占多个格子，必须是逐格相连的链，如 "cells":[{"x":2,"y":2},{"x":2,"y":3},{"x":2,"y":4}]
 - 不同房间不能占用同一个格子
-- 相邻房间在图中相邻，就让它们的格子也相邻；尽量还原真实的相对方位
-- 最多识别 ${MAX_ROOMS} 个房间；同名房间（如两个卧室）可以重复出现
+- 同名房间请自行编号区分（如两个卧室分别写 "卧室" 和 "卧室2"）
+- 最多识别 ${MAX_ROOMS} 个房间
+
+【相邻关系（重要：程序会按此校验并修正布局）】
+- 每个房间输出 adjacent 数组：列出与它共享墙/门、直接相邻的房间名（只写词表里的名字；不挨着的不要列）
+- 两个互列 adjacent 的房间，其格子必须上下左右紧挨（曼哈顿距离为 1）
+- 与走廊相邻的房间，其格子必须紧挨走廊链的某一格；被走廊串联的房间请在 adjacent 里写上「走廊」
 
 【输出格式】严格只输出一个 JSON 对象，不要 markdown 代码块，不要任何多余文字：
-{"rooms":[{"name":"房间名","cells":[{"x":0,"y":0}],"desc":"可选的简短说明"}],"note":"一句话说明识别到的户型概况"}
+{"rooms":[{"name":"房间名","cells":[{"x":0,"y":0}],"adjacent":["相邻房间名"],"desc":"可选的简短说明"}],"note":"一句话说明识别到的户型概况"}
 
 如果图片看不清或不是户型图，返回 {"rooms":[],"note":"原因说明"}。`;
 }

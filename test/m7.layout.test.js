@@ -161,6 +161,40 @@ test('超过 36 个房间被截断', () => {
   assert.strictEqual(out.length, 36);
 });
 
+test('相邻声明但摆远的两个房间被拉近到相邻（曼哈顿距离 1）', () => {
+  const out = svc.normalizeLayout({ rooms: [
+    { name: '卧室', cells: [{ x: 0, y: 0 }], adjacent: ['客厅'] },
+    { name: '客厅', cells: [{ x: 5, y: 5 }], adjacent: ['卧室'] }
+  ] });
+  const b = out.find((r) => r.name === '卧室');
+  const l = out.find((r) => r.name === '客厅');
+  assert.strictEqual(Math.abs(b.cells[0].x - l.cells[0].x) + Math.abs(b.cells[0].y - l.cells[0].y), 1);
+});
+
+test('声明与走廊相邻的房间被贴到走廊旁', () => {
+  const out = svc.normalizeLayout({ rooms: [
+    { name: '客厅', cells: [{ x: 5, y: 5 }], adjacent: ['走廊'] },
+    { name: '走廊', cells: [{ x: 0, y: 0 }, { x: 0, y: 1 }] }
+  ] });
+  const c = out.find((r) => r.name === '走廊');
+  const l = out.find((r) => r.name === '客厅');
+  const d = c.cells.map((cc) => Math.abs(l.cells[0].x - cc.x) + Math.abs(l.cells[0].y - cc.y));
+  assert.ok(d.some((x) => x === 1));
+});
+
+test('走廊链后输出也保持完整：抢占走廊格的房间改放走廊旁而不是被丢弃', () => {
+  const out = svc.normalizeLayout({ rooms: [
+    { name: '卧室', cells: [{ x: 0, y: 0 }] },
+    { name: '走廊', cells: [{ x: 0, y: 0 }, { x: 0, y: 1 }] }
+  ] });
+  const c = out.find((r) => r.name === '走廊');
+  const b = out.find((r) => r.name === '卧室');
+  assert.strictEqual(c.cells.length, 2);   // 走廊链完整
+  assert.strictEqual(b.cells.length, 1);   // 卧室没被丢弃，挪到走廊旁
+  const d = c.cells.map((cc) => Math.abs(b.cells[0].x - cc.x) + Math.abs(b.cells[0].y - cc.y));
+  assert.ok(d.some((x) => x === 1));
+});
+
 test('房间名别名对齐到标准词表', () => {
   assert.strictEqual(svc.alignRoomName('主卧'), '卧室');
   assert.strictEqual(svc.alignRoomName('洗手间'), '卫生间');
