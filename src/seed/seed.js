@@ -41,7 +41,8 @@ function seedUsers() {
         { name: '走廊', desc: '连接卧室与客厅', spots: ['走廊挂钩'], x: 3, y: 1 }
       ],
       notes: '低度近视，有时会忘记自己把眼镜推到了头顶',
-      hardware: ['uhf_reader', 'case_locator']
+      // 无设备演示账号：不登记任何硬件 → 推理走"无硬件补偿"（强化行为/历史证据）
+      hardware: []
     } }
   ];
 
@@ -102,17 +103,20 @@ function seedLossRecords() {
   logger.info(`[seed] 已预置 ${n} 条历史找回记录`);
 }
 
-// 兼容存量数据库：演示账号若从未设置过 hardware（NULL），补上演示设备清单
+// 兼容存量数据库：演示账号的硬件清单与当前演示口径同步
+// （xiaoming = 眼镜盒定位器演示；xiaohong = 无设备演示，走无硬件补偿）
 function ensureDemoHardware() {
   const db = getDb();
-  const map = { xiaoming: ['case_locator'], xiaohong: ['uhf_reader', 'case_locator'] };
+  const map = { xiaoming: ['case_locator'], xiaohong: [] };
+  // 上一版演示默认（需纠正为无设备）
+  const legacy = { xiaohong: '["uhf_reader","case_locator"]' };
   for (const [uname, hardware] of Object.entries(map)) {
     const u = db.prepare('SELECT id FROM users WHERE username = ?').get(uname);
     if (!u) continue;
     const p = db.prepare('SELECT hardware FROM profiles WHERE user_id = ?').get(u.id);
-    if (p && p.hardware == null) {
+    if (p && (p.hardware == null || p.hardware === legacy[uname])) {
       db.prepare('UPDATE profiles SET hardware = ? WHERE user_id = ?').run(JSON.stringify(hardware), u.id);
-      logger.info(`[seed] 演示账号 ${uname} 已补充硬件清单 ${hardware.join(',')}`);
+      logger.info(`[seed] 演示账号 ${uname} 硬件清单同步为 [${hardware.join(',')}]`);
     }
   }
 }
