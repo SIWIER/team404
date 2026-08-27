@@ -473,8 +473,8 @@ Page({
 
     if (placed.length) {
       heat.placed = true;
-      const w = Math.min(6, Math.max(...placed.map((p) => p.x)) + 1);
-      const h = Math.min(6, Math.max(...placed.map((p) => p.y)) + 1);
+      const w = Math.min(10, Math.max(...placed.map((p) => p.x)) + 1);
+      const h = Math.min(10, Math.max(...placed.map((p) => p.y)) + 1);
       const rows = [];
       for (let y = 0; y < h; y++) {
         const cells = [];

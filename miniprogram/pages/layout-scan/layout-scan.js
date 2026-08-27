@@ -7,7 +7,7 @@ const api = require('../../utils/api');
 const store = require('../../utils/store');
 const { toast, confirm, roomEmoji } = require('../../utils/ui');
 
-const GRID = 6;
+const GRID = 10;
 // 压缩目标：约 800KB 以内，base64 后约 1.07MB，稳过后端 2MB 限制
 const TARGET_BYTES = 800 * 1024;
 
@@ -36,7 +36,7 @@ Page({
     try {
       const sys = wx.getSystemInfoSync();
       const areaPx = Math.floor((sys.windowWidth * (750 - 48 - 64 - 8)) / 750);
-      const cell = Math.max(40, Math.floor(areaPx / GRID));
+      const cell = Math.max(26, Math.floor(areaPx / GRID));
       const cells = [];
       for (let i = 0; i < GRID * GRID; i++) {
         cells.push({ x: (i % GRID) * cell, y: Math.floor(i / GRID) * cell });
@@ -137,7 +137,7 @@ Page({
       (r.cells || []).forEach((c, ci) => {
         tiles.push({
           key: i + '-' + ci,
-          name: r.name,
+          name: ci === 0 ? r.name : '',   // 名字只显示在首格
           emoji,
           corridor: String(r.name).includes('走廊'),
           px: c.x * cell,

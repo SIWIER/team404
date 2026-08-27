@@ -31,7 +31,7 @@ miniprogram/
    ├─ reason/     # 引导推理（问答→结果→闭环）✅
    ├─ data/       # 统计可视化 🚧（接口已就绪，Canvas 图表开发中）
    ├─ hardware/   # 设备接入 ✅（卡片/指令/注册/WS 实时事件流）
-   ├─ profile/    # 画像/户型拖拽 ✅（表单 + movable-view 6×6 网格）
+   ├─ profile/    # 画像/户型拖拽 ✅（表单 + movable-view 10×10 网格，房间按面积占多格）
    └─ layout-scan/ # 拍照识别户型 ✅（选图→压缩→视觉识别→预览→应用）
 ```
 

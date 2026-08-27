@@ -9,25 +9,34 @@ const store = require('../../utils/store');
 const { toast, roomEmoji } = require('../../utils/ui');
 
 const ROOM_PRESETS = ['卧室', '卫生间', '客厅', '厨房', '餐厅', '书房', '玄关', '走廊', '阳台', '衣帽间', '储物间'];
-const GRID = 6;
-// 房间数量上限：与后端 sanitizeLayout（accounts.service.js）的 slice(0, MAX_ROOMS) 一致（= 6×6 网格格数 36），
+const GRID = 10;
+// 房间数量上限：与后端 sanitizeLayout（accounts.service.js）的 slice(0, MAX_ROOMS) 一致，
 // 超出会被后端静默截断，导致"保存成功但房间消失"——前端必须先拦住并提示
 const MAX_ROOMS = 36;
 
-// 标准户型模板：走廊居中成链，所有房间与走廊/入户相邻（全连通）
+// 标准户型模板（10×10 细网格）：走廊居中成链，所有房间与走廊相邻（全连通）；
+// 房间按面积占多格（大房间多格、小房间少格）
+function rect(x0, y0, w, h) {
+  const cells = [];
+  for (let y = y0; y < y0 + h; y++) {
+    for (let x = x0; x < x0 + w; x++) cells.push({ x, y });
+  }
+  return cells;
+}
 const TEMPLATE = [
-  { key: '走廊', cells: [{ x: 2, y: 2 }, { x: 2, y: 3 }, { x: 2, y: 4 }] },
-  { key: '玄关', cells: [{ x: 2, y: 5 }] },
-  { key: '客厅', cells: [{ x: 3, y: 3 }] },
-  { key: '卫生间', cells: [{ x: 3, y: 4 }] },
-  { key: '厨房', cells: [{ x: 1, y: 3 }] },
-  { key: '餐厅', cells: [{ x: 1, y: 4 }] },
-  { key: '书房', cells: [{ x: 3, y: 2 }] },
-  { key: '卧室', cells: [{ x: 1, y: 2 }] },
-  { key: '卧室', cells: [{ x: 2, y: 1 }] },
-  { key: '阳台', cells: [{ x: 3, y: 1 }] },
-  { key: '衣帽间', cells: [{ x: 0, y: 2 }] },
-  { key: '储物间', cells: [{ x: 4, y: 2 }] }
+  { key: '走廊', cells: Array.from({ length: 8 }, (_, i) => ({ x: 4, y: i + 1 })) },   // 竖向走廊 (4,1)-(4,8)
+  { key: '玄关', cells: [{ x: 4, y: 9 }] },
+  { key: '客厅', cells: rect(5, 2, 4, 3) },        // 5-8 × 2-4，贴走廊右侧
+  { key: '阳台', cells: rect(9, 2, 1, 3) },        // 客厅右侧
+  { key: '卧室2', cells: rect(0, 1, 3, 3) },       // 左侧上卧室
+  { key: '卧室', cells: rect(0, 5, 3, 3) },        // 左侧下卧室
+  { key: '厨房', cells: rect(5, 6, 2, 2) },        // 走廊右侧
+  { key: '卫生间', cells: rect(7, 6, 2, 2) },      // 厨房旁
+  { key: '卫生间2', cells: rect(5, 9, 2, 1) },     // 玄关旁公卫
+  { key: '餐厅', cells: rect(7, 8, 2, 1) },
+  { key: '书房', cells: rect(0, 8, 3, 2) },        // 左下
+  { key: '衣帽间', cells: rect(3, 1, 1, 3) },      // 卧室2 右侧
+  { key: '储物间', cells: rect(3, 5, 1, 3) }       // 卧室右侧
 ];
 
 Page({
@@ -41,8 +50,9 @@ Page({
     unplaced: [],        // 托盘
     presets: [],
     corridorExists: false,
-    extendMode: false,   // 走廊延长模式：点高亮格选方向（可弯折）
-    extendCands: [],     // 可延伸候选格（走廊任意段四周的空格）
+    extendMode: false,   // 房间扩大模式：先点房间选中，再点高亮 + 格加格（走廊支持弯折）
+    extendTarget: -1,    // 扩大模式选中的房间 idx
+    extendCands: [],     // 可添加的候选格（选中房间四周的空格）
     drag: { idx: -1, dx: 0, dy: 0 },   // 方块拖拽位移
     ghost: { show: false, emoji: '', name: '', x: 0, y: 0 }, // 托盘拖拽幽灵
     grid: { cell: 52, area: 312, size: GRID, cells: [] }
@@ -59,7 +69,7 @@ Page({
       const sys = wx.getSystemInfoSync();
       const win = sys.windowWidth;
       const areaPx = Math.floor((win * (750 - 48 - 64 - 8)) / 750);
-      const cell = Math.max(40, Math.floor(areaPx / GRID));
+      const cell = Math.max(26, Math.floor(areaPx / GRID));
       const area = cell * GRID;
       const cells = [];
       for (let i = 0; i < GRID * GRID; i++) {
@@ -136,7 +146,7 @@ Page({
 
   canAddRoom() {
     if (this.rooms.length >= MAX_ROOMS) {
-      toast('房间已达上限（36 个 = 6×6 网格全部格子，含托盘里的）');
+      toast('房间已达上限（36 个，含托盘里的）');
       return false;
     }
     return true;
@@ -295,23 +305,36 @@ Page({
     this.renderLayout();
   },
 
-  // ---------- 走廊形状 ----------
-  // 切换延长模式：点高亮格即可向任意方向延长（支持弯折）
+  // ---------- 房间扩大/走廊形状 ----------
+  // 切换扩大模式：点一个房间方块选中它，再点高亮 + 格为其加格（任意房间可用，走廊支持弯折）
   toggleExtend() {
-    const room = this.rooms.find((r) => r.name.includes('走廊'));
-    if (!room) { toast('还没有「走廊」房间，先添加一个'); return; }
-    this.setData({ extendMode: !this.data.extendMode });
+    const turningOn = !this.data.extendMode;
+    let extendTarget = -1;
+    if (turningOn) {
+      const corridor = this.rooms.find((r) => r.name.includes('走廊'));
+      extendTarget = corridor ? corridor.idx : -1;
+    }
+    this.setData({ extendMode: turningOn, extendTarget });
     this.renderLayout();
+  },
+
+  onTileTap(e) {
+    if (!this.data.extendMode) return;
+    const idx = Number(e.currentTarget.dataset.idx);
+    if (this.rooms.some((r) => r.idx === idx)) {
+      this.setData({ extendTarget: idx });
+      this.renderLayout();
+    }
   },
 
   onExtendCell(e) {
     if (!this.data.extendMode) return;
-    const room = this.rooms.find((r) => r.name.includes('走廊'));
+    const room = this.rooms.find((r) => r.idx === this.data.extendTarget);
     if (!room) return;
     const x = Number(e.currentTarget.dataset.x);
     const y = Number(e.currentTarget.dataset.y);
     room.cells.push({ x, y });
-    this.renderLayout(); // 保持延长模式，继续点下一个格可连成任意形状
+    this.renderLayout(); // 保持扩大模式，继续点下一个格可连成任意形状
   },
 
   shrinkCorridor() {
@@ -328,7 +351,7 @@ Page({
     const named = this.rooms.filter((r) => r.name);
     if (!named.length) { toast('还没有添加房间，先点上方按钮添加'); return; }
     this.rooms.forEach((r) => { r.cells = []; });
-    this.setData({ extendMode: false });
+    this.setData({ extendMode: false, extendTarget: -1 });
     const occupied = () => this.rooms.flatMap((r) => r.cells);
     const isFree = (cs) => cs.every((c) => !occupied().some((o) => o.x === c.x && o.y === c.y));
     let n = 0;
@@ -350,7 +373,7 @@ Page({
 
   clearLayout() {
     this.rooms.forEach((r) => { r.cells = []; });
-    this.setData({ extendMode: false });
+    this.setData({ extendMode: false, extendTarget: -1 });
     this.renderLayout();
     toast('已全部移出网格');
   },
@@ -385,7 +408,7 @@ Page({
           key: r.idx + '-' + ci,
           roomIdx: r.idx,
           ci,
-          name: r.name,
+          name: ci === 0 ? r.name : '',   // 房间名只显示在首格（多格房间避免重复挤压）
           emoji: roomEmoji(r.name),
           corridor: r.name.includes('走廊'),
           px: c.x * cell,
@@ -401,14 +424,14 @@ Page({
       .slice(0, 6)
       .map((n) => ({ name: n, emoji: roomEmoji(n) }));
 
-    // 延长模式：走廊任意段四周的空格都是候选（支持弯折/绕行）
+    // 扩大模式：选中房间四周的空格都是候选（任何房间可加格，走廊支持弯折）
     let extendCands = [];
     if (this.data.extendMode) {
-      const corridor = this.rooms.find((r) => r.name.includes('走廊'));
-      if (corridor) {
-        const occupied = this.occupiedSet(corridor.idx);
+      const room = this.rooms.find((r) => r.idx === this.data.extendTarget);
+      if (room) {
+        const occupied = this.occupiedSet(room.idx);
         const seen = new Set();
-        for (const c of corridor.cells) {
+        for (const c of room.cells) {
           for (const d of [{ x: 0, y: 1 }, { x: 1, y: 0 }, { x: 0, y: -1 }, { x: -1, y: 0 }]) {
             const nx = c.x + d.x;
             const ny = c.y + d.y;
@@ -437,7 +460,7 @@ Page({
       toast('房间数量超过上限（36 个），请删除多余房间后再保存');
       return;
     }
-    this.setData({ savingLayout: true, extendMode: false });
+    this.setData({ savingLayout: true, extendMode: false, extendTarget: -1 });
     const homeLayout = this.rooms
       .filter((r) => r.name)
       .map((r) => ({

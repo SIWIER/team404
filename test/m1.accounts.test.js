@@ -154,12 +154,30 @@ test('走廊多格形状 cells 保存并往返（去重、裁剪）', async () =
   });
   assert.strictEqual(r.status, 200);
   const hl = r.json.user.profile.homeLayout;
-  // 走廊：去重(2,2)与越界(99,0→5,0)处理
-  assert.deepStrictEqual(hl[0].cells, [{ x: 1, y: 2 }, { x: 2, y: 2 }, { x: 3, y: 2 }, { x: 5, y: 0 }]);
+  // 走廊：去重(2,2)与越界(99,0→9,0)处理
+  assert.deepStrictEqual(hl[0].cells, [{ x: 1, y: 2 }, { x: 2, y: 2 }, { x: 3, y: 2 }, { x: 9, y: 0 }]);
   assert.strictEqual(hl[0].x, 1);
   assert.strictEqual(hl[0].y, 2);
   // 普通房间自动生成单格 cells
   assert.deepStrictEqual(hl[1].cells, [{ x: 0, y: 2 }]);
+});
+
+test('大房间多格形状保存并往返（非走廊房间也可占多格）', async () => {
+  const login = await req('/api/auth/login', { method: 'POST', body: { username: 'xiaoming', password: '123456' } });
+  const token = login.json.token;
+  const r = await req('/api/auth/profile', {
+    method: 'PUT', token,
+    body: { homeLayout: [
+      { name: '客厅', spots: [], cells: [{ x: 5, y: 2 }, { x: 6, y: 2 }, { x: 5, y: 3 }, { x: 6, y: 3 }] },
+      { name: '卫生间', spots: [], cells: [{ x: 7, y: 2 }] }
+    ] }
+  });
+  assert.strictEqual(r.status, 200);
+  const hl = r.json.user.profile.homeLayout;
+  assert.strictEqual(hl[0].cells.length, 4);   // 大房间多格保留
+  assert.strictEqual(hl[0].x, 5);              // x/y = cells[0]
+  assert.strictEqual(hl[0].y, 2);
+  assert.strictEqual(hl[1].cells.length, 1);   // 小房间单格
 });
 
 test('家庭布局超过 36 个房间被截断（与前端守卫一致）', async () => {

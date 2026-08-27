@@ -17,7 +17,15 @@ let layout = []; // 编辑中的户型副本
 
 export function renderProfile(root) {
   const p = store.user.profile;
-  layout = (p.homeLayout || []).map((r) => ({ ...r, spots: [...(r.spots || [])], furn: [...(r.furn || [])] }));
+  // 统一到 cells 数据源：多格房间（含走廊、视觉识别结果）与单格房间一致处理
+  layout = (p.homeLayout || []).map((r) => ({
+    ...r,
+    spots: [...(r.spots || [])],
+    furn: [...(r.furn || [])],
+    cells: (Array.isArray(r.cells) && r.cells.length)
+      ? r.cells.map((c) => ({ x: c.x, y: c.y }))
+      : ((r.x != null && r.y != null) ? [{ x: r.x, y: r.y }] : [])
+  }));
 
   root.innerHTML = `
     <div class="page-title">🧠 个性化智能体</div>
@@ -118,7 +126,7 @@ function renderLayout(root) {
       } else {
         layout[i][k] = inp.value.trim();
       }
-      renderPreview(root);
+      renderFloor(root);
     };
     inp.addEventListener('change', commit);
     inp.addEventListener('blur', commit);
@@ -133,28 +141,33 @@ function renderLayout(root) {
   ].join('');
   presets.querySelectorAll('[data-add]').forEach((b) => {
     // 融合：保留同名自动编号 nextRoomName + 房间内部布局默认尺寸 w/h（与下方自定义房间一致）
-    b.onclick = () => { layout.push({ name: nextRoomName(b.dataset.add), desc: '', spots: [], x: null, y: null, w: 12, h: 12 }); renderLayout(root); };
+    b.onclick = () => { layout.push({ name: nextRoomName(b.dataset.add), desc: '', spots: [], cells: [], w: 12, h: 12 }); renderLayout(root); };
   });
   presets.querySelector('#add-custom').onclick = () => {
-    layout.push({ name: '', desc: '', spots: [], x: null, y: null, w: 12, h: 12 });
+    layout.push({ name: '', desc: '', spots: [], cells: [], w: 12, h: 12 });
     renderLayout(root);
   };
 
   renderFloor(root);
 }
 
-// ---------- 户型图拖曳编辑器（6×6 网格） ----------
-const GRID = 6;
+// ---------- 户型图拖曳编辑器（10×10 细网格，房间按面积占多格） ----------
+const GRID = 10;
+const cellKey = (x, y) => x + ',' + y;
 
 function roomAt(x, y) {
-  return layout.findIndex((r) => r.x === x && r.y === y);
+  return layout.findIndex((r) => (r.cells || []).some((c) => c.x === x && c.y === y));
 }
 
 function renderFloor(root) {
   const box = root.querySelector('#layout-preview');
   if (!box) return;
-  const placed = layout.filter((r) => r.name && r.x != null && r.y != null);
-  const tray = layout.filter((r) => r.name && (r.x == null || r.y == null));
+  const placed = layout.filter((r) => r.name && (r.cells || []).length);
+  const tray = layout.filter((r) => r.name && !(r.cells || []).length);
+  const firstCellOf = (idx, x, y) => {
+    const c = (layout[idx].cells || [])[0];
+    return c && c.x === x && c.y === y ? layout[idx].name : '';
+  };
 
   let cells = '';
   for (let y = 0; y < GRID; y++) {
@@ -165,7 +178,7 @@ function renderFloor(root) {
              <div class="floor-tile" draggable="true" data-idx="${idx}" title="拖到其他格子移动；点 ✕ 移出网格">
                <span class="tile-x" data-idx="${idx}" title="移出网格">✕</span>
                <div class="tile-emoji">${roomEmoji(layout[idx].name)}</div>
-               <div class="tile-name">${esc(layout[idx].name)}</div>
+               <div class="tile-name">${esc(firstCellOf(idx, x, y))}</div>
              </div>
            </div>`
         : `<div class="floor-cell" data-x="${x}" data-y="${y}"></div>`;
@@ -173,7 +186,7 @@ function renderFloor(root) {
   }
 
   box.innerHTML = `
-    <div class="muted" style="font-size:12px;font-weight:600;margin-bottom:8px;">户型图（拖拽房间摆放相对位置，将用于推理的距离远近计算）</div>
+    <div class="muted" style="font-size:12px;font-weight:600;margin-bottom:8px;">户型图（拖拽房间摆放相对位置，将用于推理的距离远近计算；大房间多格、小房间少格）</div>
     ${tray.length ? `<div class="tray">待放置：${tray.map((r, i) => `
       <div class="floor-tile tray-tile" draggable="true" data-idx="${layout.indexOf(r)}" title="拖到下方网格中放置">
         <div class="tile-emoji">${roomEmoji(r.name)}</div>
@@ -195,7 +208,7 @@ function renderFloor(root) {
       if (e.target.closest('.tile-x')) return;
       const idx = Number(el.dataset.idx);
       const room = layout[idx];
-      if (room && room.x != null && room.y != null) openRoomEditor(root, idx);
+      if (room && (room.cells || []).length) openRoomEditor(root, idx);
     });
   });
   box.querySelectorAll('.floor-cell').forEach((cell) => {
@@ -208,24 +221,51 @@ function renderFloor(root) {
       if (!Number.isInteger(idx) || !layout[idx]) return;
       const x = Number(cell.dataset.x);
       const y = Number(cell.dataset.y);
-      const existing = roomAt(x, y);
-      if (existing >= 0 && existing !== idx) {
-        // 交换：被占格子的房间拿到被拖房间原来的位置
-        layout[existing].x = layout[idx].x;
-        layout[existing].y = layout[idx].y;
+      const r = layout[idx];
+      if (!r.cells || !r.cells.length) return;
+      if (r.cells.length === 1) {
+        // 单格房间：原交换逻辑（仅与单格房间交换）
+        const existing = roomAt(x, y);
+        if (existing >= 0 && existing !== idx) {
+          const other = layout[existing];
+          if (!other.cells || other.cells.length !== 1) {
+            toast('目标被多格房间占用，请先把它移开');
+            renderFloor(root);
+            return;
+          }
+          const old = { x: r.cells[0].x, y: r.cells[0].y };
+          r.cells = [{ x, y }];
+          other.cells = [old];
+          toast('与「' + other.name + '」交换了位置');
+        } else {
+          r.cells = [{ x, y }];
+        }
+      } else {
+        // 多格房间：整块平移，校验不出界、不重叠
+        const dx = x - r.cells[0].x;
+        const dy = y - r.cells[0].y;
+        if (dx === 0 && dy === 0) return;
+        const cand = r.cells.map((c) => ({ x: c.x + dx, y: c.y + dy }));
+        const occupied = new Set();
+        layout.forEach((o, j) => {
+          if (j === idx) return;
+          (o.cells || []).forEach((c) => occupied.add(cellKey(c.x, c.y)));
+        });
+        const ok = cand.every((c) =>
+          c.x >= 0 && c.x < GRID && c.y >= 0 && c.y < GRID && !occupied.has(cellKey(c.x, c.y)));
+        if (!ok) { toast('移不过去：会出界或与其他房间重叠'); renderFloor(root); return; }
+        r.cells = cand;
       }
-      layout[idx].x = x;
-      layout[idx].y = y;
       renderFloor(root);
     });
   });
-  // 移出网格
+  // 移出网格（整间回托盘）
   box.querySelectorAll('.tile-x').forEach((el) => {
     el.onclick = (e) => {
       e.preventDefault();
       e.stopPropagation();
       const idx = Number(el.dataset.idx);
-      if (layout[idx]) { layout[idx].x = null; layout[idx].y = null; }
+      if (layout[idx]) { layout[idx].cells = []; layout[idx].x = null; layout[idx].y = null; }
       renderFloor(root);
     };
   });
@@ -431,9 +471,34 @@ async function saveLayout(root) {
   btn.disabled = true;
   btn.innerHTML = '<span class="spin"></span> 保存中…';
   try {
-    const d = await api('/auth/profile', { method: 'PUT', body: { homeLayout: layout } });
+    const d = await api('/auth/profile', {
+      method: 'PUT',
+      body: {
+        homeLayout: layout
+          .filter((r) => r.name)
+          .map((r) => {
+            const cells = (r.cells || []).map((c) => ({ x: c.x, y: c.y }));
+            const room = {
+              name: r.name, desc: r.desc, spots: r.spots, cells,
+              x: cells.length ? cells[0].x : null,
+              y: cells.length ? cells[0].y : null
+            };
+            if (r.w !== undefined) room.w = r.w;
+            if (r.h !== undefined) room.h = r.h;
+            if (Array.isArray(r.furn) && r.furn.length) room.furn = r.furn;
+            return room;
+          })
+      }
+    });
     store.setUser(d.user);
-    layout = d.user.profile.homeLayout.map((r) => ({ ...r, spots: [...(r.spots || [])], furn: [...(r.furn || [])] }));
+    layout = d.user.profile.homeLayout.map((r) => ({
+      ...r,
+      spots: [...(r.spots || [])],
+      furn: [...(r.furn || [])],
+      cells: (Array.isArray(r.cells) && r.cells.length)
+        ? r.cells.map((c) => ({ x: c.x, y: c.y }))
+        : ((r.x != null && r.y != null) ? [{ x: r.x, y: r.y }] : [])
+    }));
     toast('家庭布局已保存 ✓');
     renderLayout(root);
   } catch (e) { toast(e.message); }

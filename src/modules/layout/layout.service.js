@@ -2,7 +2,8 @@
 // 设计要点：
 // 1) 只做「识别 + 清洗」，不落库：候选交给前端预览，用户确认后走 PUT /api/auth/profile 保存
 // 2) 视觉调用失败/超时/解析异常一律返回 null，由路由层转成友好错误（不抛栈给用户）
-// 3) normalizeLayout 是纯函数：模型输出千奇百怪，全部收敛成 6×6 网格内的合法布局
+// 3) normalizeLayout 是纯函数：模型输出千奇百怪，全部收敛成 10×10 网格内的合法布局
+//    （细网格 + 房间按面积占多格：大房间多格、小房间少格，还原真实平面拓扑）
 'use strict';
 
 // 与小程序 ROOM_PRESETS、推理知识库房间保持一致的词表
@@ -22,8 +23,8 @@ const ROOM_ALIAS = {
   杂物间: '储物间', 储藏室: '储物间', 收纳间: '储物间', 设备间: '储物间'
 };
 
-const GRID = 6;              // 6×6 网格，与小程序编辑器 / accounts.sanitizeLayout 一致
-const MAX_ROOMS = 36;        // 与 accounts.sanitizeLayout 的上限一致（= 网格格数）
+const GRID = 10;             // 10×10 细网格，与小程序编辑器 / accounts.sanitizeLayout 一致
+const MAX_ROOMS = 36;        // 与 accounts.sanitizeLayout 的上限一致
 const MAX_SPOTS = 20;
 
 function clampCell(v) {
@@ -71,13 +72,14 @@ function pickConnected(cells) {
 
 /**
  * 模型原始输出 → 合法 homeLayout 候选（纯函数，不联网）
- * 规则：坐标裁进 0-5；同房间内去重格；跨房间抢格时先到先得（后来者让位）；
- *       非走廊房间塌缩为单格；走廊保留连通多格链；x/y 恒等于 cells[0]；≤36 房间
+ * 规则：坐标裁进 0-9（10×10 细网格）；同房间内去重格；跨房间抢格时先到先得（后来者让位）；
+ *       所有房间都可占多格（大房间多格、小房间少格），只保留连通块；走廊为连通链；
+ *       x/y 恒等于 cells[0]；≤36 房间
  * 拓扑修复：
  *   1) 走廊优先摆放（与模型输出顺序无关），保证走廊链完整不被截断；
  *   2) 与走廊抢格的房间改放到"走廊旁的空格"而不是被丢弃（普通房间互相抢格仍按旧规则丢弃）；
- *   3) adjacent 声明的相邻关系强制成立：声明与走廊相邻 → 贴到走廊旁；
- *      两个房间互列相邻 → 拉近到曼哈顿距离 1（找不到空格则保持原状，不丢房间）。
+ *   3) adjacent 声明的相邻关系强制成立：声明与走廊相邻 → 贴到走廊旁（只移动单格小房间，
+ *      多格主房间不挪动、保持形状）；两个房间互列相邻 → 拉近到曼哈顿距离 1。
  */
 const DIRS = [{ x: 0, y: 1 }, { x: 1, y: 0 }, { x: 0, y: -1 }, { x: -1, y: 0 }];
 
@@ -125,12 +127,8 @@ function normalizeLayout(raw) {
     }
     if (hadCells && !valid.length) continue;   // 给了 cells 但全是废格 → 丢弃（与旧行为一致）
 
-    // 非走廊房间只占一格；走廊保留连通多格链
-    if (!isCorridor(name)) {
-      valid = valid.slice(0, 1);
-    } else {
-      valid = pickConnected(valid).slice(0, GRID * GRID);
-    }
+    // 任何房间都保留连通块（大房间多格、小房间少格；走廊自然成为连通链）
+    valid = pickConnected(valid).slice(0, GRID * GRID);
 
     parsed.push({
       name: uniqueName(name),
@@ -202,17 +200,19 @@ function normalizeLayout(raw) {
       continue;
     }
 
-    const cell = p.cells[0];
-    if (!taken.has(keyOf(cell))) {
-      taken.add(keyOf(cell));
-      out.push({ ...p, x: cell.x, y: cell.y, cells: [cell] });
+    // 普通房间：剔除与已占格冲突的格，再取连通块（房间形状不因冲突碎成两块）
+    let cells = p.cells.filter((c) => !taken.has(keyOf(c)));
+    cells = pickConnected(cells);
+    if (cells.length) {
+      cells.forEach((c) => taken.add(keyOf(c)));
+      out.push({ ...p, x: cells[0].x, y: cells[0].y, cells });
       continue;
     }
     // 与走廊抢格：救援到走廊旁（最近优先），没有则任意空位，都没有才丢弃
     const corridorRoom = out.find((r) => isCorridor(r.name) && r.cells.length);
     if (!corridorRoom) continue;                 // 普通房间互抢 → 丢弃（旧行为，先到先得）
     const near = freeNear(corridorRoom.cells);
-    let spot = near.length ? nearest(near, cell) : firstFree();
+    const spot = near.length ? nearest(near, p.cells[0]) : firstFree();
     if (!spot) continue;                         // 网格满 → 丢弃
     taken.add(keyOf(spot));
     out.push({ ...p, x: spot.x, y: spot.y, cells: [spot] });
@@ -236,7 +236,8 @@ function normalizeLayout(raw) {
   const isNear = (cells, targets) => cells.some((c) => targets.some((t) => manhattan(c, t) === 1));
   const reloc = (i, targets) => {
     const r = out[i];
-    if (!r.cells.length || isCorridor(r.name) || isNear(r.cells, targets)) return;
+    // 只移动单格小房间（卫生间等）；多格大房间保持形状不挪动
+    if (r.cells.length !== 1 || isCorridor(r.name) || isNear(r.cells, targets)) return;
     const cands = freeNear(targets);
     if (!cands.length) return;
     const spot = nearest(cands, r.cells[0]);
@@ -275,13 +276,13 @@ function normalizeLayout(raw) {
     const wantsCorridor = (r, i) => constraints[i].includes(corridorIdx);
     for (let i = 0; i < out.length; i++) {
       const r = out[i];
-      if (i === corridorIdx || !r.cells.length || isCorridor(r.name)) continue;
+      if (i === corridorIdx || r.cells.length !== 1 || isCorridor(r.name)) continue;   // 只处理单格房间
       if (!wantsCorridor(r, i)) continue;
       if (isNear(r.cells, cCells)) continue;                 // 已贴走廊
       let donor = -1;
       for (let j = 0; j < out.length; j++) {
         const o = out[j];
-        if (j === corridorIdx || !o.cells.length || isCorridor(o.name)) continue;
+        if (j === corridorIdx || o.cells.length !== 1 || isCorridor(o.name)) continue;
         if (wantsCorridor(o, j)) continue;
         if (corridorFront.has(keyOf(o.cells[0]))) { donor = j; break; }
       }
@@ -323,22 +324,24 @@ function normalizeLayout(raw) {
 }
 
 function buildVisionPrompt() {
-  return `这是一张住宅户型图照片。请识别出图中的房间，并把它们摆进一个 ${GRID}×${GRID} 的方格地图。
+  return `这是一张住宅户型图照片。请识别出图中的房间，并把它们摆进一个 ${GRID}×${GRID} 的方格地图（细网格，用来还原真实平面结构）。
 
 【房间名词汇表（尽量只从中选择）】${ROOM_VOCAB.join('、')}
 
 【坐标规则】
 - 坐标系：x 向右递增，y 向下递增，取值均为 0 到 ${GRID - 1} 的整数
-- 每个房间占一个格子，用 cells 数组表示，如 "cells":[{"x":2,"y":3}]
-- 唯一例外：走廊/过道可以占多个格子，必须是逐格相连的链，如 "cells":[{"x":2,"y":2},{"x":2,"y":3},{"x":2,"y":4}]
-- 不同房间不能占用同一个格子
+- 房间按真实面积占格：大房间（客厅）约 6-9 格，中等房间（卧室/厨房/餐厅/书房）约 3-6 格，
+  小房间（卫生间/玄关/衣帽间/储物间）1-2 格；每个房间的格必须连成一块，最好是矩形
+- cells 是房间占的格子数组，示例：一个 2×3 的卧室 = [{"x":2,"y":2},{"x":3,"y":2},{"x":2,"y":3},{"x":3,"y":3},{"x":2,"y":4},{"x":3,"y":4}]
+- 走廊/过道：占 1 格宽的多格链（逐格相连），如 [{"x":4,"y":0},{"x":4,"y":1},{"x":4,"y":2}...]
+- 不同房间不能占用同一个格子；先按图中的真实相对方位摆放，再把每个房间画成对应大小
 - 同名房间请自行编号区分（如两个卧室分别写 "卧室" 和 "卧室2"）
 - 最多识别 ${MAX_ROOMS} 个房间
 
-【相邻关系与动线（重要：程序会按此校验并修正布局）】
-- adjacent 列出的是"有门相通"的房间名（只写词表里的名字）；仅仅共墙但没有门的不要列
+【墙与门（重要：程序会按此校验并修正布局）】
+- 两个房间的格子挨着 = 它们之间有一面墙；只有"有门相通"才写进 adjacent，仅仅共墙没有门的不要列
 - 两个互列 adjacent 的房间，其格子必须上下左右紧挨（曼哈顿距离为 1）
-- 与走廊相邻的房间，其格子必须紧挨走廊链的某一格
+- 与走廊相邻的房间，至少要有一格紧挨走廊链的某一格
 - 【动线规则——先想清楚"人从走廊进入每个房间要经过哪扇门"，再写 adjacent】
   1. 主房间（卧室/客厅/餐厅/厨房/书房等）的门通常直接开向走廊：这些房间的 adjacent 必须写上「走廊」
   2. 套内卫生间（卧室自带的独立卫生间）：门开在卧室里、不直接通走廊 → 它只与卧室相邻
@@ -397,7 +400,7 @@ async function callVision(cfg, imageBase64, mimeType) {
           ]
         }],
         temperature: 0.2,      // 识图任务要稳定，低温
-        max_tokens: 1200,
+        max_tokens: 2500,
         stream: false,
         ...extraBody
       }),

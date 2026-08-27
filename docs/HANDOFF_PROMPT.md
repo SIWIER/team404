@@ -45,7 +45,7 @@
 （miniprogram/pages/profile/，当前是占位页）。
 功能对齐 Web 版 public/js/views/profile.view.js：
 - 智能体昵称/风格/生活习惯/常用地点/备注 的表单编辑（调 PUT /api/auth/profile）
-- 家庭布局编辑器：房间增删改 + 6×6 户型图拖拽摆放
+- 家庭布局编辑器：房间增删改 + 10×10 户型图拖拽摆放（房间按面积占多格，走廊为连通链）
   （小程序用 movable-area/movable-view 实现拖拽，坐标 x/y 与 Web 版一致）
 - 户型预览网格 + 保存
 - 若问卷第 14 题隐私接受度低，页面底部加一句"数据仅用于本地推理"说明

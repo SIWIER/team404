@@ -70,6 +70,10 @@
 .floor-tile.cor-seg {
   background: #fff7e8; border-color: #ffce8a; border-style: dashed;
 }
+.floor-tile.ext-sel {
+  border-color: #3d7bfd; border-style: solid;
+  box-shadow: 0 0 0 3rpx rgba(61, 123, 253, 0.35);
+}
 .tile-x {
   position: absolute; top: 0; right: 6rpx;
   font-size: 22rpx; color: #ff7a59; line-height: 1; padding: 4rpx;

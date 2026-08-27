@@ -64,15 +64,22 @@ function placedLayout() {
 function roomOptionsHtml(q, isSelected) {
   const pl = placedLayout();
   if (!pl) return null;
-  const GRID = 6;
-  const byPos = new Map(pl.placed.map((r) => [r.x + ',' + r.y, r]));
+  const GRID = 10;
+  const byPos = new Map();
+  pl.placed.forEach((r) => {
+    const cells = (Array.isArray(r.cells) && r.cells.length)
+      ? r.cells
+      : ((r.x != null && r.y != null) ? [{ x: r.x, y: r.y }] : []);
+    cells.forEach((c, ci) => { if (!byPos.has(c.x + ',' + c.y)) byPos.set(c.x + ',' + c.y, { r, first: ci === 0 }); });
+  });
   let cells = '';
   for (let y = 0; y < GRID; y++) {
     for (let x = 0; x < GRID; x++) {
-      const r = byPos.get(x + ',' + y);
-      cells += r
-        ? '<div class="floor-cell filled"><div class="floor-tile selectable ' + (isSelected(r.name) ? 'active' : '') + '" data-val="' + esc(r.name) + '"><div class="tile-emoji">' + roomEmoji(r.name) + '</div><div class="tile-name">' + esc(r.name) + '</div></div></div>'
-        : '<div class="floor-cell"></div>';
+      const e = byPos.get(x + ',' + y);
+      if (!e) { cells += '<div class="floor-cell"></div>'; continue; }
+      cells += e.first
+        ? '<div class="floor-cell filled"><div class="floor-tile selectable ' + (isSelected(e.r.name) ? 'active' : '') + '" data-val="' + esc(e.r.name) + '"><div class="tile-emoji">' + roomEmoji(e.r.name) + '</div><div class="tile-name">' + esc(e.r.name) + '</div></div></div>'
+        : '<div class="floor-cell filled"><div class="floor-tile"><div class="tile-emoji">' + roomEmoji(e.r.name) + '</div></div></div>';
     }
   }
   const unplaced = pl.layout.filter((r) => r.name && (r.x == null || r.y == null));

@@ -142,7 +142,7 @@ textarea.input { min-height: 90px; resize: vertical; font-family: inherit; line-
 .layout-tile .tile-spots { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
 /* 户型图拖曳编辑器 */
-.floor-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; max-width: 520px; }
+.floor-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; max-width: 520px; }
 .floor-cell {
   aspect-ratio: 1; border: 1.5px dashed #d5ddeb; border-radius: 10px;
   display: flex; align-items: center; justify-content: center; background: #fafcff;

@@ -99,11 +99,11 @@ test('未配置视觉模型 → 503 且提示可手动编辑', async () => {
 
 // ---------- normalizeLayout 纯函数（识别结果清洗，主要防线） ----------
 
-test('坐标越界被裁进 0-5 网格', () => {
+test('坐标越界被裁进 0-9 网格', () => {
   const out = svc.normalizeLayout({ rooms: [{ name: '卧室', cells: [{ x: 99, y: -4 }] }] });
   assert.strictEqual(out.length, 1);
-  assert.deepStrictEqual(out[0].cells, [{ x: 5, y: 0 }]);
-  assert.strictEqual(out[0].x, 5);
+  assert.deepStrictEqual(out[0].cells, [{ x: 9, y: 0 }]);
+  assert.strictEqual(out[0].x, 9);
   assert.strictEqual(out[0].y, 0);
 });
 
@@ -133,16 +133,16 @@ test('跨房间抢同一格 → 先到先得，后来者让位', () => {
   assert.strictEqual(out[0].name, '卧室');
 });
 
-test('非走廊房间塌缩为单格，走廊保留多格链', () => {
+test('所有房间都保留多格形状（大房间多格、小房间少格；不塌缩单格）', () => {
   const out = svc.normalizeLayout({
     rooms: [
-      { name: '客厅', cells: [{ x: 0, y: 0 }, { x: 0, y: 1 }, { x: 0, y: 2 }] },
+      { name: '客厅', cells: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }] },
       { name: '走廊', cells: [{ x: 2, y: 2 }, { x: 2, y: 3 }, { x: 2, y: 4 }] }
     ]
   });
   const living = out.find((r) => r.name === '客厅');
   const corridor = out.find((r) => r.name === '走廊');
-  assert.strictEqual(living.cells.length, 1);
+  assert.strictEqual(living.cells.length, 4);   // 大房间多格保留
   assert.strictEqual(corridor.cells.length, 3);
 });
 

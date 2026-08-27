@@ -105,8 +105,8 @@ function renderHeat(box, s, layout) {
   let heatHtml;
   if (placed.length) {
     const max = Math.max(1, ...placed.map((r) => countOf(r.name)));
-    const w = Math.min(6, Math.max(...placed.map((r) => r.x)) + 1);
-    const h = Math.min(6, Math.max(...placed.map((r) => r.y)) + 1);
+    const w = Math.min(10, Math.max(...placed.map((r) => r.x)) + 1);
+    const h = Math.min(10, Math.max(...placed.map((r) => r.y)) + 1);
     let cells = '';
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {

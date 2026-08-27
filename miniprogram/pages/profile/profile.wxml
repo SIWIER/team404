@@ -70,10 +70,10 @@
     </view>
   </view>
 
-  <!-- 6×6 户型图（自研触摸拖拽） -->
+  <!-- 10×10 户型图（自研触摸拖拽，房间按面积占多格） -->
   <view class="floor-wrap">
-    <view class="floor-tip" wx:if="{{!extendMode}}">👆 拖动方块到目标格；从托盘把房间拖进网格；拖到别的房间上会交换；点 ✕ 移出</view>
-    <view class="floor-tip extend" wx:else>✏️ 延长模式：点一个高亮的 ＋ 格子来延长走廊（可连续点，弯折成任意形状）；点「✅ 完成延长」退出</view>
+    <view class="floor-tip" wx:if="{{!extendMode}}">👆 拖动方块到目标格；从托盘把房间拖进网格；拖到别的房间上会交换；点 ✕ 移除该格</view>
+    <view class="floor-tip extend" wx:else>✏️ 扩大模式：先点一个房间选中它，再点高亮的 ＋ 格为其加格（大房间多格、小房间少格）；点「✅ 完成扩大」退出</view>
     <view class="floor-area" style="width:{{grid.area}}px;height:{{grid.area}}px;">
       <!-- 虚线网格底图 -->
       <view class="grid-cell" wx:for="{{grid.cells}}" wx:key="index"
@@ -82,12 +82,13 @@
       <view wx:if="{{extendMode}}" class="ext-cand" wx:for="{{extendCands}}" wx:key="index"
             style="left:{{item.px}}px;top:{{item.py}}px;width:{{grid.cell}}px;height:{{grid.cell}}px;"
             data-x="{{item.x}}" data-y="{{item.y}}" catchtap="onExtendCell">＋</view>
-      <!-- 房间方块（走廊多格链每格一段） -->
-      <view class="floor-tile {{item.corridor ? 'cor-seg' : ''}} {{drag.idx === item.roomIdx ? 'dragging' : ''}}"
+      <!-- 房间方块（每个房间占多格，名字显示在首格） -->
+      <view class="floor-tile {{item.corridor ? 'cor-seg' : ''}} {{drag.idx === item.roomIdx ? 'dragging' : ''}} {{extendMode && extendTarget === item.roomIdx ? 'ext-sel' : ''}}"
             wx:for="{{tiles}}" wx:key="key"
             style="left:{{item.px + (drag.idx === item.roomIdx ? drag.dx : 0)}}px;top:{{item.py + (drag.idx === item.roomIdx ? drag.dy : 0)}}px;width:{{grid.cell}}px;height:{{grid.cell}}px;"
             data-idx="{{item.roomIdx}}" data-ci="{{item.ci}}"
-            bindtouchstart="onTileTouchStart" catchtouchmove="onTileTouchMove" bindtouchend="onTileTouchEnd">
+            bindtouchstart="onTileTouchStart" catchtouchmove="onTileTouchMove" bindtouchend="onTileTouchEnd"
+            bindtap="onTileTap">
         <view class="tile-x" data-idx="{{item.roomIdx}}" data-ci="{{item.ci}}" catchtap="removeFromGrid">✕</view>
         <view class="tile-emoji">{{item.emoji}}</view>
         <view class="tile-name">{{item.name}}</view>
@@ -97,10 +98,10 @@
     <view class="btn-row" style="justify-content:center;">
       <button class="btn ghost sm" bindtap="applyTemplate">🏠 生成标准户型</button>
       <button class="btn ghost sm" bindtap="clearLayout">🗑 全部移出</button>
-      <button class="btn ghost sm" wx:if="{{corridorExists}}" bindtap="toggleExtend">{{extendMode ? '✅ 完成延长' : '➕ 延长走廊'}}</button>
+      <button class="btn ghost sm" bindtap="toggleExtend">{{extendMode ? '✅ 完成扩大' : '➕ 扩大房间'}}</button>
       <button class="btn ghost sm" wx:if="{{corridorExists && !extendMode}}" bindtap="shrinkCorridor">➖ 缩短走廊</button>
     </view>
-    <view class="hint">「生成标准户型」会把所有房间围绕走廊摆放、彼此相连；走廊可延长/缩短/整体拖动，塑造成你家的形状。相邻格 = 相邻房间，影响推理的"距离远近"权重。</view>
+    <view class="hint">「生成标准户型」会把所有房间围绕走廊摆放、彼此相连；扩大模式下可给任何房间加格（大房间多格、小房间少格），走廊可延长/缩短/整体拖动。相邻格 = 相邻房间，影响推理的"距离远近"权重。</view>
   </view>
 </view>
 

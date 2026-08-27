@@ -52,20 +52,27 @@ export function renderHome(root) {
   const habits = (p.habits || []).map((h) => `<span class="tag">${esc(h)}</span>`).join('') || '<span class="muted" style="font-size:12px;">暂无生活习惯记录</span>';
   const favs = (p.favoritePlaces || []).map((h) => `<span class="tag">📍 ${esc(h)}</span>`).join('') || '<span class="muted" style="font-size:12px;">暂无常用地点</span>';
   const layout = p.homeLayout || [];
-  const placed = layout.filter((r) => r.x != null && r.y != null);
   const layoutHtml = layout.length
     ? layout.map((r) => `<span class="tag">${roomEmoji(r.name)} ${esc(r.name)}${(r.spots || []).length ? ` · ${r.spots.length} 处` : ''}</span>`).join('')
     : '<span class="tag"><a href="#/profile">🏠 未填写户型，去填写可提升推理准确度 →</a></span>';
+  // 多格展开：每个房间的每一格渲染一个 tile（10×10 细网格，名字只显示在首格）
+  const expanded = [];
+  layout.forEach((r) => {
+    const cells = (Array.isArray(r.cells) && r.cells.length)
+      ? r.cells
+      : ((r.x != null && r.y != null) ? [{ x: r.x, y: r.y }] : []);
+    cells.forEach((c, ci) => expanded.push({ x: c.x, y: c.y, room: r, first: ci === 0 }));
+  });
   let floorHtml = '';
-  if (placed.length) {
-    const w = Math.min(6, Math.max(...placed.map((r) => r.x)) + 1);
-    const h = Math.min(6, Math.max(...placed.map((r) => r.y)) + 1);
+  if (expanded.length) {
+    const w = Math.min(10, Math.max(...expanded.map((c) => c.x)) + 1);
+    const h = Math.min(10, Math.max(...expanded.map((c) => c.y)) + 1);
     let cells = '';
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
-        const r = placed.find((p) => p.x === x && p.y === y);
-        cells += r
-          ? `<div class="mini-cell room" data-idx="${layout.indexOf(r)}" title="点击进入房间细致布局">${roomEmoji(r.name)}<span>${esc(r.name)}</span></div>`
+        const c = expanded.find((cc) => cc.x === x && cc.y === y);
+        cells += c
+          ? `<div class="mini-cell room" data-idx="${layout.indexOf(c.room)}" title="点击进入房间细致布局">${roomEmoji(c.room.name)}${c.first ? `<span>${esc(c.room.name)}</span>` : ''}</div>`
           : '<div class="mini-cell empty"></div>';
       }
     }

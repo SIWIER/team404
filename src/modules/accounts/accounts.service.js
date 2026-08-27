@@ -6,11 +6,13 @@ const { hashPassword, verifyPassword, issueToken } = require('../../core/auth');
 function now() { return new Date().toISOString(); }
 function safeJson(s, d) { try { const v = JSON.parse(s); return v === null ? d : v; } catch { return d; } }
 
-// 家庭布局清洗：最多 36 个房间（= 6×6 户型网格全部格子数，走廊多格会占用更多格），每房间最多 20 个放置点；
-// 坐标 x/y 为户型图网格位置（0-5）；cells 为多格形状（走廊链），x/y 始终等于 cells[0]
+// 家庭布局清洗：最多 36 个房间，每房间最多 20 个放置点；
+// 坐标 x/y 为户型图网格位置（0-9，10×10 细网格）；cells 为多格形状（任何房间都可占多格，
+// 大房间多格、小房间少格；走廊为连通链），x/y 恒等于 cells[0]
 // 同名房间自动编号区分（卧室、卧室2、卧室3…），避免同类型房间被当作同一房间
 // w/h 为房间内部布局尺寸（1-12 格，仅当输入提供时保留）；furn 为房间内家具格（仅当输入提供时保留）
 const MAX_ROOMS = 36;
+const GRID = 10;
 function sanitizeLayout(layout) {
   if (!Array.isArray(layout)) return [];
   const seen = new Set();
@@ -22,7 +24,7 @@ function sanitizeLayout(layout) {
     return base + n;
   };
   const num = (v) => (v !== null && v !== undefined && Number.isFinite(Number(v)) ? Number(v) : null);
-  const clamp5 = (v) => Math.min(5, Math.max(0, Math.round(v)));
+  const clampCell = (v) => Math.min(GRID - 1, Math.max(0, Math.round(v)));
   return layout.slice(0, MAX_ROOMS).map((r) => {
     const raw = String((r && r.name) || '').trim().slice(0, 20);
     const desc = String((r && r.desc) || '').trim().slice(0, 100);
@@ -31,13 +33,13 @@ function sanitizeLayout(layout) {
     let y = num(r && r.y);
     let cells;
     if (Array.isArray(r && r.cells) && r.cells.length) {
-      // 多格形状：去重、裁剪到网格内
+      // 多格形状：去重、裁剪到网格内（10×10=100 格封顶）
       const seenCells = new Set();
-      cells = r.cells.slice(0, 36).map((c) => {
+      cells = r.cells.slice(0, GRID * GRID).map((c) => {
         const cx = num(c && c.x);
         const cy = num(c && c.y);
         if (cx === null || cy === null) return null;
-        return { x: clamp5(cx), y: clamp5(cy) };
+        return { x: clampCell(cx), y: clampCell(cy) };
       }).filter((c) => {
         if (!c) return false;
         const k = c.x + ',' + c.y;
@@ -47,7 +49,7 @@ function sanitizeLayout(layout) {
       });
       if (cells.length) { x = cells[0].x; y = cells[0].y; } else { cells = []; }
     } else if (x !== null && y !== null) {
-      cells = [{ x: clamp5(x), y: clamp5(y) }];
+      cells = [{ x: clampCell(x), y: clampCell(y) }];
       x = cells[0].x;
       y = cells[0].y;
     } else {
