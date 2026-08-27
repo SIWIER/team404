@@ -5,7 +5,7 @@
 // 3) 后端未配置视觉模型时按钮置灰 + 文案提示，手动拖拽路径完全不受影响（与微信登录降级同思路）
 const api = require('../../utils/api');
 const store = require('../../utils/store');
-const { toast, confirm, roomEmoji } = require('../../utils/ui');
+const { toast, confirm, roomEmoji, roomColor, tileBorderStyle } = require('../../utils/ui');
 
 const GRID = 10;
 // 压缩目标：约 800KB 以内，base64 后约 1.07MB，稳过后端 2MB 限制
@@ -134,14 +134,18 @@ Page({
     const rooms = [];
     (layout || []).forEach((r, i) => {
       const emoji = roomEmoji(r.name);
+      const corridor = String(r.name).includes('走廊');
+      const [bg, bd] = roomColor(i);
       (r.cells || []).forEach((c, ci) => {
         tiles.push({
           key: i + '-' + ci,
           name: ci === 0 ? r.name : '',   // 名字只显示在首格
           emoji,
-          corridor: String(r.name).includes('走廊'),
+          corridor,
           px: c.x * cell,
-          py: c.y * cell
+          py: c.y * cell,
+          bg: corridor ? '#fff7e8' : bg,
+          borderStyle: corridor ? '' : tileBorderStyle(r.cells || [], ci, bd)
         });
       });
       rooms.push({

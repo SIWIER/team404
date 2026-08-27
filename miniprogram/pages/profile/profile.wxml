@@ -31,14 +31,8 @@
   <view class="layout-head">
     <view class="layout-head-l">
       <view class="layout-title">🏠 家庭布局（辅助推理）</view>
-      <view class="hint">填写你家有哪些房间、各房间常放眼镜的位置，推理会按你的实际户型调整</view>
+      <view class="hint">填写你家有哪些房间、各房间常放眼镜的位置，推理会按你的实际户型调整；拍照识别与保存入口固定在底部</view>
     </view>
-    <button class="btn sm" loading="{{savingLayout}}" disabled="{{savingLayout}}" bindtap="saveLayout">💾 保存布局</button>
-  </view>
-
-  <!-- 拍照识别入口（新功能：视觉模型识别户型图照片，省去手动拖拽） -->
-  <view class="btn-row" style="margin-bottom:8rpx;">
-    <button class="btn ghost sm" bindtap="goLayoutScan">📷 拍照识别户型</button>
   </view>
 
   <!-- 房间编辑列表 -->
@@ -72,8 +66,8 @@
 
   <!-- 10×10 户型图（自研触摸拖拽，房间按面积占多格） -->
   <view class="floor-wrap">
-    <view class="floor-tip" wx:if="{{!extendMode}}">👆 拖动方块到目标格；从托盘把房间拖进网格；拖到别的房间上会交换；点 ✕ 移除该格</view>
-    <view class="floor-tip extend" wx:else>✏️ 扩大模式：先点一个房间选中它，再点高亮的 ＋ 格为其加格（大房间多格、小房间少格）；点「✅ 完成扩大」退出</view>
+    <view class="floor-tip" wx:if="{{!extendMode}}">👆 拖动方块到目标格；从托盘把房间拖进网格；拖到别的房间上会交换；点首格的 ✕ 把房间移出网格</view>
+    <view class="floor-tip extend" wx:else>✏️ 扩大/缩小模式：点房间选中 → 点高亮 ＋ 格加格、点自己房间的格减格（大房间多格、小房间少格）；「✅ 完成扩大」退出</view>
     <view class="floor-area" style="width:{{grid.area}}px;height:{{grid.area}}px;">
       <!-- 虚线网格底图 -->
       <view class="grid-cell" wx:for="{{grid.cells}}" wx:key="index"
@@ -82,14 +76,14 @@
       <view wx:if="{{extendMode}}" class="ext-cand" wx:for="{{extendCands}}" wx:key="index"
             style="left:{{item.px}}px;top:{{item.py}}px;width:{{grid.cell}}px;height:{{grid.cell}}px;"
             data-x="{{item.x}}" data-y="{{item.y}}" catchtap="onExtendCell">＋</view>
-      <!-- 房间方块（每个房间占多格，名字显示在首格） -->
+      <!-- 房间方块（同房间格子拼成同一色块，名字与 ✕ 只在首格显示） -->
       <view class="floor-tile {{item.corridor ? 'cor-seg' : ''}} {{drag.idx === item.roomIdx ? 'dragging' : ''}} {{extendMode && extendTarget === item.roomIdx ? 'ext-sel' : ''}}"
             wx:for="{{tiles}}" wx:key="key"
-            style="left:{{item.px + (drag.idx === item.roomIdx ? drag.dx : 0)}}px;top:{{item.py + (drag.idx === item.roomIdx ? drag.dy : 0)}}px;width:{{grid.cell}}px;height:{{grid.cell}}px;"
+            style="left:{{item.px + (drag.idx === item.roomIdx ? drag.dx : 0)}}px;top:{{item.py + (drag.idx === item.roomIdx ? drag.dy : 0)}}px;width:{{grid.cell}}px;height:{{grid.cell}}px;background:{{item.bg}};{{item.borderStyle}}"
             data-idx="{{item.roomIdx}}" data-ci="{{item.ci}}"
             bindtouchstart="onTileTouchStart" catchtouchmove="onTileTouchMove" bindtouchend="onTileTouchEnd"
             bindtap="onTileTap">
-        <view class="tile-x" data-idx="{{item.roomIdx}}" data-ci="{{item.ci}}" catchtap="removeFromGrid">✕</view>
+        <view class="tile-x" wx:if="{{item.showX}}" data-idx="{{item.roomIdx}}" data-ci="{{item.ci}}" catchtap="removeFromGrid">✕</view>
         <view class="tile-emoji">{{item.emoji}}</view>
         <view class="tile-name">{{item.name}}</view>
       </view>
@@ -116,4 +110,11 @@
 
 <view style="padding: 16rpx 32rpx 60rpx; text-align: center;">
   <button class="btn ghost" bindtap="goHome">← 返回首页</button>
+</view>
+
+<!-- 底部固定操作栏：拍照识别 / 保存布局 / 一键清空 -->
+<view class="layout-actions">
+  <button class="btn act ghost" bindtap="goLayoutScan">📷 拍照识别户型</button>
+  <button class="btn act" loading="{{savingLayout}}" disabled="{{savingLayout}}" bindtap="saveLayout">💾 保存布局</button>
+  <button class="btn act warn-ghost" bindtap="clearAllRooms">🗑 清空房间</button>
 </view>

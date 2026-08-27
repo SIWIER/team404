@@ -58,25 +58,24 @@
 }
 .floor-tile {
   position: absolute; box-sizing: border-box;
-  background: #fff; border: 2rpx solid #c9d4e6; border-radius: 10rpx;
+  /* 背景与描边由内联样式提供：同房间格子拼成同一色块 */
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   z-index: 1;
 }
 .floor-tile.dragging {
-  z-index: 10; border-color: #3d7bfd;
+  z-index: 10;
   box-shadow: 0 8rpx 24rpx rgba(61, 123, 253, 0.35);
   transform: scale(1.08);
 }
 .floor-tile.cor-seg {
-  background: #fff7e8; border-color: #ffce8a; border-style: dashed;
+  background: #fff7e8; border: 2rpx dashed #ffce8a;
 }
 .floor-tile.ext-sel {
-  border-color: #3d7bfd; border-style: solid;
-  box-shadow: 0 0 0 3rpx rgba(61, 123, 253, 0.35);
+  box-shadow: 0 0 0 3rpx rgba(61, 123, 253, 0.5);
 }
 .tile-x {
-  position: absolute; top: 0; right: 6rpx;
-  font-size: 22rpx; color: #ff7a59; line-height: 1; padding: 4rpx;
+  position: absolute; top: 0; right: 4rpx;
+  font-size: 20rpx; color: #ff7a59; line-height: 1; padding: 4rpx; opacity: 0.75;
 }
 .tile-emoji { font-size: 34rpx; }
 .tile-name { font-size: 18rpx; font-weight: 700; max-width: 100%; overflow: hidden; white-space: nowrap; }
@@ -96,3 +95,16 @@
   background: #eef7f2; border: 1rpx solid #cfe8dc; color: #3d7a5a;
   border-radius: 16rpx; font-size: 24rpx; line-height: 1.6;
 }
+
+/* 底部固定操作栏：拍照识别 / 保存布局 / 一键清空房间 */
+page { padding-bottom: 220rpx; }
+.layout-actions {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 100;
+  display: flex; gap: 16rpx; padding: 16rpx 24rpx calc(16rpx + env(safe-area-inset-bottom));
+  background: rgba(255, 255, 255, 0.97);
+  border-top: 1rpx solid #eef1f6;
+  box-shadow: 0 -6rpx 24rpx rgba(40, 60, 110, 0.12);
+}
+.layout-actions .btn.act { flex: 1; padding: 26rpx 0; font-size: 28rpx; }
+.layout-actions .btn.act.ghost { border: 1rpx solid #d8e2f5; }
+.btn.warn-ghost { background: #fff; color: #e85d5d; border: 1rpx solid #f3c9d0; box-shadow: none; }

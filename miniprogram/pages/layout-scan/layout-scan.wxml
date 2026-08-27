@@ -46,7 +46,7 @@
     <view class="grid-cell" wx:for="{{grid.cells}}" wx:key="index"
           style="left:{{item.x}}px;top:{{item.y}}px;width:{{grid.cell}}px;height:{{grid.cell}}px;"></view>
     <view class="floor-tile {{item.corridor ? 'cor-seg' : ''}}" wx:for="{{tiles}}" wx:key="key"
-          style="left:{{item.px}}px;top:{{item.py}}px;width:{{grid.cell}}px;height:{{grid.cell}}px;">
+          style="left:{{item.px}}px;top:{{item.py}}px;width:{{grid.cell}}px;height:{{grid.cell}}px;background:{{item.bg}};{{item.borderStyle}}">
       <view class="tile-emoji">{{item.emoji}}</view>
       <view class="tile-name">{{item.name}}</view>
     </view>

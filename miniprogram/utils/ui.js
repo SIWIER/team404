@@ -23,4 +23,25 @@ function roomEmoji(name) {
   return ROOM_EMOJI[name] || '🏠';
 }
 
-module.exports = { toast, confirm, dateTime, roomEmoji };
+// 户型编辑器的房间配色（bg, 描边色）：同一房间所有格子同色，便于识别同一房间
+const ROOM_PALETTE = [
+  ['#e8f0ff', '#8fb3f0'], ['#fff3e0', '#eebc7d'], ['#eaf7ed', '#8fd0a4'],
+  ['#fdeef3', '#ef9ab8'], ['#e6f7f7', '#8bd0d0'], ['#f3f0ff', '#b3a6ec'],
+  ['#e0f2ff', '#8fc3e8'], ['#fdf0e6', '#e0b08a'], ['#fff5e6', '#e3bd7e'],
+  ['#eef1f6', '#aeb9c9']
+];
+function roomColor(i) {
+  return ROOM_PALETTE[i % ROOM_PALETTE.length];
+}
+
+// 同一房间的格子拼合成一个色块：与同房间格相邻的边不画边框，露出的边画边框
+function tileBorderStyle(cells, ci, borderColor) {
+  const c = cells[ci];
+  if (!c) return '';
+  const same = (dx, dy) => cells.some((x) => x.x === c.x + dx && x.y === c.y + dy);
+  const w = '2px solid ' + borderColor;
+  return 'border-left:' + (same(-1, 0) ? '0' : w) + ';border-top:' + (same(0, -1) ? '0' : w) +
+    ';border-right:' + (same(1, 0) ? '0' : w) + ';border-bottom:' + (same(0, 1) ? '0' : w) + ';';
+}
+
+module.exports = { toast, confirm, dateTime, roomEmoji, roomColor, tileBorderStyle };

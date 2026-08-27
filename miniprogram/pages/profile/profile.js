@@ -6,7 +6,7 @@
 // 4) 走廊为多格链式房间：可整体拖动、延长/缩短；标准户型模板保证所有房间紧贴走廊链
 const api = require('../../utils/api');
 const store = require('../../utils/store');
-const { toast, roomEmoji } = require('../../utils/ui');
+const { toast, confirm, roomEmoji, roomColor, tileBorderStyle } = require('../../utils/ui');
 
 const ROOM_PRESETS = ['卧室', '卫生间', '客厅', '厨房', '餐厅', '书房', '玄关', '走廊', '阳台', '衣帽间', '储物间'];
 const GRID = 10;
@@ -321,7 +321,15 @@ Page({
   onTileTap(e) {
     if (!this.data.extendMode) return;
     const idx = Number(e.currentTarget.dataset.idx);
-    if (this.rooms.some((r) => r.idx === idx)) {
+    const ci = Number(e.currentTarget.dataset.ci);
+    const room = this.rooms.find((r) => r.idx === idx);
+    if (!room) return;
+    if (this.data.extendTarget === idx) {
+      // 扩大模式下点自己房间的格子 → 移除该格（缩小房间）
+      if (room.cells.length <= 1) { toast('至少保留一格'); return; }
+      room.cells.splice(ci, 1);
+      this.renderLayout();
+    } else {
       this.setData({ extendTarget: idx });
       this.renderLayout();
     }
@@ -343,6 +351,14 @@ Page({
     if (room.cells.length <= 1) { toast('走廊至少保留一格'); return; }
     room.cells.pop();
     this.renderLayout();
+  },
+
+  // ---------- 一键清空房间（删除全部房间并立即保存生效） ----------
+  async clearAllRooms() {
+    if (!this.rooms.length) { toast('还没有房间'); return; }
+    if (!(await confirm('确认清空全部房间？所有房间（含托盘里的）将被删除并立即保存。'))) return;
+    this.rooms = [];
+    await this.saveLayout();
   },
 
   // ---------- 一键操作 ----------
@@ -401,18 +417,24 @@ Page({
   renderLayout() {
     const cell = this.data.grid.cell;
     const tiles = [];
-    this.rooms.forEach((r) => {
+    this.rooms.forEach((r, roomPos) => {
       r.emoji = roomEmoji(r.name);
+      const corridor = r.name.includes('走廊');
+      const [bg, bd] = roomColor(roomPos);
       r.cells.forEach((c, ci) => {
         tiles.push({
           key: r.idx + '-' + ci,
           roomIdx: r.idx,
           ci,
           name: ci === 0 ? r.name : '',   // 房间名只显示在首格（多格房间避免重复挤压）
+          showX: ci === 0,                 // ✕ 只在首格显示，减少多格房间的视觉噪音
           emoji: roomEmoji(r.name),
-          corridor: r.name.includes('走廊'),
+          corridor,
           px: c.x * cell,
-          py: c.y * cell
+          py: c.y * cell,
+          // 同一房间拼成色块：共享边不画线、露出边描边（走廊保留琥珀色虚线风格）
+          bg: corridor ? '#fff7e8' : bg,
+          borderStyle: corridor ? '' : tileBorderStyle(r.cells, ci, bd)
         });
       });
     });
