@@ -154,11 +154,11 @@ test('走廊断开的飞地格被剔除（只保留连通部分）', () => {
   assert.ok(!out[0].cells.some((c) => c.x === 5 && c.y === 5));
 });
 
-test('超过 10 个房间被截断', () => {
+test('超过 36 个房间被截断', () => {
   const rooms = [];
-  for (let i = 0; i < 14; i++) rooms.push({ name: '卧室', cells: [{ x: i % 6, y: Math.floor(i / 6) }] });
+  for (let i = 0; i < 40; i++) rooms.push({ name: '卧室', cells: [{ x: i % 6, y: Math.floor(i / 6) }] });
   const out = svc.normalizeLayout({ rooms });
-  assert.strictEqual(out.length, 10);
+  assert.strictEqual(out.length, 36);
 });
 
 test('房间名别名对齐到标准词表', () => {

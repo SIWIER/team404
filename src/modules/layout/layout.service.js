@@ -23,7 +23,7 @@ const ROOM_ALIAS = {
 };
 
 const GRID = 6;              // 6×6 网格，与小程序编辑器 / accounts.sanitizeLayout 一致
-const MAX_ROOMS = 10;        // 与 accounts.sanitizeLayout 的上限一致
+const MAX_ROOMS = 36;        // 与 accounts.sanitizeLayout 的上限一致（= 网格格数）
 const MAX_SPOTS = 20;
 
 function clampCell(v) {
@@ -72,7 +72,7 @@ function pickConnected(cells) {
 /**
  * 模型原始输出 → 合法 homeLayout 候选（纯函数，不联网）
  * 规则：坐标裁进 0-5；同房间内去重格；跨房间抢格时先到先得（后来者让位）；
- *       非走廊房间塌缩为单格；走廊保留连通多格链；x/y 恒等于 cells[0]；≤10 房间
+ *       非走廊房间塌缩为单格；走廊保留连通多格链；x/y 恒等于 cells[0]；≤36 房间
  */
 function normalizeLayout(raw) {
   const list = Array.isArray(raw) ? raw : (raw && Array.isArray(raw.rooms) ? raw.rooms : []);

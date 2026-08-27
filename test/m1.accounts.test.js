@@ -161,6 +161,17 @@ test('走廊多格形状 cells 保存并往返（去重、裁剪）', async () =
   // 普通房间自动生成单格 cells
   assert.deepStrictEqual(hl[1].cells, [{ x: 0, y: 2 }]);
 });
+
+test('家庭布局超过 36 个房间被截断（与前端守卫一致）', async () => {
+  const login = await req('/api/auth/login', { method: 'POST', body: { username: 'xiaoming', password: '123456' } });
+  const token = login.json.token;
+  const rooms = [];
+  for (let i = 0; i < 40; i++) rooms.push({ name: '房间' + (i + 1), x: i % 6, y: Math.floor(i / 6) });
+  const r = await req('/api/auth/profile', { method: 'PUT', token, body: { homeLayout: rooms } });
+  assert.strictEqual(r.status, 200);
+  assert.strictEqual(r.json.user.profile.homeLayout.length, 36);
+});
+
 test('家庭布局同名房间自动编号（卧室、卧室2…）', async () => {
   const login = await req('/api/auth/login', { method: 'POST', body: { username: 'xiaoming', password: '123456' } });
   const token = login.json.token;

@@ -6,10 +6,11 @@ const { hashPassword, verifyPassword, issueToken } = require('../../core/auth');
 function now() { return new Date().toISOString(); }
 function safeJson(s, d) { try { const v = JSON.parse(s); return v === null ? d : v; } catch { return d; } }
 
-// 家庭布局清洗：最多 10 个房间，每房间最多 20 个放置点；
+// 家庭布局清洗：最多 36 个房间（= 6×6 户型网格全部格子数，走廊多格会占用更多格），每房间最多 20 个放置点；
 // 坐标 x/y 为户型图网格位置（0-5）；cells 为多格形状（走廊链），x/y 始终等于 cells[0]
 // 同名房间自动编号区分（卧室、卧室2、卧室3…），避免同类型房间被当作同一房间
 // w/h 为房间内部布局尺寸（1-12 格，仅当输入提供时保留）；furn 为房间内家具格（仅当输入提供时保留）
+const MAX_ROOMS = 36;
 function sanitizeLayout(layout) {
   if (!Array.isArray(layout)) return [];
   const seen = new Set();
@@ -22,7 +23,7 @@ function sanitizeLayout(layout) {
   };
   const num = (v) => (v !== null && v !== undefined && Number.isFinite(Number(v)) ? Number(v) : null);
   const clamp5 = (v) => Math.min(5, Math.max(0, Math.round(v)));
-  return layout.slice(0, 10).map((r) => {
+  return layout.slice(0, MAX_ROOMS).map((r) => {
     const raw = String((r && r.name) || '').trim().slice(0, 20);
     const desc = String((r && r.desc) || '').trim().slice(0, 100);
     const spots = Array.isArray(r && r.spots) ? r.spots.slice(0, 20).map((s) => String(s).trim().slice(0, 30)).filter(Boolean) : [];
@@ -148,4 +149,4 @@ function updateProfile(userId, patch) {
   return getPublicUser(userId);
 }
 
-module.exports = { getPublicUser, register, login, updateProfile, sanitizeLayout };
+module.exports = { getPublicUser, register, login, updateProfile, sanitizeLayout, MAX_ROOMS };

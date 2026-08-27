@@ -10,9 +10,9 @@ const { toast, roomEmoji } = require('../../utils/ui');
 
 const ROOM_PRESETS = ['卧室', '卫生间', '客厅', '厨房', '餐厅', '书房', '玄关', '走廊', '阳台', '衣帽间', '储物间'];
 const GRID = 6;
-// 房间数量上限：与后端 sanitizeLayout（accounts.service.js）的 slice(0,10) 一致，
+// 房间数量上限：与后端 sanitizeLayout（accounts.service.js）的 slice(0, MAX_ROOMS) 一致（= 6×6 网格格数 36），
 // 超出会被后端静默截断，导致"保存成功但房间消失"——前端必须先拦住并提示
-const MAX_ROOMS = 10;
+const MAX_ROOMS = 36;
 
 // 标准户型模板：走廊居中成链，所有房间与走廊/入户相邻（全连通）
 const TEMPLATE = [
@@ -136,7 +136,7 @@ Page({
 
   canAddRoom() {
     if (this.rooms.length >= MAX_ROOMS) {
-      toast('房间已达上限（10 个，含托盘里的）：先删除或合并一个房间，再添加走廊');
+      toast('房间已达上限（36 个 = 6×6 网格全部格子，含托盘里的）');
       return false;
     }
     return true;
@@ -434,7 +434,7 @@ Page({
 
   async saveLayout() {
     if (this.rooms.filter((r) => r.name).length > MAX_ROOMS) {
-      toast('房间数量超过上限（10 个），请删除多余房间后再保存');
+      toast('房间数量超过上限（36 个），请删除多余房间后再保存');
       return;
     }
     this.setData({ savingLayout: true, extendMode: false });
