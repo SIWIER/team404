@@ -7,7 +7,7 @@ const { spawn } = require('node:child_process');
 const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '..');
-const PORT = 18085;
+const PORT = 18096;   // 独立端口：ws.test.js 已占用 18085（node --test 并行跑，抢端口会串服）
 const TEST_DB = 'data/test_spaces.db';
 let serverProc = null;
 
