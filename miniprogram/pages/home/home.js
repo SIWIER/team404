@@ -78,7 +78,7 @@ Page({
   go(e) {
     const url = e.currentTarget.dataset.url;
     if (url === 'layout') { wx.navigateTo({ url: '/pages/layout/layout' }); return; }
-    if (url === 'data' || url === 'hardware' || url === 'profile') {
+    if (url === 'data' || url === 'hardware' || url === 'profile' || url === 'items') {
       wx.navigateTo({ url: '/pages/' + url + '/' + url });
     } else {
       wx.navigateTo({ url: '/pages/reason/reason' });

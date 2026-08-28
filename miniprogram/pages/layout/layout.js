@@ -79,15 +79,31 @@ Page({
     sizeGuide: { show: false, x: 0, y: 0, w: 0, h: 0, text: '' },
     spaces: [], activeSpaceId: -1,
     savingLayout: false,
+    // 物品管理联动：从物品列表跳来（?highlight=房间名）时高亮对应房间
+    highlight: '',
+    highlightMissing: false,
     furnEditor: { show: false, roomIdx: -1, roomName: '', cell: 22, area: 264, areaH: 264, gridCells: [], roomOutline: [], tiles: [], labels: [], cands: [], guide: { show: false, x: 0, y: 0, w: 0, h: 0, text: '' }, items: [], palette: [], sizeMode: false, sizeTarget: -1, desc: '', spotsText: '' },
     furnDrag: { idx: -1, dx: 0, dy: 0 },
     furnGhost: { show: false, emoji: '', name: '', x: 0, y: 0 }
   },
 
-  onLoad() {
+  onLoad(options) {
     if (!store.getUser()) { wx.reLaunch({ url: '/pages/auth/auth' }); return; }
     this.computeGrid();
     this.init();
+    // 物品管理联动：跳转参数 ?highlight=房间名 → 高亮该房间（找不到时给出提示条）
+    const hl = decodeURIComponent((options && options.highlight) || '');
+    this.highlightName = hl ? hl.trim() : '';
+    if (this.highlightName) {
+      this.setData({ highlight: this.highlightName });
+      this.renderLayout();   // init 里已渲染过一次，这里重渲以标记高亮格
+    }
+  },
+
+  clearHighlight() {
+    this.highlightName = '';
+    this.setData({ highlight: '', highlightMissing: false });
+    this.renderLayout();
   },
 
   computeGrid() {
@@ -893,6 +909,7 @@ Page({
       r.emoji = roomEmoji(r.name);
       const corridor = r.name.includes('走廊');
       const [bg, bd] = roomColor(roomPos);
+      const hl = !!this.highlightName && roomMatches(r.name, this.highlightName);
       r.cells.forEach((c, ci) => {
         tiles.push({
           key: r.idx + '-' + ci,
@@ -901,6 +918,7 @@ Page({
           showX: ci === 0 && !this.data.sizeMode,
           shrinkBadge: this.data.sizeMode && r.idx === selIdx && r.cells.length > 1,
           selected: r.idx === selIdx,
+          hl,
           emoji: (ci === 0 && r.cells.length > 1) ? roomEmoji(r.name) : '',
           hasFurn: ci === 0 && Array.isArray(r.furn) && r.furn.length > 0,
           corridor,
@@ -977,7 +995,9 @@ Page({
       presets,
       sizeCands,
       sizeGuide,
-      corridorExists: this.rooms.some((r) => r.name.includes('走廊'))
+      corridorExists: this.rooms.some((r) => r.name.includes('走廊')),
+      // 物品管理联动：高亮房间不存在时给出提示（可能已改名或属于其他目录）
+      highlightMissing: !!this.highlightName && !this.rooms.some((r) => r.name && roomMatches(r.name, this.highlightName))
     });
   },
 
@@ -1142,4 +1162,12 @@ function clamp(v, a, b) {
 }
 function key(c) {
   return c.x + ',' + c.y;
+}
+// 高亮匹配：精确匹配优先；否则按基础名（去掉"卧室2"这类编号）匹配
+function roomMatches(roomName, hl) {
+  const a = String(roomName || '');
+  const b = String(hl || '').replace(/\d+$/, '');
+  if (!a || !b) return false;
+  if (a === String(hl)) return true;
+  return a.replace(/\d+$/, '') === b;
 }

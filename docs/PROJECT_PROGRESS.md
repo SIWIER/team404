@@ -50,6 +50,12 @@
 4. **硬件探索**：确定防丢标签方案（ESP32-C3 + 蜂鸣器 + 锂电池），OpenSCAD 完成外壳模型并导出 STL
 5. **协作化改造**：安装 Git、初始化仓库、DEVELOPMENT.md 协作指南、CI 配置、.editorconfig
 6. **小程序迁移**：原生 WXML 工程骨架 + 登录/首页/推理三页完成
+7. **物品数字化存放系统转型**：多目录（家/公司/宿舍…）+ 每目录独立户型图 + 房间内部模块；
+   **物品管理模块**（`src/modules/items/`，迁移 v10）：拍照录入（图片落盘 `data/uploads/`、
+   三级位置链）、文字检索、图文识别（LLM_VISION 自动识别名称/位置）、图图/文图向量检索
+   （Chinese-CLIP 本地部署 + SQLite 存向量 + 暴力余弦，未部署自动降级）；
+   小程序 `pages/items/` 录入页（拍照→预览→自动识别名→目录→房间→收纳家具→子位置四级选择）
+   + 检索页（文字/拍照找同款/文字找物品 → 缩略图+位置链列表 → 跳户型图高亮房间）。
 
 ---
 
@@ -88,7 +94,7 @@ cd find-my-glasses-pro
 node server.js            # 或双击 start.bat → http://localhost:8081
 
 # 测试（改完代码先跑这个）
-node --test               # 98 项应全绿
+node --test               # 136 项应全绿
 
 # 演示前自检
 node scripts/smoke.js
@@ -109,6 +115,8 @@ node scripts/smoke.js
 | 推理 | GET `/api/reason/flow` · POST `/api/reason/infer` · POST `/api/reason/record` |
 | 数据 | GET `/api/data/stats|records|export` · DELETE `/api/data/records/:id` · POST `/api/data/import` |
 | 硬件 | GET/POST/DELETE `/api/hardware/devices(/:id)` · POST `…/:id/report`（上行）· POST `…/:id/command`（下行）· WS `/ws?token=` 实时推送 |
+| 目录 | GET/POST `/api/spaces` · PUT/DELETE `/api/spaces/:id` · PUT `…/:id/layout|active` |
+| 物品 | POST `/api/items` · GET `/api/items?q=` · GET/DELETE `/api/items/:id(/:image)` · POST `/api/items/recognize`（图文识别）· POST `/api/items/search-image`（图图/文图向量）· GET `/api/items/config` |
 | 系统 | GET `/api/health` |
 
 鉴权：`Authorization: Bearer <token>`（HMAC 签名，登录获得）。
@@ -140,6 +148,9 @@ node scripts/smoke.js
 | ✅ 完成 | 防丢标签固件 v1（`hardware/firmware/`，零第三方库，待实机联调） | 成员 D |
 | 🟢 低 | 3D 外壳按实板微调、组装测试（STL 已可打印） | 成员 D |
 | ✅ 完成 | **户型图照片智能识别**（后端 `layout` 模块 + 小程序 `layout-scan` 页；视觉模型识图 → 预览确认 → 应用到户型网格） | 成员 E |
+| ✅ 完成 | **物品管理 P1+P2**（后端 `items` 模块：录入/文字检索/图文识别/图图文图向量检索；小程序 `pages/items/` 录入+检索页；m9/m10 测试） | — |
+| ⏳ 待做 | 部署 Chinese-CLIP 本地服务并实机联调图图/文图检索（参考 `scripts/clip-server/`，未部署自动降级） | — |
+| ⏳ 待做 | 演示数据：给 xiaoming 预置几件带照片的示例物品（seed） | — |
 
 > 📋 需求调查问卷已存档于 `docs/SURVEY.md`（含回收结论填写模板）；跨对话交接模板见 `docs/HANDOFF_PROMPT.md`——任何新对话粘贴对应提示词即可继续任一成员的任务。
 

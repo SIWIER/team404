@@ -1,0 +1,173 @@
+<view class="page-title">📦 物品管理</view>
+<view class="page-sub">拍照录入物品并归档位置；想找时用文字、照片或描述一步定位</view>
+
+<!-- 顶部 tab -->
+<view class="tab-bar">
+  <view class="tab {{mode === 'add' ? 'on' : ''}}" bindtap="setMode" data-mode="add">➕ 录入物品</view>
+  <view class="tab {{mode === 'search' ? 'on' : ''}}" bindtap="setMode" data-mode="search">🔍 查找物品</view>
+</view>
+
+<!-- ============ 录入 ============ -->
+<block wx:if="{{mode === 'add'}}">
+  <view class="card notice" wx:if="{{!cfg.checking && !cfg.recognizeEnabled}}">
+    <view class="notice-t">⚠️ 自动识别不可用</view>
+    <view class="hint">后端未配置视觉模型（LLM_VISION_*），拍照后需手动填写名称与位置，录入功能不受影响。</view>
+  </view>
+
+  <view class="card">
+    <view class="step-title">① 拍照（可选）</view>
+    <view class="pick-box" wx:if="{{!imgPath}}" bindtap="chooseImage">
+      <view class="pick-icon">📸</view>
+      <view class="pick-main">拍照 / 从相册选择</view>
+      <view class="pick-sub">{{cfg.recognizeEnabled ? '拍完自动识别物品名称与建议位置' : '支持 png、jpg、webp'}}</view>
+    </view>
+    <block wx:else>
+      <image class="preview-img" src="{{imgPath}}" mode="widthFix" bindtap="previewImage" />
+      <view class="recognizing" wx:if="{{recognizing}}">
+        <view class="spin">⏳</view>
+        <view class="rec-main">正在识别物品信息…</view>
+      </view>
+      <view class="note-box" wx:if="{{note}}">🤖 {{note}}</view>
+      <view class="btn-row" style="justify-content:center;">
+        <button class="btn ghost sm" disabled="{{recognizing || saving}}" bindtap="chooseImage">🔄 重拍</button>
+        <button class="btn ghost sm" disabled="{{recognizing || saving}}" bindtap="retryRecognize" wx:if="{{cfg.recognizeEnabled}}">✨ 重新识别</button>
+        <button class="btn ghost sm" disabled="{{recognizing || saving}}" bindtap="clearImage">🗑 移除</button>
+      </view>
+    </block>
+  </view>
+
+  <view class="card">
+    <view class="step-title">② 物品信息</view>
+    <view class="field">
+      <label>名称（必填，拍照可自动识别）</label>
+      <input class="input" value="{{name}}" data-k="name" bindinput="onField" placeholder="如：黑色折叠雨伞 / 白色无线鼠标" />
+    </view>
+    <view class="field">
+      <label>描述（可选，便于日后检索）</label>
+      <textarea class="input area-s" value="{{desc}}" data-k="desc" bindinput="onField" placeholder="颜色 / 品牌 / 外观特征，如：长柄、把手带挂绳" />
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="step-title">③ 存放位置（目录 → 房间 → 收纳家具 → 子位置）</view>
+
+    <view class="field">
+      <label>目录</label>
+      <view class="chips" wx:if="{{spaces.length}}">
+        <view class="chip {{spaceId === item.id ? 'on' : ''}}" wx:for="{{spaces}}" wx:key="id"
+              data-id="{{item.id}}" bindtap="onSpaceTap">{{item.name}}</view>
+      </view>
+      <view class="hint" wx:else>还没有目录（可在户型图配置页新建）</view>
+    </view>
+
+    <view class="field">
+      <label>房间（点选户型图房间，或直接输入）</label>
+      <view class="chips" wx:if="{{rooms.length}}">
+        <view class="chip {{room === item.name ? 'on' : ''}}" wx:for="{{rooms}}" wx:key="name"
+              data-name="{{item.name}}" bindtap="onRoomTap">{{item.emoji}} {{item.name}}</view>
+      </view>
+      <input class="input" style="margin-top:12rpx;" value="{{room}}" bindinput="onRoomInput" placeholder="或输入房间名（如：阳台）" />
+      <view class="hint" wx:if="{{!rooms.length}}">该目录还没有户型图，点<text class="link" bindtap="goLayout">户型图配置</text>布置后即可点选</view>
+    </view>
+
+    <view class="field">
+      <label>收纳家具（来自房间内部模块，可直接输入）</label>
+      <view class="chips" wx:if="{{furnList.length}}">
+        <view class="chip {{furn === item ? 'on' : ''}}" wx:for="{{furnList}}" wx:for-item="item" wx:key="*this"
+              data-name="{{item}}" bindtap="onFurnTap">🧩 {{item}}</view>
+      </view>
+      <input class="input" style="margin-top:12rpx;" value="{{furn}}" data-k="furn" bindinput="onField" placeholder="如：书架 / 壁橱 / 床头柜" />
+      <view class="hint" wx:if="{{room && !furnList.length}}">该房间暂无内部模块（可在户型图配置页给房间添加），或直接输入</view>
+    </view>
+
+    <view class="field">
+      <label>子位置（可选，如"一层/二层"）</label>
+      <view class="chips">
+        <view class="chip sm {{subPos === item ? 'on' : ''}}" wx:for="{{subQuick}}" wx:for-item="item" wx:key="*this"
+              data-name="{{item}}" bindtap="onSubQuick">{{item}}</view>
+      </view>
+      <input class="input" style="margin-top:12rpx;" value="{{subPos}}" data-k="subPos" bindinput="onField" placeholder="如：一层 / 二层 / 抽屉" />
+    </view>
+  </view>
+
+  <view class="save-row">
+    <button class="btn btn-block" loading="{{saving}}" disabled="{{saving}}" bindtap="save">💾 保存物品</button>
+  </view>
+</block>
+
+<!-- ============ 检索 ============ -->
+<block wx:if="{{mode === 'search'}}">
+  <view class="card notice" wx:if="{{!cfg.checking && !cfg.clipEnabled}}">
+    <view class="notice-t">⚠️ 向量检索未部署</view>
+    <view class="hint">「拍照找同款 / 文字找物品」需要本地部署 Chinese-CLIP（scripts/clip-server/）。文字检索不受影响。</view>
+  </view>
+
+  <view class="card">
+    <view class="search-kinds">
+      <view class="kind {{kind === 'kw' ? 'on' : ''}}" data-kind="kw" bindtap="setKind">⌨️ 文字检索</view>
+      <view class="kind {{kind === 'img' ? 'on' : ''}} {{!cfg.checking && !cfg.clipEnabled ? 'off' : ''}}" data-kind="img" bindtap="setKind">📷 拍照找同款</view>
+      <view class="kind {{kind === 'txt' ? 'on' : ''}} {{!cfg.checking && !cfg.clipEnabled ? 'off' : ''}}" data-kind="txt" bindtap="setKind">✍️ 文字找物品</view>
+    </view>
+
+    <view class="chips filter">
+      <view class="chip sm {{searchSpaceId === item.id ? 'on' : ''}}" wx:for="{{filterSpaces}}" wx:key="id"
+            data-id="{{item.id}}" bindtap="onSpaceFilter">{{item.name}}</view>
+    </view>
+
+    <block wx:if="{{kind === 'kw'}}">
+      <view class="search-row">
+        <input class="input" value="{{kw}}" bindinput="onKw" confirm-type="search" bindconfirm="doSearch"
+               placeholder="搜名称 / 描述 / 位置，如：螺丝刀 或 书架" />
+        <button class="btn sm" bindtap="doSearch">搜索</button>
+      </view>
+    </block>
+
+    <block wx:if="{{kind === 'img'}}">
+      <view class="pick-box" wx:if="{{!searchImgPath}}" bindtap="chooseSearchImage">
+        <view class="pick-icon">📷</view>
+        <view class="pick-main">拍下要找的物品</view>
+        <view class="pick-sub">用照片找库里相同/相似的物品</view>
+      </view>
+      <block wx:else>
+        <image class="preview-img" src="{{searchImgPath}}" mode="widthFix" />
+        <view class="btn-row" style="justify-content:center;">
+          <button class="btn ghost sm" disabled="{{searching}}" bindtap="chooseSearchImage">🔄 换一张</button>
+        </view>
+      </block>
+    </block>
+
+    <block wx:if="{{kind === 'txt'}}">
+      <view class="search-row">
+        <input class="input" value="{{txt}}" bindinput="onTxt" confirm-type="search" bindconfirm="doSearch"
+               placeholder="描述物品，如：黑色折叠雨伞" />
+        <button class="btn sm" bindtap="doSearch">找</button>
+      </view>
+    </block>
+
+    <view class="searching" wx:if="{{searching}}">
+      <view class="spin">⏳</view>
+      <view class="rec-main">{{kind === 'kw' ? '正在检索…' : '正在向量比对（首次会把有照片的物品入库到向量库）…'}}</view>
+    </view>
+  </view>
+
+  <view class="result-head" wx:if="{{results.length}}">共 {{results.length}} 件物品（点开跳户型图高亮房间）</view>
+  <view class="result-list">
+    <view class="result-item" wx:for="{{results}}" wx:key="id" data-room="{{item.room}}" bindtap="tapItem">
+      <image wx:if="{{item.thumb}}" class="thumb" src="{{item.thumb}}" mode="aspectFill" />
+      <view wx:else class="thumb noimg">📦</view>
+      <view class="ri-main">
+        <view class="ri-name">{{item.name}}<text class="ri-score" wx:if="{{item.score !== null}}"> · 相似度 {{item.score}}</text></view>
+        <view class="ri-desc" wx:if="{{item.desc}}">{{item.desc}}</view>
+        <view class="ri-loc">📍 {{item.locationFull}}</view>
+      </view>
+      <view class="ri-del" data-id="{{item.id}}" catchtap="deleteItem">🗑</view>
+    </view>
+  </view>
+  <view class="empty" wx:if="{{!searching && searched && !results.length}}">没有找到物品</view>
+</block>
+
+<view class="privacy-note">🔒 照片与记录仅保存在你自己的账号下，不会公开或用于其他用途。</view>
+
+<view style="padding: 16rpx 32rpx 60rpx; text-align: center;">
+  <button class="btn ghost" bindtap="goLayout">🏠 去户型图配置</button>
+</view>

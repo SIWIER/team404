@@ -40,6 +40,12 @@
 
   <!-- 功能菜单 -->
   <view class="menu-grid">
+    <view class="menu-card" bindtap="go" data-url="items">
+      <view class="badge">物品管理</view>
+      <view class="ico">📦</view>
+      <view class="t">物品管理</view>
+      <view class="d">拍照录入 + 自动识别，文字/照片/描述三种方式检索，位置链直达户型图。</view>
+    </view>
     <view class="menu-card" bindtap="go" data-url="layout">
       <view class="badge">户型配置</view>
       <view class="ico">🏠</view>

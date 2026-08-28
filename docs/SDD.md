@@ -71,7 +71,10 @@ find-my-glasses-pro/
 │  │  ├─ accounts/        # 账户/画像/户型（service + routes）
 │  │  ├─ reason/          # knowledge/engine/llm.client/service/routes
 │  │  ├─ data/            # 统计/洞察/分页/导入导出
-│  │  └─ hardware/        # 设备/上报/指令/事件/模拟器
+│  │  ├─ hardware/        # 设备/上报/指令/事件/模拟器
+│  │  ├─ spaces/          # 目录（家/公司/宿舍…，每目录独立户型图）
+│  │  ├─ layout/          # 户型图照片识别（视觉模型 → 合法布局候选）
+│  │  └─ items/           # 物品管理（录入/检索/图文识别/CLIP 向量检索）
 │  └─ seed/               # 演示数据（幂等）
 ├─ public/                # 前端
 ├─ scripts/smoke.js       # 一键自检
@@ -86,13 +89,15 @@ find-my-glasses-pro/
 | 表 | 关键字段 | 说明 |
 |---|---|---|
 | users | username(唯一), password_hash, nickname, **wechat_openid**(唯一可空) | 账户（scrypt 哈希；微信登录/绑定用 openid 关联，UNIQUE 部分索引） |
-| profiles | agent_name, agent_style, habits, favorite_places, **home_layout**, notes, **hardware** | 画像与户型 JSON（房间含 x/y 坐标、cells 多格形状、w/h 尺寸与 furn 家具格）；hardware = 用户拥有的硬件设备清单（如 `["uhf_reader","case_locator"]`，注册时"有无设备"提问，空 = 无硬件） |
+| profiles | agent_name, agent_style, habits, favorite_places, **home_layout**, notes, **hardware**, **active_space_id** | 画像与户型 JSON（房间含 x/y 坐标、cells 多格形状、w/h 尺寸与 furn 家具格）；hardware = 用户拥有的硬件设备清单（如 `["uhf_reader","case_locator"]`，注册时"有无设备"提问，空 = 无硬件）；home_layout 恒等于当前目录户型图 |
+| spaces | user_id, name(同用户唯一), sort_order, layout, created_at, updated_at | 物品管理"目录"（家/公司/宿舍…），每个目录独立一份户型图 layout JSON（v9） |
+| items | user_id, space_id, name, desc, image_path, room, furn, sub_pos, **clip_vec**(可空), created_at, updated_at | 物品数字化存放（v10）：三级位置链 = 目录(space) → 房间(room) → 收纳家具(furn) → 子位置(sub_pos)；照片存 `data/uploads/{userId}/`；clip_vec 为 Chinese-CLIP 向量（JSON 数组，图图/文图检索用，懒回填） |
 | loss_records | user_id, started_at, found_location, found_room, confidence, success, clues, reasoning, duration_sec, **conversation** | 找回记录（正/负样本） |
 | devices | id, name, type(locator/nfc/tag), room, battery, status, last_signal | 硬件设备 |
 | device_events | device_id, ts, type(report/command/ping_result/beep), payload | 事件流 |
 | meta | key/value | schema_version |
 
-迁移：`MIGRATIONS` 数组按版本只增不改；启动时自动升级（v1 建表 → v5 索引与字段）。
+迁移：`MIGRATIONS` 数组按版本只增不改；启动时自动升级（v1 建表 → … → v10 items 表）。
 
 ---
 
@@ -126,6 +131,12 @@ find-my-glasses-pro/
 | 硬件 | GET /api/hardware/events · POST /api/hardware/simulate | 事件 / 模拟触发 |
 | 户型识别 | GET /api/layout/config | 探测视觉模型是否可用 `{visionEnabled}`（前端据此置灰按钮） |
 | 户型识别 | POST /api/layout/recognize | 户型图照片 → 候选 homeLayout（限流 5 次/分/IP；不落库） |
+| 物品 | POST /api/items | 录入物品：`{spaceId, name?, desc?, image(base64), mimeType, room, furn, subPos}`；图片落盘 `data/uploads/{userId}/`，name 可由图文识别预填 |
+| 物品 | GET /api/items?q=&space_id= | 文字检索（LIKE 名称/描述/位置；返回 `spaceName` 与完整位置链 `locationFull`） |
+| 物品 | GET /api/items/:id/image · DELETE /api/items/:id | 图片 base64 回读（`{image, mimeType}` 拼 data URL）/ 删除（连图片文件） |
+| 物品 | GET /api/items/config | 能力探测 `{recognizeEnabled, clipEnabled}`（前端据此置灰按钮） |
+| 物品 | POST /api/items/recognize | **图文识别**：拍照 → 物品文字信息（名称/描述/建议位置；LLM_VISION；限流 5 次/分/IP；不落库） |
+| 物品 | POST /api/items/search-image | **图图/文图向量检索**：`{image,mimeType}` 或 `{text}` 二选一 → Chinese-CLIP 向量 + 暴力余弦 top10（503=未部署） |
 | 系统 | GET /api/health | 健康检查 |
 
 **户型图识别接口示例**（`POST /api/layout/recognize`，需登录）：
@@ -145,6 +156,29 @@ find-my-glasses-pro/
 
 **隐私**：上传图片仅在内存中转发给视觉模型，不落盘、不写库、不进日志；识别结果不自动保存，
 由用户在小程序预览确认后再走 `PUT /api/auth/profile` 落库（复用其 `sanitizeLayout` 做最终清洗）。
+
+**物品管理接口示例**（`POST /api/items/recognize` 与 `POST /api/items/search-image`，需登录）：
+
+```jsonc
+// 图文识别：请求（image 为压缩后裸 base64，可带 data URL 前缀）
+{ "image": "iVBORw0KGgoAAAANS...", "mimeType": "image/jpeg" }
+// 200 成功：回填录入表单（不落库，用户确认后走 POST /api/items）
+{ "ok": true, "note": "照片中的物品是雨伞", "model": "deepseek-v4-flash-vision-exp",
+  "item": { "name": "黑色折叠雨伞", "desc": "长柄黑色雨伞，把手有挂绳",
+            "room": "玄关", "furn": "壁橱", "subPos": "一层" } }
+// 422：没能识别出物品；503：未配置视觉模型；502：模型调用失败
+
+// 图图/文图检索：{image} 与 {text} 二选一
+{ "text": "黑色折叠雨伞" }                      // 文图
+{ "image": "iVBORw0KGgo...", "mimeType": "image/jpeg" }   // 图图
+// 200 成功：按余弦相似度降序（首次检索会把"有图无向量"的物品懒回填进向量库）
+{ "ok": true, "matchBy": "text",
+  "results": [ { "score": 0.98,
+                 "item": { "id": 3, "name": "黑色折叠雨伞", "spaceName": "家",
+                           "location": "玄关→壁橱→一层",
+                           "locationFull": "家→玄关→壁橱→一层", "hasImage": true } } ] }
+// 503 {code:'CLIP_NOT_CONFIGURED'}：未部署 Chinese-CLIP；502 {code:'CLIP_UNAVAILABLE'}：服务调用失败
+```
 
 ### 4.3 WebSocket 协议
 - 端点 `/ws?token=<令牌>`；服务端推送：
@@ -212,7 +246,7 @@ scrypt（N=16384）密码 + 时间恒定比较；画像含**家庭布局**（≤
 **UHF RFID 方向（无实物设计）**：眼镜本体贴 UHF 无源抗金属标签 + 手持读取机扫描找镜，
 眼镜盒保留有源定位器；设备类型/`rfid_detect` 事件契约与采购规格见 `docs/HARDWARE_RFID.md`（预留，待实物接入）。
 
-### 5.5 layout：户型图照片识别
+### 5.6 layout：户型图照片识别
 **目的**：降低户型录入成本——原本需在小程序手动拖十来个房间方块，现在拍一张户型图即可生成初稿。
 
 - `layout.service.js`
@@ -246,6 +280,38 @@ scrypt（N=16384）密码 + 时间恒定比较；画像含**家庭布局**（≤
   `thinking:{type:'disabled'}`，禁用思维链后 `content` 直接输出 JSON（OpenAI 系不加该参数，避免未知字段 400）。
   更换服务商前先确认模型支持 `image_url` 多模态输入
 
+### 5.7 items：物品数字化管理
+**定位**：把「找眼镜」沉淀成通用的物品存放管理——拍照录入、三级位置归档、三种方式检索。
+
+**三种识别（团队决策①）**：
+- **图文**：录入页拍照 → `POST /api/items/recognize`（`items.vision.js`）用 LLM_VISION 视觉模型读出
+  名称/外观描述/建议位置，回填表单供用户修改确认，**不落库**；未配置视觉模型 → 503，手动填写不受影响
+- **图图**（拍照找相同物品）与 **文图**（文字匹配物品图片）：`POST /api/items/search-image`，
+  图片或文字经 Chinese-CLIP 编码成向量后与本人物品暴力余弦比对，返回 top10 `{item, score}`
+
+**向量方案（团队决策②，起步版）**：
+- Chinese-CLIP **本地部署**为独立推理服务（参考 `scripts/clip-server/`，官方仓库
+  github.com/OFA-Sys/Chinese-CLIP，工程思路参考 Weydon-Ding/VectorGallery）。
+  契约：`POST /encode/image {image:base64}`、`POST /encode/text {text}` → `{vector:[…]}`（单位向量）
+- 向量存 `items.clip_vec`（JSON 数组），**懒回填**：录入时不阻塞等向量，首次向量检索时把
+  "有图无向量"的物品补齐（每次 ≤20 条），随后暴力余弦（`items.clip.js`，纯 JS 无索引，几百条无压力）
+- 未部署时 `search-image` 返回 `503 {code:'CLIP_NOT_CONFIGURED'}`，前端按钮置灰，文字检索不受影响
+
+**照片多端同步（团队决策③）**：照片以 base64 上传，落盘 `data/uploads/{userId}/{itemId}.{ext}`
+（mime 白名单校验），任何端都经 `GET /api/items/:id/image` 回读渲染；删除物品连带删文件。
+
+**位置链**：目录(space) → 房间(room) → 收纳家具(furn) → 子位置(sub_pos)；列表接口返回
+`location`（末三级，P1 契约）与 `locationFull`（含目录名，如 `家→玄关→壁橱→一层`）；
+小程序点结果跳 `pages/layout?highlight=房间名` 高亮所在房间。
+
+**安全**：所有查询/删除/取图/向量检索只查本人 `user_id`；图片读写路径必须落在
+`data/uploads/` 内（`safeImagePath` 纵深防御防目录穿越）；识别图片不进日志、不落库；
+识别限流 5 次/分/IP（`keyFn` 带命名空间，与登录限流互不串扰）。
+
+**模块边界**：`items.clip.js` 只 require core/db（读 `items` 表与上传文件），`items.vision.js`
+与 layout 同策略各自实现（`extractItemJson`/`callVision` 不跨模块引用）；房间词表副本与
+`layout.ROOM_VOCAB` 保持一致，仅用于把模型建议的房间名对齐到词表。
+
 ---
 
 ## 6. 安全设计
@@ -268,7 +334,12 @@ scrypt（N=16384）密码 + 时间恒定比较；画像含**家庭布局**（≤
 
 - **微信登录**：`wxlogin/wxbind/wxconfig` 三接口与三种 mode（成员 B，含子服务器隔离用例）
 
-当前全量：`node --test` → **98 项全绿**（新增测试务必保持全绿再提 PR）。
+- **物品管理**：m9 录入/文字检索/取图/删除/越权（18095）；m10 P2（18100 主服务器 + 18101 mock 视觉 +
+  18102 mock CLIP + 18103 无配置子服务器）：recognize 401/422/503/成功、search-image 图图（同图排首位、
+  相似度 1、懒回填）/文图（降序）/422/503 降级/越权、locationFull 契约、纯函数（余弦/extractItemJson）——
+  全程离线，mock 服务协议与真实视觉模型、Chinese-CLIP 完全一致，零付费调用
+
+当前全量：`node --test` → **136 项全绿**（新增测试务必保持全绿再提 PR）。
 
 > **两条易踩的测试隔离约定**（都已实际踩过）：
 > 1. 清空环境变量要**赋空串**而非 `delete`：`src/config.js` 的 `loadEnvFile` 只跳过已存在于
@@ -277,7 +348,8 @@ scrypt（N=16384）密码 + 时间恒定比较；画像含**家庭布局**（≤
 > 2. **端口必须全局唯一**：`node --test` 并行跑各测试文件，撞端口会连到别人的服务器上，
 >    表现为莫名其妙的断言失败（ECONNRESET / 配置读串）。现有占用：
 >    m1-m5 = 18081-18086、ws = 18085、m6 = 18087 + 子服务器 18088-18092、
->    m7 = 18093 + 子服务器 18094。新增测试请从 18095 起。
+>    m7 = 18093 + 子服务器 18094、m9 = 18095、m8 = 18096、
+>    m10 = 18100 + mock 18101-18103。新增测试请从 18104 起。
 
 ---
 
@@ -291,7 +363,8 @@ scrypt（N=16384）密码 + 时间恒定比较；画像含**家庭布局**（≤
 | TOKEN_SECRET | — | **生产必须改**为随机长字符串 |
 | TOKEN_TTL_HOURS / _REMEMBER | 24 / 720 | 会话时长 |
 | LLM_ENABLED / _BASE_URL / _API_KEY / _MODEL / _TIMEOUT_MS | — | 大模型配置（文本推理） |
-| LLM_VISION_ENABLED / _BASE_URL / _API_KEY / _MODEL / _TIMEOUT_MS | true / — / — / — / 40000 | 视觉模型配置（户型图识别；留空则该功能返回 503 降级） |
+| LLM_VISION_ENABLED / _BASE_URL / _API_KEY / _MODEL / _TIMEOUT_MS | true / — / — / — / 40000 | 视觉模型配置（户型图识别与物品图文识别；留空则该功能返回 503 降级） |
+| CLIP_ENABLED / _BASE_URL / _DIM / _TIMEOUT_MS | true / — / 512 / 15000 | 中文 CLIP 本地推理服务（物品图图/文图检索；CLIP_BASE_URL 留空则该功能返回 503 降级；参考 `scripts/clip-server/`） |
 | SIMULATOR_ENABLED / _INTERVAL_MS | true / 8000 | 硬件模拟器 |
 | WX_APPID / WX_SECRET | — | 微信小程序 AppID / Secret（Secret 务必 gitignore；只在本机后端使用） |
 | WX_AUTO_REGISTER | true | 未绑定 openid 的微信用户首次登录是否自动建号；`false` 时返回 `needBind` + bindToken |

@@ -56,6 +56,14 @@ const config = {
     simulatorIntervalMs: envNum('SIMULATOR_INTERVAL_MS', 8000),
     hintFreshMs: envNum('HINT_FRESH_MS', 10 * 60 * 1000)
   },
+  // 中文 CLIP（物品"图找物/文找物"向量检索）：本地部署推理服务，契约见 docs/SDD.md §5.6
+  // 参考实现 scripts/clip-server/（github.com/OFA-Sys/Chinese-CLIP）；CLIP_BASE_URL 留空则该功能自动降级
+  clip: {
+    enabled: envBool('CLIP_ENABLED', true),
+    baseUrl: env('CLIP_BASE_URL', ''),
+    dim: envNum('CLIP_DIM', 512),
+    timeoutMs: envNum('CLIP_TIMEOUT_MS', 15000)
+  },
   // 微信登录（小程序一键登录 / 账号绑定）。注意：secret 不入库、不进日志
   wx: {
     appId: env('WX_APPID', ''),

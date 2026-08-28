@@ -1,6 +1,24 @@
 /* pages/layout/layout.wxss — 户型图配置页样式（风格对齐全局） */
 .area-s { min-height: 110rpx; }
 
+/* 物品管理联动：高亮房间横幅 */
+.hl-banner {
+  display: flex; align-items: center; justify-content: space-between;
+  margin: 0 24rpx 16rpx; padding: 18rpx 24rpx; border-radius: 16rpx;
+  background: linear-gradient(135deg, #fff4e0, #ffe9c4); border: 2rpx solid #ffce8a;
+}
+.hl-banner.missing { background: #fdeef3; border-color: #ef9ab8; }
+.hl-banner-t { font-size: 26rpx; font-weight: 700; color: #8a5b16; }
+.hl-banner.missing .hl-banner-t { color: #b04a68; }
+.hl-banner-x { padding: 6rpx 14rpx; font-size: 28rpx; color: #8a5b16; opacity: 0.8; }
+.hl-banner.missing .hl-banner-x { color: #b04a68; }
+.floor-tile.hl {
+  z-index: 2;
+  box-shadow: 0 0 0 3rpx #ff9f43, inset 0 0 12rpx rgba(255, 159, 67, 0.55);
+  animation: hl-pulse 1.1s ease-in-out infinite;
+}
+@keyframes hl-pulse { 50% { box-shadow: 0 0 0 6rpx rgba(255, 159, 67, 0.45), inset 0 0 20rpx rgba(255, 159, 67, 0.75); } }
+
 /* 目录（家/公司/宿舍…） */
 .space-bar { margin-bottom: 20rpx; padding-bottom: 16rpx; border-bottom: 1rpx dashed #e3e9f2; }
 .space-title { font-size: 26rpx; font-weight: 800; margin-bottom: 12rpx; }

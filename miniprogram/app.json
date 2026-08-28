@@ -8,7 +8,8 @@
     "pages/data/data",
     "pages/hardware/hardware",
     "pages/profile/profile",
-    "pages/layout-scan/layout-scan"
+    "pages/layout-scan/layout-scan",
+    "pages/items/items"
   ],
   "window": {
     "navigationBarTitleText": "物品数字化存放系统",

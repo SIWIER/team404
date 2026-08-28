@@ -1,6 +1,16 @@
 <view class="page-title">🏠 户型图配置</view>
 <view class="page-sub">直接拖拽房间方块到网格中布置；点房间可展开内部模块（书桌/书架/壁橱…）</view>
 
+<!-- 物品管理联动：从物品列表跳来 → 高亮物品所在房间 -->
+<view class="hl-banner" wx:if="{{highlight && !highlightMissing}}">
+  <view class="hl-banner-t">🔦 已高亮房间「{{highlight}}」</view>
+  <view class="hl-banner-x" bindtap="clearHighlight">✕</view>
+</view>
+<view class="hl-banner missing" wx:if="{{highlight && highlightMissing}}">
+  <view class="hl-banner-t">⚠️ 当前目录没有「{{highlight}}」房间（可能已改名，或物品在别的目录）</view>
+  <view class="hl-banner-x" bindtap="clearHighlight">✕</view>
+</view>
+
 <view class="card">
   <!-- 目录：每个目录一套户型图 -->
   <view class="space-bar">
@@ -35,7 +45,7 @@
     <view class="floor-area" style="width:{{grid.area}}px;height:{{grid.area}}px;">
       <view class="grid-cell" wx:for="{{grid.cells}}" wx:key="index"
             style="left:{{item.x}}px;top:{{item.y}}px;width:{{grid.cell}}px;height:{{grid.cell}}px;"></view>
-      <view class="floor-tile {{item.corridor ? 'cor-seg' : ''}} {{item.selected ? 'ext-sel' : ''}} {{drag.idx === item.roomIdx ? 'dragging' : ''}}"
+      <view class="floor-tile {{item.corridor ? 'cor-seg' : ''}} {{item.selected ? 'ext-sel' : ''}} {{item.hl ? 'hl' : ''}} {{drag.idx === item.roomIdx ? 'dragging' : ''}}"
             wx:for="{{tiles}}" wx:key="key"
             style="left:{{item.px}}px;top:{{item.py}}px;width:{{grid.cell}}px;height:{{grid.cell}}px;background:{{item.bg}};{{item.borderStyle}};transform:translate({{drag.idx === item.roomIdx ? drag.dx : 0}}px,{{drag.idx === item.roomIdx ? drag.dy : 0}}px);"
             data-idx="{{item.roomIdx}}" data-ci="{{item.ci}}"
