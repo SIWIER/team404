@@ -17,6 +17,8 @@ export TORCH_CUDA_ARCH_LIST="12.0"
 # ---------- 0. 基础工具 ----------
 STAGE "apt 基础工具"
 apt-get update -y >> "$LOG" 2>&1 && apt-get install -y build-essential git curl wget ca-certificates cmake ninja-build >> "$LOG" 2>&1 && OK "apt 基础工具" || FAIL "apt"
+# WSL 部分网络下 IPv6 通道故障导致 pip 极慢/中断：系统级 IPv4 优先
+grep -q 'precedence ::ffff:0:0/96' /etc/gai.conf 2>/dev/null || echo 'precedence ::ffff:0:0/96  100' >> /etc/gai.conf
 
 # ---------- 1. Miniconda ----------
 STAGE "Miniconda"
@@ -38,7 +40,9 @@ conda create -y -n mast3r python=3.11 >> "$LOG" 2>&1 && OK "mast3r conda 环境"
 MPY="$HOME/miniconda3/envs/mast3r/bin/python"
 MPIP="$MPY -m pip"
 # 注意：清华镜像不收 +cu128 本地版本轮子，torch 必须走 PyTorch 官方索引
+if $MPY -c 'import torch' >> "$LOG" 2>&1; then OK "torch 已安装（跳过下载）"; else
 $MPIP install torch==2.7.1+cu128 torchvision==0.22.1+cu128 --index-url https://download.pytorch.org/whl/cu128 >> "$LOG" 2>&1 && OK "torch 2.7.1+cu128（Blackwell 兼容）" || FAIL "torch 安装"
+fi
 conda install -y -n mast3r -c conda-forge cuda-toolkit=12.9 >> "$LOG" 2>&1 || conda install -y -n mast3r -c conda-forge cuda-toolkit=12.8 >> "$LOG" 2>&1
 [ $? -eq 0 ] && OK "cuda-toolkit（编译用 nvcc）" || FAIL "cuda-toolkit"
 
@@ -62,7 +66,9 @@ STAGE "SpatialLM 环境（python 3.11 + torch 2.7.1+cu128）"
 conda create -y -n spatiallm python=3.11 >> "$LOG" 2>&1 && OK "spatiallm conda 环境" || FAIL "spatiallm conda 环境"
 SPY="$HOME/miniconda3/envs/spatiallm/bin/python"
 SPIP="$SPY -m pip"
+if $SPY -c 'import torch' >> "$LOG" 2>&1; then OK "torch 已安装（跳过下载）"; else
 $SPIP install torch==2.7.1+cu128 torchvision==0.22.1+cu128 --index-url https://download.pytorch.org/whl/cu128 >> "$LOG" 2>&1 && OK "torch 2.7.1+cu128" || FAIL "torch"
+fi
 conda install -y -n spatiallm -c conda-forge sparsehash >> "$LOG" 2>&1
 conda install -y -n spatiallm -c conda-forge cuda-toolkit=12.9 >> "$LOG" 2>&1 || conda install -y -n spatiallm -c conda-forge cuda-toolkit=12.8 >> "$LOG" 2>&1
 [ $? -eq 0 ] && OK "cuda-toolkit" || FAIL "cuda-toolkit"
