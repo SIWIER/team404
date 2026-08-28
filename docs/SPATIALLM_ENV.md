@@ -131,6 +131,7 @@ wsl.exe -d Ubuntu -u root -- bash //mnt/c/<仓库路径>/scripts/spatiallm/setup
 | RTX 50 系报 `no kernel image` / `ARCH_MISMATCH` | torch 换 2.7.1+cu128（见第 3 节） |
 | pip 下载 download.pytorch.org 极慢（46kB/s）且反复中断 | WSL 的 IPv6 通道问题：`curl -4` 直下轮子再 `pip install` 本地文件（本机实测 16 秒下完 991MB） |
 | pip 报 `Invalid wheel filename (wrong number of parts)` | pip 26 会校验轮子**文件名格式**，手动下载后必须保留规范名（如 `torch-2.7.1+cu128-cp311-...whl`），不能改名成 `torch.whl` |
+| WSL 里 `git clone` GitHub 秒断（1ms）| Windows hosts 被加速器劫持（Watt Toolkit 等把 github.com→127.0.0.1），WSL 继承后连的是 WSL 自己的回环。解法：`/etc/wsl.conf` 设 `generateHosts=false`，`/etc/hosts` 里给 github.com 写真实 IP（如 `20.205.243.166`） |
 | WSL2 报虚拟化未启用 | 启用"虚拟机平台"组件 + 重启 |
 | flash-attn 编译失败 | 可跳过（推理自动降级）；spconv 失败则必须修 |
 | iPhone 视频读不进 | 确认是 H.264（"兼容性最佳"） |
