@@ -151,6 +151,7 @@ node scripts/smoke.js
 | ✅ 完成 | **物品管理 P1+P2**（后端 `items` 模块：录入/文字检索/图文识别/图图文图向量检索；小程序 `pages/items/` 录入+检索页；m9/m10 测试） | — |
 | ✅ 完成 | **Chinese-CLIP 本地部署**（scripts/clip-server/：venv + torch CPU + cn_clip，ViT-B-16 权重已下载，start-clip.bat 一键启动；本机 .env 已接 CLIP_BASE_URL；端到端验证通过：图图同图 score=1.0、文图排序正确） | — |
 | ⏳ 待做 | 演示数据：给 xiaoming 预置几件带照片的示例物品（seed） | — |
+| 🟠 进行中 | **SpatialLM 房间实景扫描**（手机环绕视频 → 点云 → 结构化布局 → 户型图自动建模；阶段 0 环境安装中，配置要求见 `docs/SPATIALLM_ENV.md`） | — |
 
 > 📋 需求调查问卷已存档于 `docs/SURVEY.md`（含回收结论填写模板）；跨对话交接模板见 `docs/HANDOFF_PROMPT.md`——任何新对话粘贴对应提示词即可继续任一成员的任务。
 
