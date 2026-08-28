@@ -25,16 +25,20 @@ if [ ! -d "$HOME/miniconda3" ]; then
   bash /tmp/mc.sh -b -p "$HOME/miniconda3" >> "$LOG" 2>&1 && OK "Miniconda" || FAIL "Miniconda"
 fi
 source "$HOME/miniconda3/etc/profile.d/conda.sh"
+# 只用清华镜像：移除 defaults（新版 conda 会弹 ToS 报错拒绝装包）
+conda config --remove-key channels >> "$LOG" 2>&1
 conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main >> "$LOG" 2>&1
 conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge >> "$LOG" 2>&1
 conda config --set channel_priority flexible >> "$LOG" 2>&1
+printf 'channel_priority: flexible\nchannels:\n  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge\n  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main\n' > "$HOME/miniconda3/.condarc"
 
 # ---------- 2. MASt3R-SLAM（视频 → 点云）----------
 STAGE "MASt3R-SLAM 环境（python 3.11 + torch 2.7.1+cu128 + cuda-toolkit 12.9）"
 conda create -y -n mast3r python=3.11 >> "$LOG" 2>&1 && OK "mast3r conda 环境" || FAIL "mast3r conda 环境"
 MPY="$HOME/miniconda3/envs/mast3r/bin/python"
 MPIP="$MPY -m pip"
-$MPIP install torch==2.7.1+cu128 torchvision==0.22.1+cu128 >> "$LOG" 2>&1 && OK "torch 2.7.1+cu128（Blackwell 兼容）" || FAIL "torch 安装"
+# 注意：清华镜像不收 +cu128 本地版本轮子，torch 必须走 PyTorch 官方索引
+$MPIP install torch==2.7.1+cu128 torchvision==0.22.1+cu128 --index-url https://download.pytorch.org/whl/cu128 >> "$LOG" 2>&1 && OK "torch 2.7.1+cu128（Blackwell 兼容）" || FAIL "torch 安装"
 conda install -y -n mast3r -c conda-forge cuda-toolkit=12.9 >> "$LOG" 2>&1 || conda install -y -n mast3r -c conda-forge cuda-toolkit=12.8 >> "$LOG" 2>&1
 [ $? -eq 0 ] && OK "cuda-toolkit（编译用 nvcc）" || FAIL "cuda-toolkit"
 
@@ -58,7 +62,7 @@ STAGE "SpatialLM 环境（python 3.11 + torch 2.7.1+cu128）"
 conda create -y -n spatiallm python=3.11 >> "$LOG" 2>&1 && OK "spatiallm conda 环境" || FAIL "spatiallm conda 环境"
 SPY="$HOME/miniconda3/envs/spatiallm/bin/python"
 SPIP="$SPY -m pip"
-$SPIP install torch==2.7.1+cu128 torchvision==0.22.1+cu128 >> "$LOG" 2>&1 && OK "torch 2.7.1+cu128" || FAIL "torch"
+$SPIP install torch==2.7.1+cu128 torchvision==0.22.1+cu128 --index-url https://download.pytorch.org/whl/cu128 >> "$LOG" 2>&1 && OK "torch 2.7.1+cu128" || FAIL "torch"
 conda install -y -n spatiallm -c conda-forge sparsehash >> "$LOG" 2>&1
 conda install -y -n spatiallm -c conda-forge cuda-toolkit=12.9 >> "$LOG" 2>&1 || conda install -y -n spatiallm -c conda-forge cuda-toolkit=12.8 >> "$LOG" 2>&1
 [ $? -eq 0 ] && OK "cuda-toolkit" || FAIL "cuda-toolkit"
