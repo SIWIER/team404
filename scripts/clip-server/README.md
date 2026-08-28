@@ -19,6 +19,10 @@
 
 ## 安装（需要 Python 3.9+，本机已实测通过）
 
+> 说明：**网络能直连 pytorch.org / huggingface.co 的环境，直接执行下面命令即可，无需任何代理配置。**
+> 下面第 1.5 步只是「网络不通时的备选方案」——原开发机因本地网络直连被重置才走代理，
+> 换一台网络正常的机器可跳过；不通的话按你自己的方案解决（本机代理 / 公司镜像源等）即可。
+
 在仓库根目录执行（Windows PowerShell）：
 
 ```powershell
@@ -26,7 +30,8 @@
 python -m venv scripts/clip-server/.venv
 $py = "scripts\clip-server\.venv\Scripts\python.exe"
 
-# （可选）直连 pytorch.org 不通时，先设置代理再继续（127.0.0.1:7890 按实际代理端口改）
+# 1.5)（备选，仅下载卡住时用）设置你自己的代理或镜像。
+#      示例是原开发机的本机代理端口，其他环境请按实际情况修改或跳过本步：
 $env:HTTP_PROXY='http://127.0.0.1:7890'; $env:HTTPS_PROXY='http://127.0.0.1:7890'
 
 # 2) 先装 CPU 版 torch（务必用 CPU 索引：PyPI 默认 Windows 轮子带 CUDA，体积数 GB）
