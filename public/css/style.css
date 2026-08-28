@@ -167,6 +167,25 @@ textarea.input { min-height: 90px; resize: vertical; font-family: inherit; line-
   cursor: pointer; opacity: .55; font-style: normal;
 }
 .floor-tile .tile-x:hover { opacity: 1; }
+.floor-tile.sel { border: 2px solid var(--brand); box-shadow: 0 0 0 3px rgba(61,123,253,.3); }
+.floor-tile .tile-minus {
+  position: absolute; top: -9px; left: -9px; width: 18px; height: 18px; border-radius: 50%;
+  background: var(--warn); color: #fff; font-size: 13px; font-weight: 800; line-height: 1;
+  display: flex; align-items: center; justify-content: center; cursor: pointer; font-style: normal;
+  box-shadow: 0 2px 6px rgba(232, 93, 117, .4); z-index: 3;
+}
+.floor-cell.cand {
+  border: 2px dashed var(--good); background: rgba(34, 176, 125, .12);
+  color: var(--good); font-size: 20px; font-weight: 800; cursor: pointer;
+}
+.floor-cell.cand:hover { background: rgba(34, 176, 125, .22); }
+/* 编辑大小模式：选中房间/模块的虚线包围盒 + 尺寸标注 */
+.size-guide { position: absolute; z-index: 5; pointer-events: none; border: 2px dashed #3d7bfd; border-radius: 8px; box-sizing: border-box; }
+.size-guide-tag {
+  position: absolute; z-index: 6; background: rgba(31, 43, 58, .85); color: #fff;
+  font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+  white-space: nowrap; pointer-events: none;
+}
 .tray { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; padding: 10px; border: 1.5px dashed #d5ddeb; border-radius: 12px; background: #fbfdff; }
 .tray-tile { width: 72px; height: 64px; border: 1px solid var(--line); border-radius: 10px; background: #fff; padding: 4px; cursor: grab; }
 .tray-tile .tile-emoji { font-size: 20px; }
@@ -178,6 +197,9 @@ textarea.input { min-height: 90px; resize: vertical; font-family: inherit; line-
 .tray-tile.selectable { cursor: pointer; }
 
 /* 首页迷你户型图 */
+.hero { padding: 2px 0 14px; }
+.hero-title { font-size: 25px; font-weight: 900; letter-spacing: .5px; }
+.hero-sub { color: var(--muted); font-size: 13px; margin-top: 5px; }
 .mini-floor { display: grid; gap: 4px; margin-top: 6px; }
 .mini-cell {
   border: 1px dashed #d5ddeb; border-radius: 8px; background: #fff;
@@ -185,6 +207,7 @@ textarea.input { min-height: 90px; resize: vertical; font-family: inherit; line-
   display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 46px;
 }
 .mini-cell.empty { background: #f7f9fc; }
+.mini-cell.cor { background: #fff7e8; border-color: #f0dcb0; }
 
 /* 占位页 */
 .soon { text-align: center; padding: 50px 20px; }
@@ -318,9 +341,22 @@ select.input { appearance: auto; }
 .room-size-meta .muted { font-size: 12px; margin-left: 6px; }
 .room-grid-wrap { position: relative; max-width: 440px; margin: 0 auto; }
 .room-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 0; aspect-ratio: 1; border: 1px solid #cfd8e6; border-radius: 10px; overflow: hidden; }
+.room-outline { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+.room-edge { position: absolute; background: rgba(61, 123, 253, .85); border-radius: 1px; pointer-events: none; }
 .room-cell { aspect-ratio: 1; background: #fafcff; border-right: 1px solid #edf1f7; border-bottom: 1px solid #edf1f7; box-sizing: border-box; display: flex; align-items: center; justify-content: center; }
 .room-cell.in { background: #eaf1ff; border-color: #d6e3ff; }
 .room-cell.origin { background: linear-gradient(135deg, var(--brand), var(--brand2)); color: #fff; font-size: 11px; font-weight: 700; }
+.room-cell.cand { border: 2px dashed var(--good); background: rgba(34, 176, 125, .12); color: var(--good); font-size: 16px; font-weight: 800; cursor: pointer; }
+.room-cell.cand:hover { background: rgba(34, 176, 125, .22); }
+.room-cell.furn { position: relative; }
+.room-cell.furn.sel { box-shadow: inset 0 0 0 2px var(--brand); }
+.room-cell.furn .tile-minus {
+  position: absolute; top: 1px; right: 1px; left: auto; width: 15px; height: 15px; border-radius: 50%;
+  background: var(--warn); color: #fff; font-size: 11px; font-weight: 800; line-height: 1;
+  display: flex; align-items: center; justify-content: center; cursor: pointer; font-style: normal;
+  box-shadow: 0 2px 6px rgba(232, 93, 117, .4); z-index: 4;
+}
+.furn-guide { border-color: var(--good); }
 .room-handle { position: absolute; width: 28px; height: 28px; transform: translate(-50%, -50%); background: var(--brand); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: nwse-resize; box-shadow: 0 4px 14px rgba(61, 123, 253, .4); user-select: none; touch-action: none; }
 .room-handle:hover { background: var(--brand2); }
 
@@ -336,3 +372,14 @@ select.input { appearance: auto; }
 .room-cell.furn { flex-direction: column; cursor: pointer; }
 .room-cell.furn .furn-e { font-size: 14px; line-height: 1.1; }
 .room-cell.furn .furn-n { font-size: 9px; font-weight: 700; margin-top: 1px; color: #3d4a5e; line-height: 1.1; white-space: nowrap; overflow: hidden; }
+
+/* 户型图配置入口卡（画像页跳转） */
+.layout-link {
+  display: flex; align-items: center; gap: 14px; cursor: pointer;
+  background: linear-gradient(135deg, #eef4ff, #f6f0ff);
+  border: 1px solid #d8e2f5; transition: transform .15s ease, box-shadow .15s ease;
+}
+.layout-link:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(61, 123, 253, .14); }
+.ll-ico { font-size: 34px; }
+.ll-t { font-weight: 800; font-size: 16px; color: var(--ink); }
+.ll-d { color: #7b8794; font-size: 13px; line-height: 1.5; margin-top: 4px; }

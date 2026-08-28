@@ -49,12 +49,12 @@ function furnitureFor(room) {
 export function renderHome(root) {
   const u = store.user;
   const p = u.profile;
-  const habits = (p.habits || []).map((h) => `<span class="tag">${esc(h)}</span>`).join('') || '<span class="muted" style="font-size:12px;">暂无生活习惯记录</span>';
-  const favs = (p.favoritePlaces || []).map((h) => `<span class="tag">📍 ${esc(h)}</span>`).join('') || '<span class="muted" style="font-size:12px;">暂无常用地点</span>';
   const layout = p.homeLayout || [];
-  const layoutHtml = layout.length
-    ? layout.map((r) => `<span class="tag">${roomEmoji(r.name)} ${esc(r.name)}${(r.spots || []).length ? ` · ${r.spots.length} 处` : ''}</span>`).join('')
-    : '<span class="tag"><a href="#/profile">🏠 未填写户型，去填写可提升推理准确度 →</a></span>';
+  const spaces = p.spaces || [];
+  const active = spaces.find((s) => s.id === p.activeSpaceId);
+  const activeName = active ? active.name : '家';
+  const layoutCount = layout.filter((r) => r.name).length;
+  const furnCount = layout.reduce((n, r) => n + (Array.isArray(r.furn) ? r.furn.length : 0), 0);
   // 多格展开：每个房间的每一格渲染一个 tile（10×10 细网格，名字只显示在首格）
   const expanded = [];
   layout.forEach((r) => {
@@ -72,41 +72,40 @@ export function renderHome(root) {
       for (let x = 0; x < w; x++) {
         const c = expanded.find((cc) => cc.x === x && cc.y === y);
         cells += c
-          ? `<div class="mini-cell room" data-idx="${layout.indexOf(c.room)}" title="点击进入房间细致布局">${roomEmoji(c.room.name)}${c.first ? `<span>${esc(c.room.name)}</span>` : ''}</div>`
+          ? `<div class="mini-cell room${c.room.name.includes('走廊') ? ' cor' : ''}" data-idx="${layout.indexOf(c.room)}" title="点击进入房间细致布局">${roomEmoji(c.room.name)}${c.first ? `<span>${esc(c.room.name)}</span>` : ''}</div>`
           : '<div class="mini-cell empty"></div>';
       }
     }
-    floorHtml = `<div class="mini-floor" style="grid-template-columns: repeat(${w}, minmax(52px, 72px));">${cells}</div>
-      <div class="muted" style="font-size:11px;margin-top:4px;">户型图（点击房间进入细致布局搜查；拖拽编辑见画像页；相邻格 = 相邻房间，影响推理距离权重）</div>`;
+    floorHtml = `<div class="mini-floor" style="grid-template-columns: repeat(${w}, minmax(52px, 72px));">${cells}</div>`;
   }
 
   root.innerHTML = `
-    <div class="page-title">你好，${esc(u.nickname)} 👋</div>
-    <p class="page-sub">这是你的专属智能体，选择一项功能开始吧。</p>
+    <div class="hero">
+      <div class="hero-title">📦 物品数字化存放系统</div>
+      <div class="hero-sub">你好，${esc(u.nickname)} · 为每件物品找到它的位置</div>
+    </div>
 
     <div class="card">
-      <div class="profile-head">
-        <div class="avatar">${esc(u.nickname.slice(0, 1))}</div>
-        <div style="flex:1;">
-          <div style="font-weight:800;font-size:17px;">${esc(p.agentName)}</div>
-          <div class="muted" style="font-size:13px;">${esc(p.agentStyle)}</div>
-          <div class="muted" style="font-size:12px;margin-top:2px;">账号 ${esc(u.username)} · 注册于 ${esc(u.createdAt.slice(0, 10))}</div>
+      <div id="home-space-bar" style="margin-bottom:10px;"></div>
+      <div class="layout-head">
+        <div>
+          <div style="font-weight:800;font-size:17px;">${spaceEmoji(activeName)} ${esc(activeName)} 户型图</div>
+          <div class="muted" style="font-size:12px;margin-top:2px;">房间 ${layoutCount} · 内部模块 ${furnCount}</div>
         </div>
-        <button class="btn ghost sm" onclick="location.hash='#/profile'">✏️ 编辑画像</button>
+        <button class="btn ghost sm" onclick="location.hash='#/layout'">✏️ 编辑</button>
       </div>
-      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);">
-        <div class="muted" style="font-size:12px;font-weight:600;">生活习惯</div>
-        <div class="tag-list">${habits}</div>
-        <div class="muted" style="font-size:12px;font-weight:600;margin-top:8px;">常用放眼镜地点</div>
-        <div class="tag-list">${favs}</div>
-        <div id="home-space-bar" style="margin:10px 0 4px;"></div>
-        <div class="muted" style="font-size:12px;font-weight:600;">🏠 家庭户型（辅助推理）</div>
-        <div class="tag-list">${layoutHtml}</div>
-        ${floorHtml}
-      </div>
+      ${floorHtml || (layoutCount
+        ? '<div class="empty-layout" onclick="location.hash=\'#/layout\'">房间都还没摆放，去户型配置页布置 ➜</div>'
+        : '<div class="empty-layout" onclick="location.hash=\'#/layout\'">还没有户型图，去户型配置页开始搭建（把房间方块加进列表即可）➜</div>')}
+      <p class="hint" style="margin-top:8px;">点击房间格进入细致布局搜查；拖拽编辑与目录管理在户型配置页；相邻格 = 相邻房间，影响推理「距离远近」权重。</p>
     </div>
 
     <div class="grid menu">
+      <div class="menu-card" onclick="location.hash='#/layout'">
+        <span class="badge">户型配置</span>
+        <div class="ico">🏠</div><div class="t">户型图配置</div>
+        <div class="d">目录管理（家/公司/宿舍…）、房间拖拽布置与内部模块（书桌/书架/壁橱…）。</div>
+      </div>
       <div class="menu-card" onclick="location.hash='#/reason'">
         <span class="badge">智能引导</span>
         <div class="ico">🔍</div><div class="t">引导推理找眼镜</div>
@@ -128,19 +127,29 @@ export function renderHome(root) {
   bindSpaceBar(root);
 }
 
+// 目录名 → 类型 emoji（家🏠/公司🏢/学校🏫/宿舍🛌）
+function spaceEmoji(name) {
+  const n = String(name || '');
+  if (/公司|办公|单位|企业|office/i.test(n)) return '🏢';
+  if (/学校|校园|学院|大学|中学|小学|school/i.test(n)) return '🏫';
+  if (/宿舍|公寓|dorm/i.test(n)) return '🛌';
+  return '🏠';
+}
+
 // ---------- 目录（家/公司/宿舍…）切换 ----------
 function bindSpaceBar(root) {
   const bar = root.querySelector('#home-space-bar');
   if (!bar) return;
   const p = store.user.profile;
   const spaces = p.spaces || [];
-  if (!spaces.length) { bar.innerHTML = ''; return; }
-  if (spaces.length === 1) {
-    bar.innerHTML = `<span class="muted" style="font-size:12px;">当前目录：<b>${esc(spaces[0].name)}</b>（在画像页可新建家/公司/宿舍等目录）</span>`;
+  const active = spaces.find((s) => s.id === p.activeSpaceId);
+  const activeName = active ? active.name : '家';
+  if (spaces.length <= 1) {
+    bar.innerHTML = `<span class="muted" style="font-size:12px;">当前目录：<b>${spaceEmoji(activeName)} ${esc(activeName)}</b>（在户型配置页可新建家/公司/宿舍等目录）</span>`;
     return;
   }
   bar.innerHTML = '<span class="muted" style="font-size:12px;font-weight:600;">目录：</span>' +
-    spaces.map((s) => `<button class="space-chip ${s.id === p.activeSpaceId ? 'on' : ''}" data-id="${s.id}">${esc(s.name)}</button>`).join('');
+    spaces.map((s) => `<button class="space-chip ${s.id === p.activeSpaceId ? 'on' : ''}" data-id="${s.id}">${spaceEmoji(s.name)} ${esc(s.name)}</button>`).join('');
   bar.querySelectorAll('button[data-id]').forEach((el) => {
     el.onclick = async () => {
       const id = Number(el.dataset.id);
@@ -202,7 +211,7 @@ function openRoomDetail(room) {
 
   function renderFurn() {
     if (!furniture.length) {
-      grid.innerHTML = '<div class="empty">该房间暂无可搜查的家具，可到画像页补充常用位置</div>';
+      grid.innerHTML = '<div class="empty">该房间暂无可搜查的家具，可到户型配置页补充常用位置</div>';
     } else {
       grid.innerHTML = furniture.map((f) => {
         const on = searched.includes(f.name);

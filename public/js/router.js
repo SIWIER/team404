@@ -3,6 +3,7 @@ import { store } from './store.js';
 import { renderAuth } from './views/auth.view.js';
 import { renderHome } from './views/home.view.js';
 import { renderProfile } from './views/profile.view.js';
+import { renderLayout } from './views/layout.view.js';
 import { renderReason } from './views/reason.view.js';
 import { renderData } from './views/data.view.js';
 import { renderHardware, disposeHardware } from './views/hardware.view.js';
@@ -13,6 +14,7 @@ const ROUTES = [
   { hash: '#/', title: '首页', auth: true, view: (r) => renderHome(r) },
   { hash: '#/home', title: '首页', auth: true, view: (r) => renderHome(r) },
   { hash: '#/profile', title: '智能体画像', auth: true, view: (r) => renderProfile(r) },
+  { hash: '#/layout', title: '户型图配置', auth: true, view: (r) => renderLayout(r) },
   { hash: '#/reason', title: '引导推理', auth: true, view: (r) => renderReason(r) },
   { hash: '#/data', title: '数据统计', auth: true, view: (r) => renderData(r) },
   { hash: '#/hardware', title: '硬件接入', auth: true, view: (r) => renderHardware(r) }
@@ -45,7 +47,7 @@ export function navigate() {
 
 function renderNav(active) {
   const nav = document.getElementById('topnav');
-  const links = [['#/', '🏠 首页'], ['#/reason', '🔍 找眼镜'], ['#/data', '📊 数据'], ['#/hardware', '📡 设备']];
+  const links = [['#/', '🏠 首页'], ['#/layout', '🗺 户型'], ['#/reason', '🔍 找眼镜'], ['#/data', '📊 数据'], ['#/hardware', '📡 设备']];
   nav.innerHTML = links.map(([h, t]) => `<a href="${h}" class="${h === active.hash ? 'on' : ''}">${t}</a>`).join('');
 }
 

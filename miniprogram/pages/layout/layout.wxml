@@ -17,7 +17,7 @@
     <view class="space-title">🗂 目录（每个目录一套户型图，如 家 / 公司 / 宿舍）</view>
     <scroll-view scroll-x class="space-scroll" wx:if="{{spaces.length}}">
       <view class="space-chip {{activeSpaceId === item.id ? 'on' : ''}}" wx:for="{{spaces}}" wx:key="id"
-            data-id="{{item.id}}" bindtap="switchSpace">{{item.name}}</view>
+            data-id="{{item.id}}" bindtap="switchSpace">{{item.kindEmoji}} {{item.name}}</view>
     </scroll-view>
     <view class="space-ops">
       <button class="btn ghost sm" bindtap="addSpace">＋ 新建目录</button>
@@ -94,10 +94,10 @@
   </view>
 
   <view class="btn-row" style="justify-content:center;">
-    <button class="btn ghost sm" bindtap="applyTemplate">🏠 生成标准户型</button>
+    <button class="btn ghost sm" bindtap="applyTemplate">{{presetKindEmoji}} 生成标准户型</button>
     <button class="btn ghost sm" bindtap="toggleSize">{{sizeMode ? '✅ 完成编辑大小' : '📐 编辑大小'}}</button>
   </view>
-  <view class="hint">「生成标准户型」会把房间围绕走廊摆放、彼此相连；相邻格 = 相邻房间，影响推理的「距离远近」权重。</view>
+  <view class="hint">「生成标准户型」会按当前目录类型（{{presetKindLabel}}）把房间围绕走廊摆放、彼此相连；相邻格 = 相邻房间，影响推理的「距离远近」权重。</view>
 </view>
 
 <!-- 房间内部模块（家具）编辑器：与户型图一致的拖拽 + 自由编辑大小 -->

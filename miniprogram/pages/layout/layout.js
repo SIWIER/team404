@@ -8,8 +8,34 @@ const api = require('../../utils/api');
 const store = require('../../utils/store');
 const { toast, confirm, roomEmoji, roomColor, tileBorderStyle } = require('../../utils/ui');
 
-const ROOM_PRESETS = ['卧室', '卫生间', '客厅', '厨房', '餐厅', '书房', '玄关', '走廊', '阳台', '衣帽间', '储物间'];
 const GRID = 10;
+// 预设房间按目录类型分组（家/公司/学校/宿舍…）：不同场景提供不同的房间方块托盘
+const SPACE_PRESETS = {
+  home: {
+    label: '家', emoji: '🏠',
+    presets: ['卧室', '卫生间', '客厅', '厨房', '餐厅', '书房', '玄关', '走廊', '阳台', '衣帽间', '储物间']
+  },
+  office: {
+    label: '公司', emoji: '🏢',
+    presets: ['办公室', '会议室', '工位区', '前台', '茶水间', '经理室', '财务室', '档案室', '机房', '仓库', '走廊']
+  },
+  school: {
+    label: '学校', emoji: '🏫',
+    presets: ['教室', '实验室', '图书室', '办公室', '机房', '报告厅', '会议室', '食堂', '体育器材室', '宿舍', '走廊']
+  },
+  dorm: {
+    label: '宿舍', emoji: '🛌',
+    presets: ['宿舍', '卫生间', '浴室', '洗衣房', '自习室', '厨房', '客厅', '阳台', '储物间', '走廊']
+  }
+};
+// 目录名 → 空间类型（未匹配默认家用）
+function spaceKindOf(name) {
+  const n = String(name || '');
+  if (/公司|办公|单位|企业|office/i.test(n)) return 'office';
+  if (/学校|校园|学院|大学|中学|小学|school/i.test(n)) return 'school';
+  if (/宿舍|公寓|dorm/i.test(n)) return 'dorm';
+  return 'home';
+}
 // 房间数量上限：与后端 sanitizeLayout（accounts.service.js）的 slice(0, MAX_ROOMS) 一致
 const MAX_ROOMS = 36;
 // 房间内部画布 12×12（与后端 furn 坐标 0-11 一致）
@@ -28,7 +54,10 @@ const FURN_ALL = [...new Set([...FURN_COMMON, ...Object.values(FURN_BY_TYPE).fla
 const FURN_EMOJI = {
   '书桌': '🖥️', '书架': '📚', '壁橱': '👕', '床': '🛏️', '床头柜': '🗄️',
   '柜子': '🗄️', '架子': '📦', '桌子': '🪑', '窗台': '🪟', '洗手池': '🚰', '便池': '🚽',
-  '浴池': '🛁', '沙发': '🛋️', '电视': '📺', '茶几': '🪑', '灶台': '🍳', '冰箱': '🧊'
+  '浴池': '🛁', '沙发': '🛋️', '电视': '📺', '茶几': '🪑', '灶台': '🍳', '冰箱': '🧊',
+  '办公桌': '💻', '电脑': '🖥️', '文件柜': '🗄️', '会议桌': '🪑', '投影': '📽️', '椅子': '🪑',
+  '课桌椅': '🪑', '黑板': '📋', '讲台': '🎤', '实验台': '🧪', '仪器柜': '🗄️', '服务器': '🖥️',
+  '货架': '🗃️', '箱子': '📦', '衣柜': '👕', '洗衣机': '🧺', '餐桌': '🍽️'
 };
 function furnEmoji(name) {
   // 同名物件自动编号（书桌2/书桌3…）：按基础名查 emoji
@@ -42,6 +71,19 @@ function furnOptionsFor(roomName) {
   if (n.includes('客厅')) return [...FURN_COMMON, ...FURN_BY_TYPE['客厅']];
   if (n.includes('厨房')) return [...FURN_COMMON, ...FURN_BY_TYPE['厨房']];
   if (n.includes('书房')) return [...FURN_COMMON, ...FURN_BY_TYPE['书房']];
+  // 公司/学校/宿舍场景的房间模块
+  if (n.includes('办公室') || n.includes('工位区') || n.includes('经理室') || n.includes('财务室') || n.includes('前台')) return [...FURN_COMMON, '办公桌', '电脑', '文件柜'];
+  if (n.includes('会议室') || n.includes('报告厅')) return [...FURN_COMMON, '会议桌', '投影', '椅子'];
+  if (n.includes('教室')) return [...FURN_COMMON, '课桌椅', '黑板', '讲台'];
+  if (n.includes('实验室')) return [...FURN_COMMON, '实验台', '仪器柜'];
+  if (n.includes('机房')) return [...FURN_COMMON, '服务器', '电脑'];
+  if (n.includes('图书室') || n.includes('自习室')) return [...FURN_COMMON, '书架', '书桌'];
+  if (n.includes('档案室') || n.includes('体育器材室')) return [...FURN_COMMON, '架子', '箱子'];
+  if (n.includes('仓库')) return [...FURN_COMMON, '货架', '箱子'];
+  if (n.includes('宿舍')) return [...FURN_COMMON, '床', '书桌', '衣柜'];
+  if (n.includes('浴室')) return [...FURN_COMMON, '浴池', '洗手池'];
+  if (n.includes('洗衣房')) return [...FURN_COMMON, '洗衣机', '架子'];
+  if (n.includes('食堂') || n.includes('餐厅')) return [...FURN_COMMON, '餐桌', '冰箱'];
   return [...FURN_ALL];
 }
 // 标准户型模板（10×10 细网格）：走廊居中成链，所有房间与走廊相邻（全连通）
@@ -52,7 +94,7 @@ function rect(x0, y0, w, h) {
   }
   return cells;
 }
-const TEMPLATE = [
+const TEMPLATE_HOME = [
   { key: '走廊', cells: Array.from({ length: 8 }, (_, i) => ({ x: 4, y: i + 1 })) },
   { key: '玄关', cells: [{ x: 4, y: 9 }] },
   { key: '客厅', cells: rect(5, 2, 4, 3) },
@@ -67,6 +109,54 @@ const TEMPLATE = [
   { key: '衣帽间', cells: rect(3, 1, 1, 3) },
   { key: '储物间', cells: rect(3, 5, 1, 3) }
 ];
+// 公司标准户型（10×10）：走廊竖链居中，前台/办公室/工位区/会议室等与走廊或相邻房间相连
+const TEMPLATE_OFFICE = [
+  { key: '走廊', cells: Array.from({ length: 8 }, (_, i) => ({ x: 4, y: i + 1 })) },
+  { key: '前台', cells: [{ x: 4, y: 0 }] },
+  { key: '办公室', cells: rect(1, 1, 3, 3) },
+  { key: '工位区', cells: rect(1, 5, 3, 3) },
+  { key: '会议室', cells: rect(5, 1, 3, 3) },
+  { key: '茶水间', cells: rect(8, 1, 1, 2) },
+  { key: '经理室', cells: rect(5, 5, 2, 2) },
+  { key: '财务室', cells: rect(7, 5, 2, 2) },
+  { key: '档案室', cells: rect(5, 8, 2, 1) },
+  { key: '机房', cells: rect(7, 8, 2, 1) },
+  { key: '仓库', cells: rect(1, 8, 3, 1) }
+];
+// 学校标准户型：教室/实验室/图书室/机房/报告厅等围绕走廊
+const TEMPLATE_SCHOOL = [
+  { key: '走廊', cells: Array.from({ length: 8 }, (_, i) => ({ x: 4, y: i + 1 })) },
+  { key: '教室', cells: rect(1, 1, 3, 3) },
+  { key: '实验室', cells: rect(5, 1, 3, 2) },
+  { key: '体育器材室', cells: rect(8, 1, 1, 2) },
+  { key: '宿舍', cells: rect(8, 3, 1, 2) },
+  { key: '图书室', cells: rect(1, 5, 3, 3) },
+  { key: '机房', cells: rect(5, 5, 2, 2) },
+  { key: '办公室', cells: rect(7, 5, 2, 2) },
+  { key: '食堂', cells: rect(1, 8, 3, 1) },
+  { key: '报告厅', cells: rect(5, 8, 3, 1) }
+];
+// 宿舍标准户型：宿舍/卫浴/洗衣房/自习室/客厅/厨房等围绕走廊
+const TEMPLATE_DORM = [
+  { key: '走廊', cells: Array.from({ length: 9 }, (_, i) => ({ x: 4, y: i + 1 })) },
+  { key: '储物间', cells: [{ x: 4, y: 0 }] },
+  { key: '宿舍', cells: rect(1, 1, 3, 2) },
+  { key: '宿舍2', cells: rect(1, 4, 3, 2) },
+  { key: '卫生间', cells: rect(5, 1, 2, 2) },
+  { key: '浴室', cells: rect(7, 1, 2, 2) },
+  { key: '洗衣房', cells: rect(5, 4, 2, 2) },
+  { key: '自习室', cells: rect(7, 4, 2, 2) },
+  { key: '厨房', cells: rect(1, 7, 3, 2) },
+  { key: '客厅', cells: rect(5, 7, 2, 2) },
+  { key: '阳台', cells: rect(7, 7, 2, 2) }
+];
+// 目录类型 → 标准户型模板
+const SPACE_TEMPLATES = {
+  home: TEMPLATE_HOME,
+  office: TEMPLATE_OFFICE,
+  school: TEMPLATE_SCHOOL,
+  dorm: TEMPLATE_DORM
+};
 
 Page({
   data: {
@@ -78,6 +168,7 @@ Page({
     sizeMode: false, sizeTarget: -1, sizeCands: [],
     sizeGuide: { show: false, x: 0, y: 0, w: 0, h: 0, text: '' },
     spaces: [], activeSpaceId: -1,
+    presetKindEmoji: '🏠', presetKindLabel: '家',
     savingLayout: false,
     // 物品管理联动：从物品列表跳来（?highlight=房间名）时高亮对应房间
     highlight: '',
@@ -120,6 +211,17 @@ Page({
     } catch (e) { /* 默认值兜底 */ }
   },
 
+  // 目录列表带类型 emoji（家🏠/公司🏢/学校🏫/宿舍🛌），便于区分不同场景
+  decorateSpaces(list) {
+    return (list || []).map((s) => ({ ...s, kindEmoji: SPACE_PRESETS[spaceKindOf(s.name)].emoji }));
+  },
+
+  // 当前目录名（用于按类型切换预设房间与标准户型模板）
+  activeSpaceName() {
+    const cur = this.data.spaces.find((s) => s.id === this.data.activeSpaceId);
+    return cur ? cur.name : '';
+  },
+
   init() {
     const p = store.getUser().profile;
     this.rooms = (p.homeLayout || []).map((r, i) => ({
@@ -134,7 +236,7 @@ Page({
       h: r.h || 12,
       furn: (Array.isArray(r.furn) ? r.furn.map((f) => ({ name: f.name, x: f.x, y: f.y })) : [])
     }));
-    this.setData({ spaces: p.spaces || [], activeSpaceId: p.activeSpaceId });
+    this.setData({ spaces: this.decorateSpaces(p.spaces), activeSpaceId: p.activeSpaceId });
     this.renderLayout();
   },
 
@@ -861,10 +963,12 @@ Page({
     if (!named.length) { toast('还没有房间，先拖动房间方块到网格'); return; }
     this.rooms.forEach((r) => { r.cells = []; });
     this.setData({ sizeMode: false, sizeTarget: -1 });
+    const kind = SPACE_PRESETS[spaceKindOf(this.activeSpaceName())];
+    const template = SPACE_TEMPLATES[spaceKindOf(this.activeSpaceName())];
     const occupied = () => this.rooms.flatMap((r) => r.cells);
     const isFree = (cs) => cs.every((c) => !occupied().some((o) => o.x === c.x && o.y === c.y));
     let n = 0;
-    for (const slot of TEMPLATE) {
+    for (const slot of template) {
       const candidate = this.rooms.find((r) =>
         r.name.includes(slot.key) && !r.cells.length && isFree(slot.cells));
       if (!candidate) continue;
@@ -877,7 +981,7 @@ Page({
       room.cells = [empty];
     }
     this.renderLayout();
-    toast('🏠 已生成标准户型：所有房间都通过走廊相连（可拖动微调）');
+    toast(kind.emoji + ' 已生成「' + kind.label + '」标准户型：所有房间都通过走廊相连（可拖动微调）');
   },
 
   // ---------- 工具 ----------
@@ -945,8 +1049,9 @@ Page({
     const unplaced = this.rooms
       .filter((r) => r.name && !r.cells.length)
       .map((r) => ({ idx: r.idx, name: r.name, emoji: roomEmoji(r.name) }));
-    // 同名房间可复数存在：预设托盘常驻全部类型，放置时自动编号（卧室、卧室2、卧室3…）
-    const presets = ROOM_PRESETS.map((n) => ({ name: n, emoji: roomEmoji(n) }));
+    // 同名房间可复数存在：预设托盘常驻当前目录类型的全部房间，放置时自动编号（卧室、卧室2、卧室3…）
+    const kind = SPACE_PRESETS[spaceKindOf(this.activeSpaceName())];
+    const presets = kind.presets.map((n) => ({ name: n, emoji: roomEmoji(n) }));
 
     // 编辑大小模式：选中房间四周的空格是 ＋ 候选
     let sizeCands = [];
@@ -993,6 +1098,8 @@ Page({
       roomLabels,
       unplaced,
       presets,
+      presetKindEmoji: kind.emoji,
+      presetKindLabel: kind.label,
       sizeCands,
       sizeGuide,
       corridorExists: this.rooms.some((r) => r.name.includes('走廊')),
@@ -1037,7 +1144,7 @@ Page({
         h: r.h || 12,
         furn: (Array.isArray(r.furn) ? r.furn.map((f) => ({ name: f.name, x: f.x, y: f.y })) : [])
       }));
-      this.setData({ spaces: d.user.profile.spaces || [], activeSpaceId: d.user.profile.activeSpaceId });
+      this.setData({ spaces: this.decorateSpaces(d.user.profile.spaces), activeSpaceId: d.user.profile.activeSpaceId });
       toast('户型图已保存 ✓');
       this.renderLayout();
       return true;
