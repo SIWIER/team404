@@ -3,8 +3,9 @@
 // 起步方案：向量存 items.clip_vec（JSON 数组字符串），检索用暴力余弦（用户量级几百条完全够用），
 //          后续量大再换向量索引。向量服务为独立进程（参考实现 scripts/clip-server/，契约见 docs/SDD.md §5.6）。
 //
-// 懒回填策略：录入时不阻塞等向量（CLIP 在 CPU 上要几秒），首次向量检索时把"有图无向量"的物品
-//          补齐（每次最多 BACKFILL_CAP 条），之后检索即可命中。向量服务未配置/不可用时优雅降级。
+// 懒回填策略：录入时不阻塞等向量（CLIP 在 CPU 上要几秒），首次向量检索时把"无向量"的物品补齐
+//          （每次最多 BACKFILL_CAP 条）：有照片用图片编码；纯文字物品用「名称+描述」文本编码，
+//          保证没有照片的物品也能被 文图/图图 检索命中。向量服务未配置/不可用时优雅降级。
 'use strict';
 const fs = require('node:fs');
 const path = require('node:path');
@@ -110,17 +111,36 @@ async function embedItem(cfg, row) {
   return true;
 }
 
-// 懒回填：该用户"有图但无向量"的物品补齐向量（每次最多 BACKFILL_CAP 条）
+// 无照片物品 → 用「名称 + 描述」文本编码（CLIP 图文跨模态：文图检索直接命中，图图也能比对到）
+async function embedItemText(cfg, row) {
+  const text = [row && row.name, row && row.desc].filter(Boolean).join('，');
+  if (!text) return false;
+  const vec = await embedText(cfg, text);
+  if (!vec) return false;
+  getDb().prepare('UPDATE items SET clip_vec = ? WHERE id = ?').run(JSON.stringify(vec), row.id);
+  return true;
+}
+
+// 懒回填：该用户"无向量"的物品补齐向量（每次两类各最多 BACKFILL_CAP 条）——
+// 有照片的用图片编码；没照片但有名称/描述的用文本编码，保证纯文字录入的物品也能被向量检索命中
 async function backfill(cfg, userId) {
   const db = getDb();
-  const rows = db.prepare(`SELECT * FROM items
+  const withImage = db.prepare(`SELECT * FROM items
     WHERE user_id = ? AND image_path IS NOT NULL AND image_path != ''
       AND (clip_vec IS NULL OR clip_vec = '')
     ORDER BY id LIMIT ${BACKFILL_CAP}`).all(userId);
-  for (const row of rows) {
-    await embedItem(cfg, row);   // 失败静默跳过，下次检索再试
+  const textOnly = db.prepare(`SELECT * FROM items
+    WHERE user_id = ? AND (image_path IS NULL OR image_path = '')
+      AND (name != '' OR (desc IS NOT NULL AND desc != ''))
+      AND (clip_vec IS NULL OR clip_vec = '')
+    ORDER BY id LIMIT ${BACKFILL_CAP}`).all(userId);
+  for (const row of withImage) {
+    await embedItem(cfg, row);        // 失败静默跳过，下次检索再试
   }
-  return rows.length;
+  for (const row of textOnly) {
+    await embedItemText(cfg, row);    // 同上
+  }
+  return withImage.length + textOnly.length;
 }
 
 // 向量检索：回填缺失向量 → 暴力余弦 → 按分数降序取前 topN。

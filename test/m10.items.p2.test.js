@@ -339,6 +339,42 @@ test('文图检索：文字描述返回按相似度降序的结果', async () =>
   }
 });
 
+test('纯文字物品（无照片）：文本编码懒回填后，文图/图图都能命中', async () => {
+  const token = await register(PORT, 'p2_textonly');
+  // 录入一件完全没有照片的物品
+  const add = await req(PORT, '/api/items', {
+    method: 'POST', token,
+    body: { name: '黑色折叠雨伞', desc: '长柄黑色雨伞，把手有挂绳', room: '玄关', furn: '壁橱', subPos: '一层' }
+  });
+  assert.strictEqual(add.status, 200);
+  assert.strictEqual(add.json.item.hasImage, false);
+  const id = add.json.item.id;
+
+  // 文图：查询文字 = 物品的「名称，描述」拼接文本 → 文本编码同源，相似度应为 1 且排首位
+  const itemText = '黑色折叠雨伞，长柄黑色雨伞，把手有挂绳';
+  const sTxt = await req(PORT, '/api/items/search-image', {
+    method: 'POST', token, body: { text: itemText }
+  });
+  assert.strictEqual(sTxt.status, 200, JSON.stringify(sTxt.json));
+  assert.strictEqual(sTxt.json.matchBy, 'text');
+  const hit = sTxt.json.results.find((x) => x.item.id === id);
+  assert.ok(hit, '文图检索应命中纯文字物品');
+  assert.strictEqual(hit.score, 1);
+
+  // 文图：随便什么文字，纯文字物品都应出现在结果里（有向量才可被检索）
+  const sAny = await req(PORT, '/api/items/search-image', {
+    method: 'POST', token, body: { text: '雨伞' }
+  });
+  assert.ok(sAny.json.results.some((x) => x.item.id === id), '任意文字检索都应包含该物品');
+
+  // 图图：拍照检索也能把它带进结果（跨模态：查询图片 vs 物品文本向量）
+  const sImg = await req(PORT, '/api/items/search-image', {
+    method: 'POST', token, body: { image: PNG_A, mimeType: 'image/png' }
+  });
+  assert.strictEqual(sImg.status, 200, JSON.stringify(sImg.json));
+  assert.ok(sImg.json.results.some((x) => x.item.id === id), '图图检索也应命中纯文字物品');
+});
+
 test('向量检索参数校验：图片与文字都没有/都有 → 422', async () => {
   const token = await login(PORT, 'p2_vec');
   const none = await req(PORT, '/api/items/search-image', { method: 'POST', token, body: {} });

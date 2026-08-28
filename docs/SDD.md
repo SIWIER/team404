@@ -171,7 +171,7 @@ find-my-glasses-pro/
 // 图图/文图检索：{image} 与 {text} 二选一
 { "text": "黑色折叠雨伞" }                      // 文图
 { "image": "iVBORw0KGgo...", "mimeType": "image/jpeg" }   // 图图
-// 200 成功：按余弦相似度降序（首次检索会把"有图无向量"的物品懒回填进向量库）
+// 200 成功：按余弦相似度降序（首次检索会懒回填缺失向量：有照片→图片编码，纯文字物品→名称+描述文本编码）
 { "ok": true, "matchBy": "text",
   "results": [ { "score": 0.98,
                  "item": { "id": 3, "name": "黑色折叠雨伞", "spaceName": "家",
@@ -294,7 +294,9 @@ scrypt（N=16384）密码 + 时间恒定比较；画像含**家庭布局**（≤
   github.com/OFA-Sys/Chinese-CLIP，工程思路参考 Weydon-Ding/VectorGallery）。
   契约：`POST /encode/image {image:base64}`、`POST /encode/text {text}` → `{vector:[…]}`（单位向量）
 - 向量存 `items.clip_vec`（JSON 数组），**懒回填**：录入时不阻塞等向量，首次向量检索时把
-  "有图无向量"的物品补齐（每次 ≤20 条），随后暴力余弦（`items.clip.js`，纯 JS 无索引，几百条无压力）
+  "无向量"的物品补齐（每次 ≤20 条）：有照片用图片编码；**纯文字物品用「名称+描述」文本编码**
+  （CLIP 图文跨模态），保证没拍照录入的物品也能被 文图/图图 检索命中。
+  随后暴力余弦（`items.clip.js`，纯 JS 无索引，几百条无压力）
 - 未部署时 `search-image` 返回 `503 {code:'CLIP_NOT_CONFIGURED'}`，前端按钮置灰，文字检索不受影响
 
 **照片多端同步（团队决策③）**：照片以 base64 上传，落盘 `data/uploads/{userId}/{itemId}.{ext}`
@@ -336,7 +338,8 @@ scrypt（N=16384）密码 + 时间恒定比较；画像含**家庭布局**（≤
 
 - **物品管理**：m9 录入/文字检索/取图/删除/越权（18095）；m10 P2（18100 主服务器 + 18101 mock 视觉 +
   18102 mock CLIP + 18103 无配置子服务器）：recognize 401/422/503/成功、search-image 图图（同图排首位、
-  相似度 1、懒回填）/文图（降序）/422/503 降级/越权、locationFull 契约、纯函数（余弦/extractItemJson）——
+  相似度 1、懒回填）/文图（降序）/纯文字物品文本编码回填（文图 score=1、图图可命中）/422/503 降级/越权、
+  locationFull 契约、纯函数（余弦/extractItemJson）——
   全程离线，mock 服务协议与真实视觉模型、Chinese-CLIP 完全一致，零付费调用
 
 当前全量：`node --test` → **136 项全绿**（新增测试务必保持全绿再提 PR）。
