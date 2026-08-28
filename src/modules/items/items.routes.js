@@ -22,6 +22,17 @@ const recognizeLimiter = rateLimit({
   }
 });
 
+// 图找物内部会触发一次视觉模型识别（按次计费），同样限每 IP 每分钟 5 次（与 recognize 各自独立计数）
+const searchImgLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  keyFn: (ctx) => {
+    const fwd = ctx.req.headers['x-forwarded-for'];
+    const ip = fwd ? String(fwd).split(',')[0].trim() : (ctx.req.socket.remoteAddress || 'unknown');
+    return 'items:searchimg:' + ip;
+  }
+});
+
 const MIME_WHITELIST = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 // base64 长度上限：约 1.4MB 原图（*4/3 后仍稳过 core/http.js 的 2MB 请求体限制）
 const MAX_BASE64_LEN = 1_900_000;
@@ -136,24 +147,67 @@ function registerRoutes(router) {
       return ctx.res.json({ ok: false, errors: { query: '请提供物品照片（图找物）或文字描述（文找物），二选一' } }, 422);
     }
 
+    // 文字检索免费，但图找物会触发一次视觉模型识别（按次计费）→ 图找物单独限流
+    if (hasImage) {
+      searchImgLimiter(ctx);
+      if (ctx.ended) return;
+    }
+
     let vec = null;
+    let recognized = null;
+    let rows = [];
     if (hasImage) {
       const errs = imageErrors(b);
       if (errs) return ctx.res.json({ ok: false, errors: errs }, 422);
-      vec = await clip.embedImage(config.clip, stripBase64(b.image));
+      const imgB64 = stripBase64(b.image);
+      const mime = String(b.mimeType).toLowerCase().trim();
+      const visionOn = vision.visionReady(config.llm.vision);
+
+      // 双路融合（提高"拍照找纯文字物品"准确率的关键）：
+      // CLIP 图像↔文本跨模态余弦信号弱（正确匹配也仅 ~0.3），单路比对时纯文字物品几乎排不上来。
+      // 视觉模型可用时并行做图文识别，把照片"翻译"成物品文字，再用 文字↔文字 向量比纯文字物品
+      // （同模态对齐强得多，实测 0.76+），最后与照片物品的图像比对结果合并排序。
+      const [vecImg, rec] = await Promise.all([
+        clip.embedImage(config.clip, imgB64),
+        visionOn ? vision.recognizeItem(config.llm.vision, imgB64, mime) : Promise.resolve(null)
+      ]);
+      vec = vecImg;
+      if (!vec) {
+        return ctx.res.json({ ok: false, code: 'CLIP_UNAVAILABLE', error: '向量服务调用失败，请确认 Chinese-CLIP 服务已启动' }, 502);
+      }
+
+      let vecTxt = null;
+      if (rec && rec.name) {
+        recognized = { name: rec.name, desc: rec.desc, note: rec.note };
+        vecTxt = await clip.embedText(config.clip, [rec.name, rec.desc].filter(Boolean).join('，'));
+      }
+      if (vecTxt) {
+        // 双路：照片物品用图像查询向量；纯文字物品用识别出的文字向量（互不串扰，分数直接可比）
+        const photoRows = await clip.searchRaw(config.clip, ctx.user.id, vec, b.spaceId, SEARCH_TOP_N, { imageOnly: true });
+        const textRows = await clip.searchRaw(config.clip, ctx.user.id, vecTxt, b.spaceId, SEARCH_TOP_N, { textOnly: true });
+        rows = photoRows.concat(textRows);
+      } else {
+        // 视觉未配置或识别失败 → 降级为单路图像查询（保留纯文字物品的弱跨模态匹配）
+        rows = await clip.searchRaw(config.clip, ctx.user.id, vec, b.spaceId, SEARCH_TOP_N);
+      }
+      rows = rows
+        .filter((x) => Number.isFinite(x.score))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, SEARCH_TOP_N);
     } else {
       if (String(b.text).trim().length > 100) {
         return ctx.res.json({ ok: false, errors: { text: '描述文字最多 100 字' } }, 422);
       }
       vec = await clip.embedText(config.clip, b.text);
-    }
-    if (!vec) {
-      return ctx.res.json({ ok: false, code: 'CLIP_UNAVAILABLE', error: '向量服务调用失败，请确认 Chinese-CLIP 服务已启动' }, 502);
+      if (!vec) {
+        return ctx.res.json({ ok: false, code: 'CLIP_UNAVAILABLE', error: '向量服务调用失败，请确认 Chinese-CLIP 服务已启动' }, 502);
+      }
+      rows = await clip.searchRaw(config.clip, ctx.user.id, vec, b.spaceId, SEARCH_TOP_N);
     }
 
-    const rows = await clip.searchRaw(config.clip, ctx.user.id, vec, b.spaceId, SEARCH_TOP_N);
     ctx.res.ok({
       matchBy: hasImage ? 'image' : 'text',
+      recognized,
       results: rows.map((x) => ({
         item: svc.toPublic(x.row),
         score: Math.round(x.score * 1000) / 1000

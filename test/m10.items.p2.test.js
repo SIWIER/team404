@@ -319,6 +319,8 @@ test('图图检索：同一张照片排在首位且相似度为 1（懒回填生
   assert.ok(Array.isArray(r.json.results) && r.json.results.length >= 2, '两件有照片的物品都应被回填并参与比对');
   assert.strictEqual(r.json.results[0].item.id, id1, '同图物品应排第一');
   assert.strictEqual(r.json.results[0].score, 1);
+  // 双路融合：图找物会用视觉模型识别照片文字（mock 固定返回黑色折叠雨伞）
+  assert.strictEqual(r.json.recognized && r.json.recognized.name, '黑色折叠雨伞', '响应应带识别出的物品文字');
   for (const x of r.json.results) {
     assert.ok(x.score >= -1 && x.score <= 1, '分数应在余弦范围');
     assert.ok(x.item.locationFull, '结果应带完整位置链');
@@ -367,12 +369,16 @@ test('纯文字物品（无照片）：文本编码懒回填后，文图/图图�
   });
   assert.ok(sAny.json.results.some((x) => x.item.id === id), '任意文字检索都应包含该物品');
 
-  // 图图：拍照检索也能把它带进结果（跨模态：查询图片 vs 物品文本向量）
+  // 图图：双路融合——照片先被视觉模型识别成文字（mock 返回与物品一致的 名称+描述），
+  // 纯文字物品按「识别文字 vs 物品文本」比对（同模态），应拿到满分而非弱跨模态分数
   const sImg = await req(PORT, '/api/items/search-image', {
     method: 'POST', token, body: { image: PNG_A, mimeType: 'image/png' }
   });
   assert.strictEqual(sImg.status, 200, JSON.stringify(sImg.json));
-  assert.ok(sImg.json.results.some((x) => x.item.id === id), '图图检索也应命中纯文字物品');
+  assert.strictEqual(sImg.json.recognized && sImg.json.recognized.name, '黑色折叠雨伞');
+  const imgHit = sImg.json.results.find((x) => x.item.id === id);
+  assert.ok(imgHit, '图图检索也应命中纯文字物品');
+  assert.strictEqual(imgHit.score, 1, '识别文字与物品文本一致时应为满分');
 });
 
 test('向量检索参数校验：图片与文字都没有/都有 → 422', async () => {

@@ -144,8 +144,10 @@ async function backfill(cfg, userId) {
 }
 
 // 向量检索：回填缺失向量 → 暴力余弦 → 按分数降序取前 topN。
+// opts.imageOnly / opts.textOnly 按嵌入模态过滤（模态由 image_path 是否有值决定，与 backfill 的编码方式一一对应）：
+//   图图双路检索时，照片物品用图像查询向量比、纯文字物品用识别文字向量比，互不串扰。
 // 返回 [{row(含 space_name), score}]，由路由层转公开字段（避免跨模块引用 service 内部实现）。
-async function searchRaw(cfg, userId, vec, spaceId, topN) {
+async function searchRaw(cfg, userId, vec, spaceId, topN, opts = {}) {
   const db = getDb();
   await backfill(cfg, userId);
 
@@ -153,6 +155,8 @@ async function searchRaw(cfg, userId, vec, spaceId, topN) {
     FROM items i LEFT JOIN spaces s ON s.id = i.space_id
     WHERE i.user_id = ? AND i.clip_vec IS NOT NULL AND i.clip_vec != ''`;
   const args = [userId];
+  if (opts.imageOnly) sql += ` AND i.image_path IS NOT NULL AND i.image_path != ''`;
+  if (opts.textOnly) sql += ` AND (i.image_path IS NULL OR i.image_path = '')`;
   if (spaceId != null && Number.isFinite(Number(spaceId))) {
     sql += ' AND i.space_id = ?';
     args.push(Number(spaceId));

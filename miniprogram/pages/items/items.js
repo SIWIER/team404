@@ -39,6 +39,7 @@ Page({
     kw: '',
     txt: '',
     searchImgPath: '',           // 图找物已选照片预览
+    imgRecogNote: '',            // 图找物：后端视觉识别出的物品文字提示
     searching: false,
     searched: false,
     results: [],                 // [{id,name,desc,locationFull,room,thumb,score}]
@@ -302,7 +303,7 @@ Page({
   // 统一检索入口：按 kind 调对应接口
   async doSearch() {
     const d = this.data;
-    this.setData({ searching: true, searched: false });
+    this.setData({ searching: true, searched: false, imgRecogNote: '' });
     let rows = [];
     let scoreBy = null;
     try {
@@ -321,6 +322,10 @@ Page({
         });
         rows = (r.results || []).map((x) => ({ ...x.item, score: x.score }));
         scoreBy = r.matchBy;
+        // 后端双路融合：照片已被视觉模型识别成文字，纯文字物品按该文字匹配
+        if (r.recognized && r.recognized.name) {
+          this.setData({ imgRecogNote: '🤖 识别为「' + r.recognized.name + '」，纯文字物品按此文字匹配' });
+        }
       } else {
         const text = d.txt.trim();
         if (!text) { toast('请先描述要找的物品'); return; }

@@ -136,7 +136,7 @@ find-my-glasses-pro/
 | 物品 | GET /api/items/:id/image · DELETE /api/items/:id | 图片 base64 回读（`{image, mimeType}` 拼 data URL）/ 删除（连图片文件） |
 | 物品 | GET /api/items/config | 能力探测 `{recognizeEnabled, clipEnabled}`（前端据此置灰按钮） |
 | 物品 | POST /api/items/recognize | **图文识别**：拍照 → 物品文字信息（名称/描述/建议位置；LLM_VISION；限流 5 次/分/IP；不落库） |
-| 物品 | POST /api/items/search-image | **图图/文图向量检索**：`{image,mimeType}` 或 `{text}` 二选一 → Chinese-CLIP 向量 + 暴力余弦 top10（503=未部署） |
+| 物品 | POST /api/items/search-image | **图图/文图向量检索**：`{image,mimeType}` 或 `{text}` 二选一 → Chinese-CLIP 向量 + 暴力余弦 top10（503=未部署）；图图走**双路融合**：照片物品按图像向量比，纯文字物品按「视觉模型识别出的照片文字」比（响应带 `recognized`） |
 | 系统 | GET /api/health | 健康检查 |
 
 **户型图识别接口示例**（`POST /api/layout/recognize`，需登录）：
@@ -172,7 +172,9 @@ find-my-glasses-pro/
 { "text": "黑色折叠雨伞" }                      // 文图
 { "image": "iVBORw0KGgo...", "mimeType": "image/jpeg" }   // 图图
 // 200 成功：按余弦相似度降序（首次检索会懒回填缺失向量：有照片→图片编码，纯文字物品→名称+描述文本编码）
+// 图图双路融合：视觉模型可用时并行识别照片文字，纯文字物品按该文字比对；响应带 recognized（识别失败/未配置则为 null）
 { "ok": true, "matchBy": "text",
+  "recognized": null,
   "results": [ { "score": 0.98,
                  "item": { "id": 3, "name": "黑色折叠雨伞", "spaceName": "家",
                            "location": "玄关→壁橱→一层",
@@ -288,6 +290,11 @@ scrypt（N=16384）密码 + 时间恒定比较；画像含**家庭布局**（≤
   名称/外观描述/建议位置，回填表单供用户修改确认，**不落库**；未配置视觉模型 → 503，手动填写不受影响
 - **图图**（拍照找相同物品）与 **文图**（文字匹配物品图片）：`POST /api/items/search-image`，
   图片或文字经 Chinese-CLIP 编码成向量后与本人物品暴力余弦比对，返回 top10 `{item, score}`
+- **图图双路融合**（解决"拍照找纯文字物品准确率低"）：CLIP 图像↔文本跨模态余弦弱（正确匹配也仅约 0.3），
+  故视觉模型可用时，图图检索**并行**做图文识别把照片"翻译"成物品文字，然后分路比对并合并排序——
+  照片物品用图像查询向量比（同图仍 1.0 排第一），纯文字物品用「识别文字」向量比（同模态对齐强，实测 0.76+）；
+  响应带 `recognized` 供前端展示。视觉未配置或识别失败 → 降级为单路图像查询（纯文字物品保留弱匹配）。
+  图找物每次触发一次视觉调用（按次计费）→ 独立限流 5 次/分/IP（keyFn 命名空间隔离）
 
 **向量方案（团队决策②，起步版）**：
 - Chinese-CLIP **本地部署**为独立推理服务（参考 `scripts/clip-server/`，官方仓库
@@ -338,8 +345,8 @@ scrypt（N=16384）密码 + 时间恒定比较；画像含**家庭布局**（≤
 
 - **物品管理**：m9 录入/文字检索/取图/删除/越权（18095）；m10 P2（18100 主服务器 + 18101 mock 视觉 +
   18102 mock CLIP + 18103 无配置子服务器）：recognize 401/422/503/成功、search-image 图图（同图排首位、
-  相似度 1、懒回填）/文图（降序）/纯文字物品文本编码回填（文图 score=1、图图可命中）/422/503 降级/越权、
-  locationFull 契约、纯函数（余弦/extractItemJson）——
+  相似度 1、懒回填、recognized 双路融合）/文图（降序）/纯文字物品文本编码回填（文图 score=1、
+  图图经识别文字匹配 score=1）/422/503 降级/越权、locationFull 契约、纯函数（余弦/extractItemJson）——
   全程离线，mock 服务协议与真实视觉模型、Chinese-CLIP 完全一致，零付费调用
 
 当前全量：`node --test` → **136 项全绿**（新增测试务必保持全绿再提 PR）。

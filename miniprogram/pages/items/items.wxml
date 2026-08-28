@@ -126,10 +126,11 @@
       <view class="pick-box" wx:if="{{!searchImgPath}}" bindtap="chooseSearchImage">
         <view class="pick-icon">📷</view>
         <view class="pick-main">拍下要找的物品</view>
-        <view class="pick-sub">用照片找库里相同/相似的物品</view>
+        <view class="pick-sub">照片找相同物品；纯文字录入的物品会先识别照片文字再匹配</view>
       </view>
       <block wx:else>
         <image class="preview-img" src="{{searchImgPath}}" mode="widthFix" />
+        <view class="note-box" wx:if="{{imgRecogNote}}">{{imgRecogNote}}</view>
         <view class="btn-row" style="justify-content:center;">
           <button class="btn ghost sm" disabled="{{searching}}" bindtap="chooseSearchImage">🔄 换一张</button>
         </view>
@@ -146,7 +147,7 @@
 
     <view class="searching" wx:if="{{searching}}">
       <view class="spin">⏳</view>
-      <view class="rec-main">{{kind === 'kw' ? '正在检索…' : '正在向量比对（首次会把有照片的物品入库到向量库）…'}}</view>
+      <view class="rec-main">{{kind === 'kw' ? '正在检索…' : (kind === 'img' ? '正在识别照片并向量比对（首次会把物品入库到向量库）…' : '正在向量比对（首次会把物品入库到向量库）…')}}</view>
     </view>
   </view>
 
