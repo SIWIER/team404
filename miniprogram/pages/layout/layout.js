@@ -1009,11 +1009,29 @@ Page({
     const tiles = [];
     const roomLabels = [];
     const selIdx = this.data.sizeMode ? this.data.sizeTarget : -1;
+
+    // 物品管理联动：计算被高亮的房间集合。
+    // 精确匹配优先（物品在「卧室2」就只高亮「卧室2」）；仅当户型里没有同名房间、
+    // 且该基础名（去编号）在户型里唯一时，才允许去编号兜底（物品写「卧室」而户型只有「卧室2」）。
+    // 有多个同名编号房间（卧室/卧室2…）时绝不模糊点亮全部，宁可不亮并提示用户。
+    const hlSet = new Set();
+    if (this.highlightName) {
+      const named = this.rooms.filter((r) => r.name);
+      const exact = named.filter((r) => r.name === this.highlightName);
+      if (exact.length) {
+        exact.forEach((r) => hlSet.add(r.name));
+      } else {
+        const base = String(this.highlightName).replace(/\d+$/, '');
+        const baseRooms = named.filter((r) => String(r.name).replace(/\d+$/, '') === base);
+        if (baseRooms.length === 1) hlSet.add(baseRooms[0].name);
+      }
+    }
+
     this.rooms.forEach((r, roomPos) => {
       r.emoji = roomEmoji(r.name);
       const corridor = r.name.includes('走廊');
       const [bg, bd] = roomColor(roomPos);
-      const hl = !!this.highlightName && roomMatches(r.name, this.highlightName);
+      const hl = hlSet.has(r.name);
       r.cells.forEach((c, ci) => {
         tiles.push({
           key: r.idx + '-' + ci,
@@ -1104,7 +1122,7 @@ Page({
       sizeGuide,
       corridorExists: this.rooms.some((r) => r.name.includes('走廊')),
       // 物品管理联动：高亮房间不存在时给出提示（可能已改名或属于其他目录）
-      highlightMissing: !!this.highlightName && !this.rooms.some((r) => r.name && roomMatches(r.name, this.highlightName))
+      highlightMissing: !!this.highlightName && hlSet.size === 0
     });
   },
 
@@ -1269,12 +1287,4 @@ function clamp(v, a, b) {
 }
 function key(c) {
   return c.x + ',' + c.y;
-}
-// 高亮匹配：精确匹配优先；否则按基础名（去掉"卧室2"这类编号）匹配
-function roomMatches(roomName, hl) {
-  const a = String(roomName || '');
-  const b = String(hl || '').replace(/\d+$/, '');
-  if (!a || !b) return false;
-  if (a === String(hl)) return true;
-  return a.replace(/\d+$/, '') === b;
 }
