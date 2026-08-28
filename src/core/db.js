@@ -128,8 +128,28 @@ const MIGRATIONS = [
         db.prepare('UPDATE profiles SET active_space_id = ? WHERE user_id = ?').run(Number(info.lastInsertRowid), r.user_id);
       }
     }
+  },
+  {
+    version: 10,
+    name: 'items-storage',
+    // 物品管理：三级位置链 = space(目录) → room(房间) → furn(收纳家具) → sub_pos(家具内子位置，如"一层")
+    up: `CREATE TABLE items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      space_id INTEGER,
+      name TEXT NOT NULL,
+      desc TEXT,
+      image_path TEXT,
+      room TEXT,
+      furn TEXT,
+      sub_pos TEXT,
+      clip_vec TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    );`
   }
-  // 后续模块在此追加 v9、v10…
+  // 后续模块在此追加 v11、v12…
 ];
 
 function init() {

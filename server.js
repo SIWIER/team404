@@ -21,6 +21,7 @@ const layoutRoutes = require('./src/modules/layout/layout.routes');
 const hardware = require('./src/modules/hardware/hardware.service');
 const accounts = require('./src/modules/accounts/accounts.service');
 const spacesRoutes = require('./src/modules/spaces/spaces.routes');
+const itemsRoutes = require('./src/modules/items/items.routes');
 
 // ---------- 初始化 ----------
 initDb();
@@ -37,6 +38,7 @@ dataRoutes.registerRoutes(router);
 hardwareRoutes.registerRoutes(router);
 layoutRoutes.registerRoutes(router);
 spacesRoutes.registerRoutes(router);
+itemsRoutes.registerRoutes(router);
 
 // 静态资源（public/）
 const PUBLIC = path.join(config.root, 'public');
