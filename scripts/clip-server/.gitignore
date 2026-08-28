@@ -1,0 +1,7 @@
+# scripts/clip-server/ 本地部署产物（不入库）
+.venv/
+models/
+__pycache__/
+*.pt
+*.pth
+*.bin

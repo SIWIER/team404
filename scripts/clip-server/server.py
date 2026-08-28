@@ -1,35 +1,49 @@
 #!/usr/bin/env python3
-# scripts/clip-server/server.py — Chinese-CLIP 本地推理服务（参考实现，未经实机联调）
+# scripts/clip-server/server.py — Chinese-CLIP 本地推理服务
 # 用途：为「物品管理」的图图/文图向量检索提供 图片/文字 → 单位向量 编码服务。
 # 契约（与 src/modules/items/items.clip.js 对齐）：
 #   POST /encode/image  {"image": "<裸 base64>"}   → {"vector": [512 个 float], "dim": 512}
 #   POST /encode/text   {"text": "..."}            → 同上
-# 依赖：pip install torch torchvision cn_clip pillow numpy（github.com/OFA-Sys/Chinese-CLIP）
-# 启动：python server.py --port 8899 --model ViT-B-16 [--device cuda]
+# 安装：见 scripts/clip-server/README.md（pip install torch torchvision cn_clip pillow numpy，
+#       其中 torch 用 CPU 索引安装：pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu）
+# 启动：python server.py --port 8899 --model ViT-B-16 [--device cuda] [--download-root models]
 import argparse
 import base64
 import io
 import json
+import os
+import sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-import numpy as np
-import torch
-from PIL import Image
+try:
+    import numpy as np
+    import torch
+    from PIL import Image
 
-import cn_clip.clip as clip
-from cn_clip.clip import load_from_name
+    import cn_clip.clip as clip
+    from cn_clip.clip import load_from_name
+except ImportError as e:
+    print(f"[clip-server] 缺少依赖：{e}", file=sys.stderr)
+    print("请先安装（推荐在 scripts/clip-server/.venv 虚拟环境内）：", file=sys.stderr)
+    print("  python -m venv scripts/clip-server/.venv", file=sys.stderr)
+    print("  scripts\\clip-server\\.venv\\Scripts\\python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu", file=sys.stderr)
+    print("  scripts\\clip-server\\.venv\\Scripts\\python -m pip install cn_clip pillow numpy", file=sys.stderr)
+    sys.exit(1)
 
 MODEL = None
 PREPROCESS = None
 DEVICE = "cpu"
 
 
-def load(model_name):
+def load(model_name, download_root):
     global MODEL, PREPROCESS
-    m, p = load_from_name(model_name, device=DEVICE, download_root="./")
+    os.makedirs(download_root, exist_ok=True)
+    print(f"[clip-server] 加载模型 {model_name}（设备：{DEVICE}；权重目录：{download_root}）")
+    print("[clip-server] 首次启动会自动下载权重（ViT-B-16 约 400MB，来自阿里云 OSS），请耐心等待…")
+    m, p = load_from_name(model_name, device=DEVICE, download_root=download_root)
     m.eval()
     MODEL, PREPROCESS = m, p
-    print(f"[clip-server] 模型 {model_name} 已加载（{DEVICE}）")
+    print(f"[clip-server] 模型 {model_name} 已加载完成（{DEVICE}）")
 
 
 def to_list(t):
@@ -86,15 +100,21 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     global DEVICE
+    here = os.path.dirname(os.path.abspath(__file__))
     ap = argparse.ArgumentParser(description="Chinese-CLIP 编码服务（契约见 scripts/clip-server/README.md）")
     ap.add_argument("--port", type=int, default=8899)
     ap.add_argument("--model", default="ViT-B-16")
     ap.add_argument("--device", default="cpu", choices=["cpu", "cuda"])
+    ap.add_argument("--download-root", default=os.path.join(here, "models"))
     ap.add_argument("--host", default="0.0.0.0")
     args = ap.parse_args()
 
     DEVICE = args.device
-    load(args.model)
+    if DEVICE == "cuda" and not torch.cuda.is_available():
+        print("[clip-server] 警告：未检测到 CUDA，回退到 CPU", file=sys.stderr)
+        DEVICE = "cpu"
+
+    load(args.model, args.download_root)
     server = HTTPServer((args.host, args.port), Handler)
     print(f"[clip-server] 监听 http://{args.host}:{args.port}")
     server.serve_forever()

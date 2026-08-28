@@ -24,6 +24,11 @@
     限流 5 次/分/IP，keyFn 命名空间隔离）；POST /api/items/search-image 图图/文图向量检索
     （{image}|{text} 二选一 → Chinese-CLIP 向量 + 暴力余弦 top10；向量存 items.clip_vec，
     懒回填每次 ≤20 条；未部署 503 CLIP_NOT_CONFIGURED，参考 scripts/clip-server/）。
+- Chinese-CLIP 已在本机部署并端到端验证通过：scripts/clip-server/.venv（torch 2.13.0+cpu +
+  cn_clip 1.6.0，lmdb 用 --no-deps 跳过——仅训练用）、权重 scripts/clip-server/models/
+  （ViT-B-16，718MB）、双击 scripts/clip-server/start-clip.bat 启动（端口 8899）；
+  本机 .env 已追加 CLIP_BASE_URL=http://127.0.0.1:8899（其他机器需各自部署/配置）。
+  实测：图图检索同图排首位 score=1.0、异图 0.88；文图检索排序正确。
 - 小程序：pages/items/ 录入页（拍照→预览→自动识别名→目录→房间→收纳家具→子位置四级选择）
   + 检索页（文字/拍照找同款/文字找物品 → 缩略图+位置链列表 → 点开跳 pages/layout/?highlight=房间名 高亮）；
   首页「物品管理」入口；app.json 已注册。
@@ -34,11 +39,10 @@
   git -c http.proxy=http://127.0.0.1:7890 -c https.proxy=http://127.0.0.1:7890 <命令>。
 
 【下一步工作池（按需认领）】
-1. 部署 Chinese-CLIP 本地服务（scripts/clip-server/server.py，pip install cn_clip torch）并实机联调
-   图图/文图检索；后端 .env 配 CLIP_BASE_URL=http://127.0.0.1:8899。
-2. 给 xiaoming 预置几件带照片的示例物品（seed，演示物品管理页更直观）。
-3. 小程序 items 页真机联调（微信开发者工具导入 miniprogram/，见 README）。
-4. 图文识别提示词按实测效果微调（items.vision.js 的 buildItemPrompt）。
+1. 给 xiaoming 预置几件带照片的示例物品（seed，演示物品管理页更直观）。
+2. 小程序 items 页真机联调（微信开发者工具导入 miniprogram/，见 README）。
+3. 图文识别提示词按实测效果微调（items.vision.js 的 buildItemPrompt）。
+4. 团队其他成员的机器：按 scripts/clip-server/README.md 部署 CLIP 服务 + 各自 .env 配 CLIP_BASE_URL。
 
 【验收】node --test 全绿；node --check 通过新文件；提交信息 feat(items): 中文说明；推送到 origin main。
 

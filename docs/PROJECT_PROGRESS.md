@@ -149,7 +149,7 @@ node scripts/smoke.js
 | 🟢 低 | 3D 外壳按实板微调、组装测试（STL 已可打印） | 成员 D |
 | ✅ 完成 | **户型图照片智能识别**（后端 `layout` 模块 + 小程序 `layout-scan` 页；视觉模型识图 → 预览确认 → 应用到户型网格） | 成员 E |
 | ✅ 完成 | **物品管理 P1+P2**（后端 `items` 模块：录入/文字检索/图文识别/图图文图向量检索；小程序 `pages/items/` 录入+检索页；m9/m10 测试） | — |
-| ⏳ 待做 | 部署 Chinese-CLIP 本地服务并实机联调图图/文图检索（参考 `scripts/clip-server/`，未部署自动降级） | — |
+| ✅ 完成 | **Chinese-CLIP 本地部署**（scripts/clip-server/：venv + torch CPU + cn_clip，ViT-B-16 权重已下载，start-clip.bat 一键启动；本机 .env 已接 CLIP_BASE_URL；端到端验证通过：图图同图 score=1.0、文图排序正确） | — |
 | ⏳ 待做 | 演示数据：给 xiaoming 预置几件带照片的示例物品（seed） | — |
 
 > 📋 需求调查问卷已存档于 `docs/SURVEY.md`（含回收结论填写模板）；跨对话交接模板见 `docs/HANDOFF_PROMPT.md`——任何新对话粘贴对应提示词即可继续任一成员的任务。
