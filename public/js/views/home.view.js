@@ -1,4 +1,4 @@
-// js/views/home.view.js — 首页：个性化智能体 + 模块菜单 + 房间细致布局搜查
+// js/views/home.view.js — 首页：个性化智能体 + 模块菜单 + 房间细致布局搜查（已搜位置调灰，搜完整间标记）
 import { store } from '../store.js';
 import { api } from '../api.js';
 import { esc, roomEmoji, toast } from '../ui.js';
@@ -37,13 +37,47 @@ function furnitureEmoji(name) {
 
 // 房间家具 = 该房间类型的常见家具 + 用户在画像里填写的常用位置（去重）
 function furnitureFor(room) {
-  const base = (ROOM_FURNITURE[room.name] || ['置物架', '抽屉柜', '桌面', '地面']).map((name) => ({
+  // 同名房间自动编号（卧室2/卧室3…）：去编号后按基础类型取家具清单
+  const key = ROOM_FURNITURE[room.name] ? room.name : String(room.name || '').replace(/\d+$/, '');
+  const base = (ROOM_FURNITURE[key] || ['置物架', '抽屉柜', '桌面', '地面']).map((name) => ({
     name, emoji: furnitureEmoji(name)
   }));
   const extra = (room.spots || [])
     .filter((s) => !base.some((f) => f.name === s))
     .map((name) => ({ name, emoji: furnitureEmoji(name) }));
   return [...base, ...extra];
+}
+
+// ---------- 搜查标记（房间内部逐格调灰 → 搜完全部后外部户型图整间标记） ----------
+const SEARCH_KEY = 'fmg_search_progress_v1';
+// 结构：{ [spaceId]: { [roomName]: { furn: [已搜查位置名], ts } } }（localStorage，仅本机）
+function loadSearchProgress() {
+  try { return JSON.parse(localStorage.getItem(SEARCH_KEY)) || {}; } catch { return {}; }
+}
+function saveSearchProgress(map) {
+  try { localStorage.setItem(SEARCH_KEY, JSON.stringify(map)); } catch { /* 存储不可用时静默 */ }
+}
+function spaceSearchMap() {
+  const spaceId = store.user.profile.activeSpaceId || 0;
+  const all = loadSearchProgress();
+  if (!all[spaceId]) all[spaceId] = {};
+  return all[spaceId];
+}
+// 搜查位置：优先用房间内部布局（户型配置里的家具模块，精确到格），未配置时回退到常见家具清单
+function searchPositionsFor(room) {
+  const interior = (room.furn || [])
+    .map((f) => ({ name: f.name, emoji: furnitureEmoji(String(f.name).replace(/\d+$/, '')) }))
+    .filter((f) => f.name);
+  if (interior.length) return interior;
+  return furnitureFor(room);
+}
+// 房间搜查状态：null = 无可搜位置；否则 { total, searched, done }
+function roomSearchStatus(room, smap) {
+  const positions = searchPositionsFor(room);
+  if (!positions.length) return null;
+  const searched = (smap[room.name] && Array.isArray(smap[room.name].furn)) ? smap[room.name].furn : [];
+  const done = positions.every((p) => searched.includes(p.name));
+  return { total: positions.length, searched: searched.length, done };
 }
 
 export function renderHome(root) {
@@ -55,6 +89,10 @@ export function renderHome(root) {
   const activeName = active ? active.name : '家';
   const layoutCount = layout.filter((r) => r.name).length;
   const furnCount = layout.reduce((n, r) => n + (Array.isArray(r.furn) ? r.furn.length : 0), 0);
+  const smap = spaceSearchMap();
+  // 搜查进度汇总：整间搜完的房间数 / 可搜房间数
+  const doneRooms = layout.filter((r) => { const st = roomSearchStatus(r, smap); return st && st.done; }).length;
+  const totalRooms = layout.filter((r) => roomSearchStatus(r, smap)).length;
   // 多格展开：每个房间的每一格渲染一个 tile（10×10 细网格，名字只显示在首格）
   const expanded = [];
   layout.forEach((r) => {
@@ -71,13 +109,23 @@ export function renderHome(root) {
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const c = expanded.find((cc) => cc.x === x && cc.y === y);
-        cells += c
-          ? `<div class="mini-cell room${c.room.name.includes('走廊') ? ' cor' : ''}" data-idx="${layout.indexOf(c.room)}" title="点击进入房间细致布局">${roomEmoji(c.room.name)}${c.first ? `<span>${esc(c.room.name)}</span>` : ''}</div>`
-          : '<div class="mini-cell empty"></div>';
+        if (!c) { cells += '<div class="mini-cell empty"></div>'; continue; }
+        const st = roomSearchStatus(c.room, smap);
+        const cls = ['mini-cell', 'room'];
+        if (c.room.name.includes('走廊')) cls.push('cor');
+        let extra = '';
+        if (st && st.done) {
+          cls.push('room-done'); // 整间搜完：所有格子一起变灰标记
+          if (c.first) extra = '<span class="room-check">✓ 已搜完</span>';
+        } else if (st && c.first) {
+          extra = `<span class="room-progress">${st.searched}/${st.total}</span>`;
+        }
+        cells += `<div class="${cls.join(' ')}" data-idx="${layout.indexOf(c.room)}" title="点击进入房间细致布局">${roomEmoji(c.room.name)}${c.first ? `<span>${esc(c.room.name)}</span>` : ''}${extra}</div>`;
       }
     }
     floorHtml = `<div class="mini-floor" style="grid-template-columns: repeat(${w}, minmax(52px, 72px));">${cells}</div>`;
   }
+  const searchText = totalRooms ? ` · 已搜完 ${doneRooms}/${totalRooms} 间` : '';
 
   root.innerHTML = `
     <div class="hero">
@@ -90,14 +138,14 @@ export function renderHome(root) {
       <div class="layout-head">
         <div>
           <div style="font-weight:800;font-size:17px;">${spaceEmoji(activeName)} ${esc(activeName)} 户型图</div>
-          <div class="muted" style="font-size:12px;margin-top:2px;">房间 ${layoutCount} · 内部模块 ${furnCount}</div>
+          <div class="muted" style="font-size:12px;margin-top:2px;">房间 ${layoutCount} · 内部模块 ${furnCount}${searchText}</div>
         </div>
         <button class="btn ghost sm" onclick="location.hash='#/layout'">✏️ 编辑</button>
       </div>
       ${floorHtml || (layoutCount
         ? '<div class="empty-layout" onclick="location.hash=\'#/layout\'">房间都还没摆放，去户型配置页布置 ➜</div>'
         : '<div class="empty-layout" onclick="location.hash=\'#/layout\'">还没有户型图，去户型配置页开始搭建（把房间方块加进列表即可）➜</div>')}
-      <p class="hint" style="margin-top:8px;">点击房间格进入细致布局搜查；拖拽编辑与目录管理在户型配置页；相邻格 = 相邻房间，影响推理「距离远近」权重。</p>
+      <p class="hint" style="margin-top:8px;">点击房间格进入细致布局搜查：点按家具切换「已搜查」，搜完整间后户型图整间变灰打 ✓（进度仅保存在本机）。</p>
     </div>
 
     <div class="grid menu">
@@ -177,8 +225,19 @@ function bindFloorCells(root, layout) {
 
 function openRoomDetail(room) {
   const openedAt = Date.now();
-  const furniture = furnitureFor(room);
-  const searched = []; // 按搜查先后顺序记录
+  const furniture = searchPositionsFor(room);
+  const spaceId = store.user.profile.activeSpaceId || 0;
+  const smap = spaceSearchMap();
+  const searched = Array.isArray(smap[room.name] && smap[room.name].furn) ? smap[room.name].furn.slice() : [];
+
+  // 搜查进度写入 localStorage（按目录隔离；全部取消时删除该房间记录）
+  function persist() {
+    const all = loadSearchProgress();
+    if (!all[spaceId]) all[spaceId] = {};
+    if (searched.length) all[spaceId][room.name] = { furn: searched.slice(), ts: Date.now() };
+    else delete all[spaceId][room.name];
+    saveSearchProgress(all);
+  }
 
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
@@ -192,8 +251,9 @@ function openRoomDetail(room) {
         </div>
         <button class="btn ghost sm" id="rm-close">✕ 关闭</button>
       </div>
-      <p class="hint" style="margin:6px 0 12px;">点按家具切换「已搜查 / 未搜查」，初始全部未搜查；找到眼镜后，点击下方按钮记录「最后一次搜查的家具」。</p>
+      <p class="hint" style="margin:6px 0 12px;">点按家具切换「已搜查 / 未搜查」，已搜查会调灰并自动保存；搜完全部位置后，户型图中整间房间会标记 ✓。找到眼镜后，点击下方按钮记录。</p>
       <div class="furn-grid" id="furn-grid"></div>
+      <div class="room-done-banner" id="rm-done-banner" style="display:none;">🎉 本房间已全部搜完，户型图中已整间标记</div>
       <div class="room-search-bar">
         <div class="muted" id="rm-last">尚未搜查任何家具</div>
         <div class="btn-row">
@@ -206,12 +266,14 @@ function openRoomDetail(room) {
 
   const grid = overlay.querySelector('#furn-grid');
   const lastEl = overlay.querySelector('#rm-last');
+  const doneBanner = overlay.querySelector('#rm-done-banner');
   const foundBtn = overlay.querySelector('#rm-found');
   const notfoundBtn = overlay.querySelector('#rm-notfound');
 
   function renderFurn() {
+    const done = furniture.length > 0 && furniture.every((f) => searched.includes(f.name));
     if (!furniture.length) {
-      grid.innerHTML = '<div class="empty">该房间暂无可搜查的家具，可到户型配置页补充常用位置</div>';
+      grid.innerHTML = '<div class="empty">该房间暂无可搜查的家具，可到户型配置页补充内部模块或常用位置</div>';
     } else {
       grid.innerHTML = furniture.map((f) => {
         const on = searched.includes(f.name);
@@ -225,6 +287,7 @@ function openRoomDetail(room) {
     }
     const last = searched[searched.length - 1];
     lastEl.textContent = last ? `最后搜查：${last}` : '尚未搜查任何家具';
+    doneBanner.style.display = done ? 'flex' : 'none';
     foundBtn.disabled = !searched.length;
     notfoundBtn.disabled = !searched.length;
     grid.querySelectorAll('.furn-item').forEach((el) => {
@@ -232,13 +295,18 @@ function openRoomDetail(room) {
         const name = el.dataset.name;
         const i = searched.indexOf(name);
         if (i >= 0) searched.splice(i, 1); else searched.push(name);
+        persist();
         renderFurn();
       };
     });
   }
   renderFurn();
 
-  const close = () => overlay.remove();
+  // 关闭后刷新户型图：整间搜完 → 房间整间标记 ✓
+  const close = () => {
+    overlay.remove();
+    renderHome(document.getElementById('app'));
+  };
   overlay.querySelector('#rm-close').onclick = close;
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
 

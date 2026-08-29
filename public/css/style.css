@@ -383,3 +383,43 @@ select.input { appearance: auto; }
 .ll-ico { font-size: 34px; }
 .ll-t { font-weight: 800; font-size: 16px; color: var(--ink); }
 .ll-d { color: #7b8794; font-size: 13px; line-height: 1.5; margin-top: 4px; }
+
+/* ---------- 首页搜查标记（内部逐格调灰 → 整间标记） ---------- */
+.mini-cell.room-done { background: #eef0f3; border-color: #d7dbe1; color: #9aa3ad; opacity: .82; }
+.mini-cell.room-done.cor { background: #f2eee3; border-color: #e2d8bd; }
+.mini-cell .room-check { font-size: 9px; color: var(--good); font-weight: 800; margin-top: 1px; }
+.mini-cell .room-progress { font-size: 9px; color: var(--muted); font-weight: 700; margin-top: 1px; }
+
+/* ---------- 房间细致布局搜查浮层 ---------- */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 80; padding: 16px;
+  background: rgba(15, 23, 42, .45); backdrop-filter: blur(2px);
+  display: flex; align-items: center; justify-content: center;
+}
+.modal-panel {
+  background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+  padding: 18px; width: min(560px, 100%); max-height: 86vh; overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(15, 23, 42, .3);
+}
+.room-detail-head { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+.room-detail-emoji { font-size: 34px; line-height: 1.1; }
+.room-detail-name { font-weight: 800; font-size: 18px; }
+.furn-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; margin: 10px 0; }
+.furn-item {
+  cursor: pointer; border: 1.5px solid var(--line); background: #fff; border-radius: 12px;
+  padding: 10px 6px; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  text-align: center; transition: all .15s ease;
+}
+.furn-item:hover { border-color: var(--brand); background: #f3f7ff; }
+.furn-item.searched { background: #eef0f3; border-color: #d7dbe1; color: #9aa3ad; opacity: .75; }
+.furn-item.searched .furn-emoji { filter: grayscale(.7); opacity: .55; }
+.furn-badge { font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 999px; background: #eef1f6; color: var(--muted); }
+.furn-item.searched .furn-badge { background: #dde3ea; color: #7a8694; }
+.furn-emoji { font-size: 24px; line-height: 1.2; }
+.furn-name { font-size: 12px; font-weight: 700; color: #3d4a5e; line-height: 1.3; }
+.room-done-banner {
+  display: flex; align-items: center; gap: 8px; margin: 4px 0 2px;
+  background: #e7f8ef; border: 1px solid #b9e6cf; color: #1a7a4c;
+  border-radius: 12px; padding: 10px 12px; font-size: 13px; font-weight: 700;
+}
+.room-search-bar { background: #f7f9fc; border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-top: 6px; }

@@ -4,7 +4,7 @@
     <view class="hero-sub">你好，{{user.nickname}} · 为每件物品找到它的位置</view>
   </view>
 
-  <!-- 当前目录户型图（首屏直观展示，点击进入配置） -->
+  <!-- 当前目录户型图（首屏直观展示，房间格点击进入细致搜查） -->
   <view class="card">
     <view class="space-bar">
       <view class="space-title">🗂 目录</view>
@@ -18,21 +18,27 @@
     <view class="layout-head">
       <view class="layout-head-l">
         <view class="layout-title">🏠 {{activeSpaceName}} 户型图</view>
-        <view class="muted" style="font-size:24rpx;margin-top:4rpx;">房间 {{layoutCount}} · 内部模块 {{furnCount}}</view>
+        <view class="muted" style="font-size:24rpx;margin-top:4rpx;">房间 {{layoutCount}} · 内部模块 {{furnCount}}{{searchText}}</view>
       </view>
       <view class="btn ghost sm" bindtap="goLayout">✏️ 编辑</view>
     </view>
 
     <block wx:if="{{placedCount}}">
-      <view class="floor" bindtap="goLayout">
+      <view class="floor">
         <view class="floor-row" wx:for="{{floorRows}}" wx:for-item="row" wx:key="index" style="grid-template-columns: repeat({{row.cols}}, 1fr);">
-          <view class="floor-cell {{item.empty ? 'empty' : ''}} {{item.corridor ? 'corridor' : ''}}" wx:for="{{row.cells}}" wx:for-item="item" wx:key="index">
-            <view class="fc-emoji">{{item.e}}</view>
-            <view class="fc-name" wx:if="{{item.n}}">{{item.n}}</view>
+          <view class="floor-cell {{item.empty ? 'empty' : ''}} {{item.corridor ? 'corridor' : ''}} {{item.done ? 'done' : ''}}"
+                wx:for="{{row.cells}}" wx:for-item="item" wx:key="index"
+                data-idx="{{item.roomIdx}}" bindtap="openRoom">
+            <block wx:if="{{!item.empty}}">
+              <view class="fc-emoji">{{item.e}}</view>
+              <view class="fc-name" wx:if="{{item.n}}">{{item.n}}</view>
+              <view class="fc-check" wx:if="{{item.done && item.first}}">✓ 已搜完</view>
+              <view class="fc-prog" wx:elif="{{item.first && item.prog}}">{{item.prog}}</view>
+            </block>
           </view>
         </view>
       </view>
-      <view class="hint">点击户型图进入配置：直接拖拽房间、展开内部模块</view>
+      <view class="hint">点按房间格进入细致布局搜查，点按家具切换「已搜查」；搜完整间后户型图整间标记 ✓（进度仅保存在本机）</view>
     </block>
     <view wx:elif="{{layoutCount}}" class="empty-layout" bindtap="goLayout">房间都还没摆放，点这里去布置 ➜</view>
     <view wx:else class="empty-layout" bindtap="goLayout">还没有户型图，点这里开始搭建（把房间方块拖进网格即可）➜</view>
@@ -80,5 +86,36 @@
 
   <view style="padding: 40rpx; text-align: center;">
     <view class="btn ghost" bindtap="logout">退出登录</view>
+  </view>
+
+  <!-- 房间细致布局搜查浮层 -->
+  <view class="mask" wx:if="{{search.show}}" bindtap="closeSearch">
+    <view class="panel" catchtap="noop">
+      <view class="search-head">
+        <view class="search-emoji">{{search.emoji}}</view>
+        <view class="search-mid">
+          <view class="search-name">{{search.name}}</view>
+          <view class="muted search-desc">{{search.desc}}</view>
+        </view>
+        <view class="btn ghost sm" bindtap="closeSearch">✕ 关闭</view>
+      </view>
+      <view class="hint">点按家具切换「已搜查 / 未搜查」，已搜查会调灰并自动保存；搜完全部位置后，户型图中整间房间会标记 ✓。</view>
+      <view class="furn-grid">
+        <view class="furn-item {{item.on ? 'searched' : ''}}" wx:for="{{search.furn}}" wx:key="name"
+              data-name="{{item.name}}" bindtap="toggleFurn">
+          <view class="furn-badge">{{item.on ? '✓ 已搜查' : '未搜查'}}</view>
+          <view class="furn-emoji">{{item.e}}</view>
+          <view class="furn-name">{{item.name}}</view>
+        </view>
+      </view>
+      <view class="done-banner" wx:if="{{search.done}}">🎉 本房间已全部搜完，户型图中已整间标记</view>
+      <view class="search-bar">
+        <view class="muted search-last">最后搜查：{{search.last || '尚未搜查任何家具'}}</view>
+        <view class="btn-row">
+          <button class="btn good" disabled="{{!search.searchedCount}}" bindtap="recordFound">🎯 找到了，记录最后搜查的家具</button>
+          <button class="btn ghost" disabled="{{!search.searchedCount}}" bindtap="recordNotFound">📝 没找到，记录本次搜索</button>
+        </view>
+      </view>
+    </view>
   </view>
 </view>

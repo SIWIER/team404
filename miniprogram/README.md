@@ -24,6 +24,7 @@ miniprogram/
 │  ├─ config.js    # API 地址（唯一需要按环境改的文件）
 │  ├─ api.js       # wx.request 封装（对应 Web api.js）
 │  ├─ store.js     # 令牌/用户状态（对应 Web store.js）
+│  ├─ furniture.js  # 房间内部搜查位置：配置家具优先、未配置回退常见清单（对应 Web home.view.js）
 │  └─ ui.js        # toast/confirm/emoji（对应 Web ui.js）
 └─ pages/
    ├─ auth/       # 登录/注册 ✅

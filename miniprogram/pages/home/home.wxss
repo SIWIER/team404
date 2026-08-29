@@ -46,3 +46,37 @@
   color: #7b8794; font-size: 26rpx; padding: 36rpx 20rpx; text-align: center;
   border: 2rpx dashed #d5ddeb; border-radius: 16rpx;
 }
+/* 整间搜完标记（所有格子一起变灰） */
+.floor-cell.done { background: #eef0f3; border-color: #d7dbe1; color: #9aa3ad; opacity: .82; }
+.floor-cell.done.corridor { background: #f2eee3; border-color: #e2d8bd; }
+.fc-check { font-size: 16rpx; color: #1a7a4c; font-weight: 800; }
+.fc-prog { font-size: 16rpx; color: #7b8794; font-weight: 700; }
+
+/* 房间细致布局搜查浮层 */
+.mask { position: fixed; inset: 0; z-index: 90; background: rgba(15, 23, 42, .45); display: flex; align-items: flex-end; }
+.panel {
+  background: #fff; border-radius: 28rpx 28rpx 0 0; width: 100%;
+  padding: 32rpx 32rpx 48rpx; max-height: 82vh; overflow-y: auto;
+}
+.search-head { display: flex; align-items: center; gap: 16rpx; margin-bottom: 8rpx; }
+.search-emoji { font-size: 60rpx; line-height: 1.1; }
+.search-mid { flex: 1; min-width: 0; }
+.search-name { font-weight: 800; font-size: 34rpx; }
+.search-desc { font-size: 24rpx; margin-top: 4rpx; }
+.furn-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16rpx; margin: 20rpx 0; }
+.furn-item {
+  border: 2rpx solid #e3e9f2; background: #fff; border-radius: 16rpx;
+  padding: 18rpx 8rpx; display: flex; flex-direction: column; align-items: center; gap: 6rpx;
+  text-align: center; transition: all .15s ease;
+}
+.furn-item.searched { background: #eef0f3; border-color: #d7dbe1; color: #9aa3ad; opacity: .8; }
+.furn-badge { font-size: 18rpx; font-weight: 800; padding: 4rpx 12rpx; border-radius: 999rpx; background: #eef1f6; color: #7b8794; }
+.furn-item.searched .furn-badge { background: #dde3ea; color: #7a8694; }
+.furn-emoji { font-size: 44rpx; line-height: 1.2; }
+.furn-name { font-size: 22rpx; font-weight: 700; color: #3d4a5e; max-width: 100%; overflow: hidden; white-space: nowrap; }
+.done-banner {
+  display: flex; align-items: center; background: #e7f8ef; border: 2rpx solid #b9e6cf;
+  color: #1a7a4c; border-radius: 16rpx; padding: 16rpx 20rpx; font-size: 24rpx; font-weight: 700; margin-bottom: 8rpx;
+}
+.search-bar { background: #f7f9fc; border-radius: 16rpx; padding: 20rpx; }
+.search-last { margin-bottom: 8rpx; }
