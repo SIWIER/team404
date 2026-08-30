@@ -82,8 +82,8 @@ processors=8
 | CUDA toolkit | 12.9（conda-forge） | 仅编译用（nvcc）；conda-forge 没有 12.9 时退回 12.8 |
 | MASt3R-SLAM | main + `windows` 分支 | WSL 用户官方建议 `git checkout windows` |
 | SpatialLM | 1.1-Qwen-0.5B | 模型 ~2GB；1.0 系列需编译 torchsparse，更麻烦，不推荐 |
-| spconv / torch-scatter | 最新版 | SpatialLM1.1 的 Sonata 编码器**必需** |
-| flash-attn | 可选 | 推理代码有优雅降级，装不上不影响功能 |
+| spconv / torch-scatter | 最新版 | SpatialLM1.1 的 Sonata 编码器**必需**；RTX 50 系用 **spconv-cu126 ≥2.3.8**（cu128 轮子在 PyPI 不存在；plain spconv 是 CPU-only 不能推理，与 torch 2.7.1+cu128 实测兼容） |
+| flash-attn | 2.8.x 源码编译 | **必需**（1.1 Qwen 点编码器无降级，缺失直接 assert；Blackwell 需 2.7+，约 10-25 分钟编译） |
 | gcc | 14.x | Ubuntu 26.04 自带，CUDA 12.9 支持 |
 | 磁盘产物 | ~15GB | torch 3GB + toolkit 3GB + 权重 3GB + 仓库等 |
 
@@ -139,6 +139,15 @@ wsl.exe -d Ubuntu -u root -- bash //mnt/c/<仓库路径>/scripts/spatiallm/setup
 | huggingface 下载慢 | `HF_ENDPOINT=https://hf-mirror.com` |
 | Git Bash 下路径被改（`D:/Git/mnt/...`） | 用 `//mnt/c/...` 双斜杠写法 |
 | WSL 下 MASt3R-SLAM 卡共享内存 | `git checkout windows` 分支 |
+| setup.sh 在 Windows 检出为 CRLF，bash 报 `\r: command not found` | 运行前转 LF：`sed 's/\r$//' setup.sh > ~/spatiallm-setup.sh`，或仓库设 `git config core.autocrlf input` |
+| Windows PowerShell 5.1 运行 UTF-8 无 BOM 的 .ps1 报一堆语法错 | .ps1 保存为 UTF-8 **带 BOM**；避免 `(…)\n.method()` 跨行写法（5.1 会拆成两条语句） |
+| pip 报 `No space left on device`（磁盘明明够） | WSL 的 `/tmp` 是 tmpfs（本机 5.9GB），pip build isolation 会在里面重拉 torch/CUDA 包 → `export TMPDIR=$HOME/tmp` + 全部安装加 `--no-build-isolation` |
+| pip 报 `CUDA_HOME environment variable is not set` | 编译 CUDA 扩展前 `export CUDA_HOME=$HOME/miniconda3/envs/<env>`（conda 装的 cuda-toolkit 就落在这里） |
+| pip26 报 `Local version label can only be used with == or !=`（torch `>=2.4.1+cu124`） | SpatialLM 的 pyproject 是 poetry 写法 `^2.4.1+cu124` → 安装前 `sed -i 's/\^2\.4\.1+cu124/\^2.4.1/g; s/\^0\.19\.1+cu124/\^0.19.1/g' pyproject.toml` |
+| `pip install spconv-cu128` 报 from versions: none | cu128 轮子在 PyPI **不存在**（只有 cu126 以下）→ 装 `spconv-cu126>=2.3.8`；plain `spconv` 是 CPU-only，推理报 `not implemented for CPU ONLY build` |
+| 推理报 `Make sure flash_attn is installed` | flash-attn 是必需依赖（文档旧说"可选"不准）→ `pip install flash-attn --no-build-isolation`（设好 CUDA_HOME 与 TORCH_CUDA_ARCH_LIST） |
+| 推理报 `No module named 'timm'` | 推理依赖列表补 `timm`（sonata_encoder 导入） |
+| `git submodule update` 卡在 imgui 克隆 30 分钟不动 | timeout 兜底后手动浅克隆：`git clone --depth 1 https://github.com/ocornut/imgui.git thirdparty/in3d/thirdparty/pyimgui/imgui-cpp`，按 pyimgui 的 gitlink SHA 检出（构建只认文件不认 git 记账） |
 
 ---
 
@@ -150,7 +159,10 @@ wsl.exe -d Ubuntu -u root -- bash //mnt/c/<仓库路径>/scripts/spatiallm/setup
 | 内存 | 31GB（.wslconfig 建议 12GB/8GB/8 核已够） | ✅ 达标 |
 | 磁盘 | C: 余 108GB（WSL 默认装 C:，无需迁移）；E: 余 139GB | ✅ 达标 |
 | 虚拟化 | `HypervisorPresent=True` | ✅ 已启用 |
-| WSL2 + Ubuntu | **未安装**（LxssManager 服务不存在） | 用新增的 `scripts/spatiallm/wsl-install.ps1`（管理员运行）一键装：启用功能 + 写 .wslconfig + `wsl --install -d Ubuntu`（商店源失败自动 --web-download）→ **重启** → 跑第 5 节 setup.sh |
+| WSL2 + Ubuntu | **已装好**（2.7.12 + Ubuntu 26.04；无需重启，`wsl -d Ubuntu -u root` 可直接用；WSL 内 `nvidia-smi` 已见 RTX 5070 8GB） | 用 `scripts/spatiallm/run-as-admin.bat`（双击提权，日志 `%TEMP%\wsl-install-bat.log`）自动装：启用功能 + 写 .wslconfig + `wsl --install -d Ubuntu`（商店源失败自动 --web-download） |
+| spatiallm 环境 | ✅ **官方示例推理已跑通**：scene0000_00.ply → 6 面墙 + 门 + 窗 + 7 家具（bed/nightstand/wardrobe/curtain/mirror/painting/cushion） | 关键修复：timm、poetry-core、pyproject 去 +cu124、flash-attn 源码编译、**spconv-cu126 2.3.8**（cu128 不存在、plain 是 CPU-only） |
+| mast3r 环境 | ⏳ 子模块已补齐，CUDA 编译进行中 | imgui-cpp 手动浅克隆兜底；三个包 `--no-build-isolation` + CUDA_HOME |
+| STAGE0 剩余 | 用手机环绕视频跑 MASt3R-SLAM → 点云 → align.py → SpatialLM（§7 验证路径 2） | 环境就绪后即可开始实拍验证 |
 
 > 小结：本机除 WSL 外其余条件全部就绪；管理员跑一次 `wsl-install.ps1` 并重启后，
 > 剩余步骤（Miniconda、两个 conda 环境、仓库、权重、官方示例验证）全部由 `setup.sh` 自动完成。

@@ -3,16 +3,28 @@
 # 用法（WSL 内以 root 运行）: bash ~/spatiallm-setup.sh
 # 说明详见 docs/SPATIALLM_ENV.md；日志: ~/spatiallm-setup.log
 # 注意: RTX 50 系必须 torch 2.7.1+cu128（官方文档的 cu124 不支持 sm_120）
+#
+# 2026-08-30 第二台验证机（RTX 5070 Laptop）实测修订：
+# 1) /tmp 是 5.9GB tmpfs，pip build isolation 会爆盘 → TMPDIR 指到 /root/tmp + --no-build-isolation
+# 2) CUDA 扩展编译需要 CUDA_HOME 指向 conda 环境里的 cuda-toolkit
+# 3) flash-attn 是 SpatialLM1.1 推理的**必需**依赖（官方代码无降级），同样无隔离编译
+# 4) spconv-cu128 在 PyPI 不存在（只有 cu126 以下）；plain spconv 是 CPU-only 不能用于推理 → 装 spconv-cu126（2.3.8 起支持 sm_120）
+# 5) SpatialLM pyproject 的 poetry 写法 ^2.4.1+cu124 被 pip26 拒绝（局部版本标签）→ 安装前 sed 去掉 +cu124
+# 6) 推理依赖补 timm（sonata_encoder 导入）与 poetry-core（无隔离构建用）
+# 7) MASt3R 子模块偶发卡死（imgui 从 github 克隆 30 分钟不动）→ timeout + 手动浅克隆兜底
 set -u
 LOG="$HOME/spatiallm-setup.log"
 STAGE() { echo "[$(date +%H:%M:%S)] ====== $1 ======" | tee -a "$LOG"; }
 OK()   { echo "[$(date +%H:%M:%S)] ✅ $1" | tee -a "$LOG"; }
 FAIL() { echo "[$(date +%H:%M:%S)] ❌ $1" | tee -a "$LOG"; }
 
-# 镜像源 + Blackwell 编译目标（sm_120 = RTX 5060 等 50 系显卡）
+# 镜像源 + Blackwell 编译目标（sm_120 = RTX 5060/5070 等 50 系显卡）
 export PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
 export HF_ENDPOINT=https://hf-mirror.com
 export TORCH_CUDA_ARCH_LIST="12.0"
+# /tmp 是 tmpfs（本机 5.9GB），pip 隔离构建会爆盘 → 全部临时文件放 /root/tmp
+export TMPDIR="$HOME/tmp"
+mkdir -p "$TMPDIR"
 
 # ---------- 0. 基础工具 ----------
 STAGE "apt 基础工具"
@@ -45,15 +57,25 @@ $MPIP install torch==2.7.1+cu128 torchvision==0.22.1+cu128 --index-url https://d
 fi
 conda install -y -n mast3r -c conda-forge cuda-toolkit=12.9 >> "$LOG" 2>&1 || conda install -y -n mast3r -c conda-forge cuda-toolkit=12.8 >> "$LOG" 2>&1
 [ $? -eq 0 ] && OK "cuda-toolkit（编译用 nvcc）" || FAIL "cuda-toolkit"
+export CUDA_HOME="$HOME/miniconda3/envs/mast3r"   # CUDA 扩展编译必需（不设报 OSError: CUDA_HOME is not set）
 
 if [ ! -d "$HOME/MASt3R-SLAM" ]; then
   git clone https://github.com/rmurai0610/MASt3R-SLAM.git "$HOME/MASt3R-SLAM" --recursive >> "$LOG" 2>&1
 fi
 cd "$HOME/MASt3R-SLAM"
 git checkout windows 2>/dev/null || true   # WSL 官方建议分支
-git submodule update --init --recursive >> "$LOG" 2>&1
-$MPIP install -e thirdparty/mast3r >> "$LOG" 2>&1 && OK "mast3r 子模块" || FAIL "mast3r 子模块"
-$MPIP install -e thirdparty/in3d >> "$LOG" 2>&1 && OK "in3d 子模块" || FAIL "in3d 子模块"
+# 子模块偶发卡死（imgui 小仓库克隆 30 分钟不动）→ timeout 兜底，缺文件的再手动浅克隆
+timeout 600 git submodule update --init --recursive >> "$LOG" 2>&1
+IMGUI_DIR=thirdparty/in3d/thirdparty/pyimgui/imgui-cpp
+if [ ! -f "$IMGUI_DIR/imgui.h" ]; then
+  PIN=$(git -C thirdparty/in3d/thirdparty/pyimgui ls-tree HEAD imgui-cpp 2>/dev/null | awk '{print $3}')
+  rm -rf "$IMGUI_DIR"
+  git clone --depth 1 https://github.com/ocornut/imgui.git "$IMGUI_DIR" >> "$LOG" 2>&1
+  if [ -n "$PIN" ]; then (cd "$IMGUI_DIR" && git fetch --depth 1 origin "$PIN" 2>/dev/null && git checkout -q FETCH_HEAD) || true; fi
+  [ -f "$IMGUI_DIR/imgui.h" ] && OK "imgui-cpp 手动补齐" || FAIL "imgui-cpp"
+fi
+$MPIP install -e thirdparty/mast3r --no-build-isolation >> "$LOG" 2>&1 && OK "mast3r 子模块" || FAIL "mast3r 子模块"
+$MPIP install -e thirdparty/in3d --no-build-isolation >> "$LOG" 2>&1 && OK "in3d 子模块" || FAIL "in3d 子模块"
 $MPIP install --no-build-isolation -e . >> "$LOG" 2>&1 && OK "MASt3R-SLAM 本体" || FAIL "MASt3R-SLAM 本体"
 mkdir -p checkpoints
 wget -q -nc https://download.europe.naverlabs.com/ComputerVision/MASt3R/MASt3R_ViTLarge_BaseDecoder_512_catmlpdpt_metric.pth -P checkpoints/ >> "$LOG" 2>&1
@@ -72,21 +94,27 @@ fi
 conda install -y -n spatiallm -c conda-forge sparsehash >> "$LOG" 2>&1
 conda install -y -n spatiallm -c conda-forge cuda-toolkit=12.9 >> "$LOG" 2>&1 || conda install -y -n spatiallm -c conda-forge cuda-toolkit=12.8 >> "$LOG" 2>&1
 [ $? -eq 0 ] && OK "cuda-toolkit" || FAIL "cuda-toolkit"
+export CUDA_HOME="$HOME/miniconda3/envs/spatiallm"
 
 if [ ! -d "$HOME/SpatialLM" ]; then
   git clone https://github.com/manycore-research/SpatialLM.git "$HOME/SpatialLM" >> "$LOG" 2>&1
 fi
 cd "$HOME/SpatialLM"
-$SPIP install -e . --no-deps >> "$LOG" 2>&1 && OK "spatiallm 包（跳过 poetry，手动装依赖）" || FAIL "spatiallm 包"
-# 推理所需依赖（numpy 固定 1.26 以兼容 open3d 0.18）
-$SPIP install "numpy==1.26.4" transformers==4.46.1 safetensors pandas einops scipy scikit-learn toml tokenizers huggingface_hub shapely bbox terminaltables "open3d==0.18.0" addict poethepoet tqdm >> "$LOG" 2>&1 && OK "推理依赖" || FAIL "推理依赖"
+# pip26 拒绝 poetry 的 ^2.4.1+cu124 局部版本写法 → 去标签后再装
+sed -i 's/\^2\.4\.1+cu124/\^2.4.1/g; s/\^0\.19\.1+cu124/\^0.19.1/g' pyproject.toml
+$SPIP install poetry-core >> "$LOG" 2>&1
+$SPIP install -e . --no-deps --no-build-isolation >> "$LOG" 2>&1 && OK "spatiallm 包（跳过 poetry，手动装依赖）" || FAIL "spatiallm 包"
+# 推理所需依赖（numpy 固定 1.26 以兼容 open3d 0.18；timm 是 sonata_encoder 必需导入）
+$SPIP install "numpy==1.26.4" transformers==4.46.1 safetensors pandas einops scipy scikit-learn toml tokenizers huggingface_hub shapely bbox terminaltables "open3d==0.18.0" addict poethepoet tqdm timm >> "$LOG" 2>&1 && OK "推理依赖" || FAIL "推理依赖"
 
-STAGE "编译依赖（spconv / torch-scatter / flash-attn，失败可后续手动修）"
+STAGE "编译依赖（torch-scatter / spconv-cu126 / flash-attn）"
 $SPIP install torch-scatter >> "$LOG" 2>&1 || $SPIP install torch-scatter -f https://data.pyg.org/whl/torch-2.7.0+cu128.html >> "$LOG" 2>&1
 [ $? -eq 0 ] && OK "torch-scatter" || FAIL "torch-scatter"
-$SPIP install spconv-cu128 >> "$LOG" 2>&1 || $SPIP install spconv >> "$LOG" 2>&1
-[ $? -eq 0 ] && OK "spconv" || FAIL "spconv（SpatialLM1.1 必需，若失败需手动编译）"
-$SPIP install flash-attn >> "$LOG" 2>&1 && OK "flash-attn（可选加速）" || FAIL "flash-attn（可选，不影响推理，可跳过）"
+# spconv-cu128 在 PyPI 不存在；plain spconv 是 CPU-only（推理必报 not implemented for CPU ONLY build）
+# → 用 spconv-cu126（2.3.8 起支持 sm_120，与 torch 2.7.1+cu128 实测兼容）
+$SPIP install 'spconv-cu126>=2.3.8' -i https://pypi.org/simple >> "$LOG" 2>&1 && OK "spconv-cu126" || FAIL "spconv（SpatialLM1.1 必需，失败需源码编译）"
+# flash-attn 是 1.1 Qwen 点编码器的必需依赖（无降级，assert 直接失败）→ 无隔离源码编译（约 10-25 分钟）
+$SPIP install flash-attn --no-build-isolation >> "$LOG" 2>&1 && OK "flash-attn（必需）" || FAIL "flash-attn（必需，失败需排查编译环境）"
 
 # ---------- 4. 模型权重 ----------
 STAGE "下载模型权重（SpatialLM1.1-Qwen-0.5B + 官方测试点云）"
