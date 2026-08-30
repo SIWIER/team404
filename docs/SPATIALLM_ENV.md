@@ -161,20 +161,23 @@ wsl.exe -d Ubuntu -u root -- bash //mnt/c/<仓库路径>/scripts/spatiallm/setup
 | 虚拟化 | `HypervisorPresent=True` | ✅ 已启用 |
 | WSL2 + Ubuntu | **已装好**（2.7.12 + Ubuntu 26.04；无需重启，`wsl -d Ubuntu -u root` 可直接用；WSL 内 `nvidia-smi` 已见 RTX 5070 8GB） | 用 `scripts/spatiallm/run-as-admin.bat`（双击提权，日志 `%TEMP%\wsl-install-bat.log`）自动装：启用功能 + 写 .wslconfig + `wsl --install -d Ubuntu`（商店源失败自动 --web-download） |
 | spatiallm 环境 | ✅ **官方示例推理已跑通**：scene0000_00.ply → 6 面墙 + 门 + 窗 + 7 家具（bed/nightstand/wardrobe/curtain/mirror/painting/cushion） | 关键修复：timm、poetry-core、pyproject 去 +cu124、flash-attn 源码编译、**spconv-cu126 2.3.8**（cu128 不存在、plain 是 CPU-only） |
-| mast3r 环境 | ⏳ 子模块已补齐，CUDA 编译进行中 | imgui-cpp 手动浅克隆兜底；三个包 `--no-build-isolation` + CUDA_HOME |
-| STAGE0 剩余 | 用手机环绕视频跑 MASt3R-SLAM → 点云 → align.py → SpatialLM（§7 验证路径 2） | 环境就绪后即可开始实拍验证 |
+| mast3r 环境 | ✅ **全部编译安装成功**：`mast3r`(含 curope)、`in3d`(含 pyimgui/imgui)、`lietorch`（本地源码编译 sm_120）、`mast3r_slam`；全量导入与 GPU 冒烟（`SE3 cuda: True`）通过 | 关键修复：Cython<3、CPLUS_INCLUDE_PATH 指 targets/x86_64-linux/include、torch2.7 源码三处补丁、setup.py 追加 sm_120、lietorch 依赖改普通依赖+本地源码编译（PyPI 轮子是 CUDA11 会报 libcudart.so.11.0） |
+| STAGE0 剩余 | 用手机环绕视频跑 MASt3R-SLAM → 点云 → align.py → SpatialLM（§7 验证路径 2） | **环境已 100% 就绪**，随时可开始实拍验证 |
 
-### 9.1 断点续传（2026-08-30 关机时状态）
+### 9.1 阶段 0 环境状态（2026-08-30，本机全部就绪）
 
-- ✅ **已完成**：WSL2+Ubuntu、两套 conda 环境、torch 2.7.1+cu128、权重、`spatiallm` 环境（官方示例推理已跑通）；
-  `mast3r` 包（MAST3R-0.0.1 + curope）已编译安装成功（torch 2.7 补丁已打：`.type()`→`.scalar_type()`、
-  `torch::linalg_norm`、setup.py 加 sm_120、装 Cython）。
-- ⏳ **未完成**：① in3d 包（pyimgui 的 imgui 构建报错，错误详情在 WSL 内 `/root/in3d-build4.log`，Cython 已装、
-  补丁已打，可能只剩小问题）；② MASt3R-SLAM 本体（关机时编译被中断）；③ 真实视频实测。
-- 🔁 **续跑**（WSL 内 root）：`bash /root/fix3f.sh`（幂等，会重做 mast3r 约 5 分钟；或只手动执行其中第 6/7 步）
-  → 修完 in3d 后把结论回填本仓库 `scripts/spatiallm/setup.sh`。
-- 🌐 注意：WSL 内 git 全局 `insteadOf` 已指向 `ghfast.top`（GitHub 直连时好时坏）；Windows 侧有 2 个本地提交未推送
-  （网络不通，下次 `git push origin main` 即可）。
+- ✅ **WSL2 + Ubuntu 26.04 + GPU 直通**（RTX 5070 Laptop 8GB 在 WSL 内 nvidia-smi 可见）
+- ✅ **spatiallm 环境**：官方示例 `scene0000_00.ply` 推理跑通——6 面墙 + 门 + 窗 + 7 家具（bed/nightstand/wardrobe…）
+- ✅ **mast3r 环境**：`import mast3r, in3d, lietorch, mast3r_slam` 全绿；GPU 冒烟通过；MASt3R 权重 3 件已就位（checkpoints/）
+- ⏭ **下一步（阶段 0 验收）**：iPhone 按 §6 拍环绕视频（H.264 1080p 30fps，30~60 秒）→ 按
+  `docs/SPATIALLM_STAGE0.md` §2 跑 MASt3R-SLAM 出点云（显存紧记得 `sample_freq=2`）→ `align.py` 对齐缩放 →
+  SpatialLM 推理评估。
+
+**关键修复清单（已全部并入 setup.sh）**：tmpfs→TMPDIR+--no-build-isolation、CUDA_HOME、Cython<3、
+CPLUS_INCLUDE_PATH 指 targets/x86_64-linux/include、torch2.7 三处源码补丁（.type()/.scalar_type()、linalg_norm）、
+setup.py 追加 sm_120、spconv-cu126、flash-attn 必需、pyproject 去 +cu124、lietorch git 依赖改普通依赖+本地源码编译、
+imgui-cpp/lietorch-eigen 子模块手动补齐。网络抖动经验：GitHub 直连与 ghfast.top 镜像按需切换；
+Windows 代理 7890 可用时 git 加 `-c http.proxy=http://127.0.0.1:7890`。
 
 > 小结：本机除 WSL 外其余条件全部就绪；管理员跑一次 `wsl-install.ps1` 并重启后，
 > 剩余步骤（Miniconda、两个 conda 环境、仓库、权重、官方示例验证）全部由 `setup.sh` 自动完成。

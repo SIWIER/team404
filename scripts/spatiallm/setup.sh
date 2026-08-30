@@ -58,6 +58,10 @@ fi
 conda install -y -n mast3r -c conda-forge cuda-toolkit=12.9 >> "$LOG" 2>&1 || conda install -y -n mast3r -c conda-forge cuda-toolkit=12.8 >> "$LOG" 2>&1
 [ $? -eq 0 ] && OK "cuda-toolkit（编译用 nvcc）" || FAIL "cuda-toolkit"
 export CUDA_HOME="$HOME/miniconda3/envs/mast3r"   # CUDA 扩展编译必需（不设报 OSError: CUDA_HOME is not set）
+# conda-forge CUDA12 的头文件不在 $PREFIX/include，而在 targets/x86_64-linux/include；
+# nvcc 自己会找，但 g++ 编译 #include <cuda.h> 的 C++ 扩展（lietorch）必须显式给路径
+export CPLUS_INCLUDE_PATH="$HOME/miniconda3/envs/mast3r/targets/x86_64-linux/include:${CPLUS_INCLUDE_PATH:-}"
+export C_INCLUDE_PATH="$HOME/miniconda3/envs/mast3r/targets/x86_64-linux/include:${C_INCLUDE_PATH:-}"
 
 if [ ! -d "$HOME/MASt3R-SLAM" ]; then
   git clone https://github.com/rmurai0610/MASt3R-SLAM.git "$HOME/MASt3R-SLAM" --recursive >> "$LOG" 2>&1
@@ -75,8 +79,8 @@ if [ ! -f "$IMGUI_DIR/imgui.h" ]; then
   [ -f "$IMGUI_DIR/imgui.h" ] && OK "imgui-cpp 手动补齐" || FAIL "imgui-cpp"
 fi
 # ---- torch 2.7 + Blackwell 兼容补丁（RTX 50 必须用新 torch，MASt3R 老内核写法需修补）----
-# 1) pyimgui 的 core.h 是 Cython 构建期生成物，不装 Cython 会退化为找预生成 .cpp 而失败
-$MPIP install -q cython
+# 1) pyimgui 的 core.h 是 Cython 构建期生成物；且必须 Cython<3（3.x 收紧 cimport 解析，pyimgui 报 cimgui.pxd not found）
+$MPIP install -q 'cython<3'
 # 2) torch 2.7 移除了 at::DeprecatedTypeProperties：AT_DISPATCH 宏参数 .type() → .scalar_type()
 sed -i 's/AT_DISPATCH_FLOATING_TYPES_AND_HALF(tokens\.type()/AT_DISPATCH_FLOATING_TYPES_AND_HALF(tokens.scalar_type()/' thirdparty/mast3r/dust3r/croco/models/curope/kernels.cu
 sed -i 's/AT_DISPATCH_FLOATING_TYPES_AND_HALF(D11\.type()/AT_DISPATCH_FLOATING_TYPES_AND_HALF(D11.scalar_type()/' mast3r_slam/backend/src/matching_kernels.cu
@@ -86,6 +90,21 @@ sed -i 's/torch::linalg::linalg_norm/torch::linalg_norm/g' mast3r_slam/backend/s
 grep -q 'compute_120' setup.py || sed -i 's|"-gencode=arch=compute_86,code=sm_86",|"-gencode=arch=compute_86,code=sm_86",\n        "-gencode=arch=compute_120,code=sm_120",\n        "-gencode=arch=compute_120,code=compute_120",|' setup.py
 $MPIP install -e thirdparty/mast3r --no-build-isolation >> "$LOG" 2>&1 && OK "mast3r 子模块" || FAIL "mast3r 子模块"
 $MPIP install -e thirdparty/in3d --no-build-isolation >> "$LOG" 2>&1 && OK "in3d 子模块" || FAIL "in3d 子模块"
+# ---- lietorch：PyPI 的预编译轮子是 CUDA11（import 报 libcudart.so.11.0），必须本地源码编译（Blackwell sm_120 + CUDA12）----
+# 5) pyproject 里 lietorch 的 git 依赖改成普通依赖，避免 pip 用 --filter=blob:none 部分克隆卡网络（镜像站不支持）
+sed -i 's|"lietorch @ git+https://github.com/princeton-vl/lietorch.git"|"lietorch"|' pyproject.toml
+if [ ! -d "$HOME/lietorch/.git" ]; then
+  rm -rf "$HOME/lietorch"
+  git clone --depth 1 https://github.com/princeton-vl/lietorch.git "$HOME/lietorch" >> "$LOG" 2>&1
+fi
+cd "$HOME/lietorch"
+# eigen 是 lietorch 的子模块（浅克隆不带）；拉取失败就复用 MASt3R 的 eigen
+if [ ! -f eigen/Eigen/Dense ]; then
+  git submodule update --init eigen >> "$LOG" 2>&1
+  [ ! -f eigen/Eigen/Dense ] && cp -r "$HOME/MASt3R-SLAM/thirdparty/eigen" eigen
+fi
+$MPIP install . --no-build-isolation >> "$LOG" 2>&1 && OK "lietorch 源码编译" || FAIL "lietorch 源码编译"
+cd "$HOME/MASt3R-SLAM"
 $MPIP install --no-build-isolation -e . >> "$LOG" 2>&1 && OK "MASt3R-SLAM 本体" || FAIL "MASt3R-SLAM 本体"
 mkdir -p checkpoints
 wget -q -nc https://download.europe.naverlabs.com/ComputerVision/MASt3R/MASt3R_ViTLarge_BaseDecoder_512_catmlpdpt_metric.pth -P checkpoints/ >> "$LOG" 2>&1
