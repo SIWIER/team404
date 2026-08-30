@@ -139,3 +139,18 @@ wsl.exe -d Ubuntu -u root -- bash //mnt/c/<仓库路径>/scripts/spatiallm/setup
 | huggingface 下载慢 | `HF_ENDPOINT=https://hf-mirror.com` |
 | Git Bash 下路径被改（`D:/Git/mnt/...`） | 用 `//mnt/c/...` 双斜杠写法 |
 | WSL 下 MASt3R-SLAM 卡共享内存 | `git checkout windows` 分支 |
+
+---
+
+## 9. 本机（第二台验证机）适配记录 ｜ 2026-08-30
+
+| 项目 | 本机实测 | 结论 |
+|---|---|---|
+| 显卡 | NVIDIA GeForce RTX 5070 Laptop GPU，8151 MiB（8GB），驱动 591.74（CUDA 13.1） | 同为 Blackwell **sm_120** → 第 3 节 `torch 2.7.1+cu128` 方案直接适用；8GB 压线，`sample_freq=2` 省显存建议照做 |
+| 内存 | 31GB（.wslconfig 建议 12GB/8GB/8 核已够） | ✅ 达标 |
+| 磁盘 | C: 余 108GB（WSL 默认装 C:，无需迁移）；E: 余 139GB | ✅ 达标 |
+| 虚拟化 | `HypervisorPresent=True` | ✅ 已启用 |
+| WSL2 + Ubuntu | **未安装**（LxssManager 服务不存在） | 用新增的 `scripts/spatiallm/wsl-install.ps1`（管理员运行）一键装：启用功能 + 写 .wslconfig + `wsl --install -d Ubuntu`（商店源失败自动 --web-download）→ **重启** → 跑第 5 节 setup.sh |
+
+> 小结：本机除 WSL 外其余条件全部就绪；管理员跑一次 `wsl-install.ps1` 并重启后，
+> 剩余步骤（Miniconda、两个 conda 环境、仓库、权重、官方示例验证）全部由 `setup.sh` 自动完成。
