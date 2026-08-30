@@ -88,6 +88,13 @@ sed -i 's/AT_DISPATCH_FLOATING_TYPES_AND_HALF(D11\.type()/AT_DISPATCH_FLOATING_T
 sed -i 's/torch::linalg::linalg_norm/torch::linalg_norm/g' mast3r_slam/backend/src/gn_kernels.cu
 # 4) 本体 setup.py 硬编码架构列表只到 compute_86，Blackwell(sm_120) 无内核可用 → 追加
 grep -q 'compute_120' setup.py || sed -i 's|"-gencode=arch=compute_86,code=sm_86",|"-gencode=arch=compute_86,code=sm_86",\n        "-gencode=arch=compute_120,code=sm_120",\n        "-gencode=arch=compute_120,code=compute_120",|' setup.py
+# 5) 运行期两处环境修复：
+#    a. in3d 的 moderngl 需要 libGL.so（WSL 默认没有，WSLg 提供虚拟显示）
+apt-get install -y libgl1 libgl-dev libglx-mesa0 libegl1 >> "$LOG" 2>&1
+#    b. torch2.6+ torch.load 默认 weights_only=True，MASt3R 旧权重（含 argparse.Namespace）加载失败 → 显式关掉
+for f in $(grep -rln 'torch\.load(' --include='*.py' thirdparty/mast3r mast3r_slam 2>/dev/null); do
+  grep -q 'weights_only' "$f" || sed -i 's/torch\.load(\([^)]*\))/torch.load(\1, weights_only=False)/g' "$f"
+done
 $MPIP install -e thirdparty/mast3r --no-build-isolation >> "$LOG" 2>&1 && OK "mast3r 子模块" || FAIL "mast3r 子模块"
 $MPIP install -e thirdparty/in3d --no-build-isolation >> "$LOG" 2>&1 && OK "in3d 子模块" || FAIL "in3d 子模块"
 # ---- lietorch：PyPI 的预编译轮子是 CUDA11（import 报 libcudart.so.11.0），必须本地源码编译（Blackwell sm_120 + CUDA12）----

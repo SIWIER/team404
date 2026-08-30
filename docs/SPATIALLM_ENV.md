@@ -173,6 +173,21 @@ wsl.exe -d Ubuntu -u root -- bash //mnt/c/<仓库路径>/scripts/spatiallm/setup
   `docs/SPATIALLM_STAGE0.md` §2 跑 MASt3R-SLAM 出点云（显存紧记得 `sample_freq=2`）→ `align.py` 对齐缩放 →
   SpatialLM 推理评估。
 
+### 9.2 视频验证进度（2026-08-30 晚，进行中）
+
+- ✅ 素材：TUM RGB-D `freiburg1_room`（1362 帧室内房间走览）已从 **HF 镜像**下载
+  （`voviktyl/TUM_RGBD-SLAM` 数据集，`snapshot_download` + `HF_ENDPOINT=https://hf-mirror.com`，
+  vision.in.tum.de 直下只有 ~700KB/s 太慢）→ 已用 ffmpeg 转成 `room_tour.mp4`（H.264 30fps）。
+- ✅ 运行环境两处新修复（已并入 setup.sh）：① `apt install libgl1 libgl-dev`（in3d 的 moderngl
+  缺 libGL.so）；② torch2.6+ `torch.load` 默认 `weights_only=True` 会拒绝 MASt3R 旧权重 →
+  全部 `torch.load(` 补 `weights_only=False`。
+- ⏳ **MASt3R-SLAM 正在跑**（`room_tour.mp4` + `config/video8g.yaml` subsample=2；日志
+  `/root/mast3r-run2.log`）。续跑/重跑命令：
+  `wsl -d Ubuntu -u root -- bash /root/fix4.sh`（幂等）或手动：
+  `cd /root/MASt3R-SLAM && conda run -n mast3r python main.py --dataset room_tour.mp4 --config config/video8g.yaml`
+- ⏭ 跑完后：`find /root/MASt3R-SLAM/outputs -name "*.ply"` 找点云 → `scripts/spatiallm/align.py`
+  对齐缩放 → SpatialLM `inference.py` 出结构化布局（墙/门/窗/家具）。
+
 **关键修复清单（已全部并入 setup.sh）**：tmpfs→TMPDIR+--no-build-isolation、CUDA_HOME、Cython<3、
 CPLUS_INCLUDE_PATH 指 targets/x86_64-linux/include、torch2.7 三处源码补丁（.type()/.scalar_type()、linalg_norm）、
 setup.py 追加 sm_120、spconv-cu126、flash-attn 必需、pyproject 去 +cu124、lietorch git 依赖改普通依赖+本地源码编译、
