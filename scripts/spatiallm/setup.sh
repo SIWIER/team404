@@ -74,6 +74,16 @@ if [ ! -f "$IMGUI_DIR/imgui.h" ]; then
   if [ -n "$PIN" ]; then (cd "$IMGUI_DIR" && git fetch --depth 1 origin "$PIN" 2>/dev/null && git checkout -q FETCH_HEAD) || true; fi
   [ -f "$IMGUI_DIR/imgui.h" ] && OK "imgui-cpp 手动补齐" || FAIL "imgui-cpp"
 fi
+# ---- torch 2.7 + Blackwell 兼容补丁（RTX 50 必须用新 torch，MASt3R 老内核写法需修补）----
+# 1) pyimgui 的 core.h 是 Cython 构建期生成物，不装 Cython 会退化为找预生成 .cpp 而失败
+$MPIP install -q cython
+# 2) torch 2.7 移除了 at::DeprecatedTypeProperties：AT_DISPATCH 宏参数 .type() → .scalar_type()
+sed -i 's/AT_DISPATCH_FLOATING_TYPES_AND_HALF(tokens\.type()/AT_DISPATCH_FLOATING_TYPES_AND_HALF(tokens.scalar_type()/' thirdparty/mast3r/dust3r/croco/models/curope/kernels.cu
+sed -i 's/AT_DISPATCH_FLOATING_TYPES_AND_HALF(D11\.type()/AT_DISPATCH_FLOATING_TYPES_AND_HALF(D11.scalar_type()/' mast3r_slam/backend/src/matching_kernels.cu
+# 3) torch 2.7 移除了 torch::linalg::linalg_norm 命名空间形式
+sed -i 's/torch::linalg::linalg_norm/torch::linalg_norm/g' mast3r_slam/backend/src/gn_kernels.cu
+# 4) 本体 setup.py 硬编码架构列表只到 compute_86，Blackwell(sm_120) 无内核可用 → 追加
+grep -q 'compute_120' setup.py || sed -i 's|"-gencode=arch=compute_86,code=sm_86",|"-gencode=arch=compute_86,code=sm_86",\n        "-gencode=arch=compute_120,code=sm_120",\n        "-gencode=arch=compute_120,code=compute_120",|' setup.py
 $MPIP install -e thirdparty/mast3r --no-build-isolation >> "$LOG" 2>&1 && OK "mast3r 子模块" || FAIL "mast3r 子模块"
 $MPIP install -e thirdparty/in3d --no-build-isolation >> "$LOG" 2>&1 && OK "in3d 子模块" || FAIL "in3d 子模块"
 $MPIP install --no-build-isolation -e . >> "$LOG" 2>&1 && OK "MASt3R-SLAM 本体" || FAIL "MASt3R-SLAM 本体"

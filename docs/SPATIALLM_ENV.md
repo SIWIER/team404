@@ -164,5 +164,17 @@ wsl.exe -d Ubuntu -u root -- bash //mnt/c/<仓库路径>/scripts/spatiallm/setup
 | mast3r 环境 | ⏳ 子模块已补齐，CUDA 编译进行中 | imgui-cpp 手动浅克隆兜底；三个包 `--no-build-isolation` + CUDA_HOME |
 | STAGE0 剩余 | 用手机环绕视频跑 MASt3R-SLAM → 点云 → align.py → SpatialLM（§7 验证路径 2） | 环境就绪后即可开始实拍验证 |
 
+### 9.1 断点续传（2026-08-30 关机时状态）
+
+- ✅ **已完成**：WSL2+Ubuntu、两套 conda 环境、torch 2.7.1+cu128、权重、`spatiallm` 环境（官方示例推理已跑通）；
+  `mast3r` 包（MAST3R-0.0.1 + curope）已编译安装成功（torch 2.7 补丁已打：`.type()`→`.scalar_type()`、
+  `torch::linalg_norm`、setup.py 加 sm_120、装 Cython）。
+- ⏳ **未完成**：① in3d 包（pyimgui 的 imgui 构建报错，错误详情在 WSL 内 `/root/in3d-build4.log`，Cython 已装、
+  补丁已打，可能只剩小问题）；② MASt3R-SLAM 本体（关机时编译被中断）；③ 真实视频实测。
+- 🔁 **续跑**（WSL 内 root）：`bash /root/fix3f.sh`（幂等，会重做 mast3r 约 5 分钟；或只手动执行其中第 6/7 步）
+  → 修完 in3d 后把结论回填本仓库 `scripts/spatiallm/setup.sh`。
+- 🌐 注意：WSL 内 git 全局 `insteadOf` 已指向 `ghfast.top`（GitHub 直连时好时坏）；Windows 侧有 2 个本地提交未推送
+  （网络不通，下次 `git push origin main` 即可）。
+
 > 小结：本机除 WSL 外其余条件全部就绪；管理员跑一次 `wsl-install.ps1` 并重启后，
 > 剩余步骤（Miniconda、两个 conda 环境、仓库、权重、官方示例验证）全部由 `setup.sh` 自动完成。
