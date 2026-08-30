@@ -131,7 +131,11 @@ wsl.exe -d Ubuntu -u root -- bash //mnt/c/<仓库路径>/scripts/spatiallm/setup
 | RTX 50 系报 `no kernel image` / `ARCH_MISMATCH` | torch 换 2.7.1+cu128（见第 3 节） |
 | pip 下载 download.pytorch.org 极慢（46kB/s）且反复中断 | WSL 的 IPv6 通道问题：`curl -4` 直下轮子再 `pip install` 本地文件（本机实测 16 秒下完 991MB） |
 | pip 报 `Invalid wheel filename (wrong number of parts)` | pip 26 会校验轮子**文件名格式**，手动下载后必须保留规范名（如 `torch-2.7.1+cu128-cp311-...whl`），不能改名成 `torch.whl` |
-| WSL 里 `git clone` GitHub 秒断（1ms）| Windows hosts 被加速器劫持（Watt Toolkit 等把 github.com→127.0.0.1），WSL 继承后连的是 WSL 自己的回环。解法：`/etc/wsl.conf` 设 `generateHosts=false`，`/etc/hosts` 里给 github.com 写真实 IP（如 `20.205.243.166`） |
+| WSL 里 `git clone` GitHub 秒断（1ms）| Windows hosts 被加速器劫持（Watt Toolkit 等把 github.com→127.0.0.1），WSL 继承后连的是 WSL 自己的回环。解法：`/etc/wsl.conf` 设 `generateHosts=false`，`/etc/hosts` 里给 github.com 写真实 IP（如 `20.205.243.166`）。注意大仓库 packfile 传输仍可能断（直连不稳），兜底：Windows 侧克隆后复制进 WSL |
+| **spconv 报 `[Exception|native_pair]`**（RTX 50 系）| PyPI 上的 spconv 2.3.8 预编译轮子是 2023 年产物，**不含 sm_120 内核**。必须源码编译：`TORCH_CUDA_ARCH_LIST=12.0` + conda cuda-toolkit 12.9 的 nvcc + `setup.py bdist_wheel`（本机验证中） |
+| flash-attn 装不上 → 推理报 `Make sure flash_attn is installed` | SpatialLM 官方模型配置默认开 flash attention 且无配置开关。临时方案：把 `spatiallm/model/sonata_encoder.py` 里所有 `enable_flash=True` 改成 `False`（有完整的非 flash 实现，推理可用） |
+| 推理缺 `timm` / `No module named 'timm'` | Sonata 编码器需要 timm，安装脚本已补；手动装用 `pip install timm` |
+| pip 装 torch 中途被杀 → torch 消失 | pip 会先卸载旧版再下载新版；下载卡住被 kill 后环境里就没 torch 了。安装脚本已改为「import torch 成功就跳过」，不要手动杀这个步骤的 pip |
 | WSL2 报虚拟化未启用 | 启用"虚拟机平台"组件 + 重启 |
 | flash-attn 编译失败 | 可跳过（推理自动降级）；spconv 失败则必须修 |
 | iPhone 视频读不进 | 确认是 H.264（"兼容性最佳"） |
