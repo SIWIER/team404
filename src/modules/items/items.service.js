@@ -105,6 +105,35 @@ function addItem(userId, input) {
   return toPublic(getRow(userId, itemId));
 }
 
+// 给已有物品补录/替换照片：写入本地文件并更新 image_path。
+// 关键：同时把 clip_vec 置空——旧向量是「名称+描述」的文字编码，照片物品必须改用图片向量
+// （本地 Chinese-CLIP 立即重嵌；不在线则由懒回填补齐），绝不保留会错位的旧文字向量。
+function updateItemImage(userId, id, input) {
+  const db = getDb();
+  const row = getRow(userId, id);
+  if (!row) return null;
+  const mime = String(input.mimeType || '').toLowerCase();
+  if (!MIME_WHITELIST.includes(mime)) return { error: 'mime' };
+
+  const b64 = String(input.image || '').replace(/^data:[^;]+;base64,/, '');
+  const buf = Buffer.from(b64, 'base64');
+  if (!buf.length || buf.length > IMAGE_MAX_BYTES) return { error: 'size' };
+
+  // 先写新图（写失败不影响旧照片），再删旧图（扩展名可能变化）
+  try {
+    const { file } = uploadPath(userId, id, mime);
+    fs.writeFileSync(file, buf);
+    const old = safeImagePath(row.image_path);
+    if (old && old !== file) { try { fs.unlinkSync(old); } catch { /* 旧文件不存在忽略 */ } }
+  } catch {
+    return { error: 'save' };
+  }
+  const rel = 'data/uploads/' + userId + '/' + id + extOf(mime);
+  db.prepare('UPDATE items SET image_path = ?, clip_vec = NULL, updated_at = ? WHERE id = ?')
+    .run(rel, now(), Number(id));
+  return getRow(userId, id);
+}
+
 // 文字检索：LIKE 匹配 名称/描述/位置；LEFT JOIN 带出目录名（完整位置链）
 function listItems(userId, { q = '', spaceId } = {}) {
   const db = getDb();
@@ -174,4 +203,4 @@ function statsItems(userId) {
   };
 }
 
-module.exports = { addItem, listItems, getRow, imageBase64, deleteItem, toPublic, safeImagePath, statsItems };
+module.exports = { addItem, listItems, getRow, imageBase64, deleteItem, toPublic, safeImagePath, statsItems, updateItemImage };

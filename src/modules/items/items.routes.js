@@ -106,6 +106,28 @@ function registerRoutes(router) {
     ctx.res.ok(img);
   });
 
+  // 补录/替换照片：纯文字物品随时补图，落盘后用本地 Chinese-CLIP 立即重嵌（不走 DS/视觉模型）
+  // CLIP 未部署或调用失败 → clip_vec 已置空，由后续向量检索的懒回填自动补齐
+  router.post('/api/items/:id/image', async (ctx) => {
+    if (!requireUser(ctx)) return;
+    const b = ctx.body || {};
+    const errs = imageErrors(b);
+    if (errs) return ctx.res.json({ ok: false, errors: errs }, 422);
+
+    const row = svc.updateItemImage(ctx.user.id, ctx.params.id, b);
+    if (!row) return ctx.res.error('物品不存在', 404);
+    if (row.error === 'mime') return ctx.res.json({ ok: false, errors: { mimeType: '仅支持 png / jpeg / webp 格式' } }, 422);
+    if (row.error === 'size') return ctx.res.json({ ok: false, errors: { image: '图片过大，请压缩后重试' } }, 422);
+    if (row.error === 'save') return ctx.res.error('图片保存失败，请重试', 500);
+
+    // 本地 CLIP 立即重新向量化（图片编码覆盖旧文字向量）
+    let embedded = false;
+    if (clip.ready(config.clip)) {
+      embedded = await clip.embedItem(config.clip, row);
+    }
+    ctx.res.ok({ item: svc.toPublic(row), embedded: !!embedded });
+  });
+
   // 删除物品（连同图片文件）
   router.delete('/api/items/:id', (ctx) => {
     if (!requireUser(ctx)) return;

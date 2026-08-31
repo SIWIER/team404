@@ -396,6 +396,53 @@ test('纯文字物品（无照片）：文本编码懒回填后，文图/图图�
   assert.strictEqual(imgHit.score, 1, '识别文字与物品文本一致时应为满分');
 });
 
+test('纯文字物品补录照片：落盘+回读+本地CLIP重嵌（图图满分，不经过视觉模型）', async () => {
+  const token = await register(PORT, 'p2_addphoto');
+  // 先建一件纯文字物品
+  const add = await req(PORT, '/api/items', {
+    method: 'POST', token,
+    body: { name: '黑色折叠雨伞', desc: '长柄黑色雨伞，把手有挂绳', room: '玄关', furn: '壁橱', subPos: '一层' }
+  });
+  assert.strictEqual(add.status, 200);
+  assert.strictEqual(add.json.item.hasImage, false);
+  const id = add.json.item.id;
+
+  // 补录照片（本地 CLIP 立即重嵌；此接口不触发视觉模型/DS）
+  const up = await req(PORT, `/api/items/${id}/image`, {
+    method: 'POST', token, body: { image: PNG_A, mimeType: 'image/png' }
+  });
+  assert.strictEqual(up.status, 200, JSON.stringify(up.json));
+  assert.strictEqual(up.json.item.hasImage, true);
+  assert.strictEqual(up.json.embedded, true, 'CLIP 在线应立即重嵌');
+
+  // 图片回读与上传一致
+  const img = await req(PORT, `/api/items/${id}/image`, { token });
+  assert.strictEqual(img.status, 200);
+  assert.strictEqual(img.json.image, PNG_A);
+
+  // 图图检索：图片向量已覆盖文字向量（同图满分排第一）
+  const s = await req(PORT, '/api/items/search-image', {
+    method: 'POST', token, body: { image: PNG_A, mimeType: 'image/png' }
+  });
+  assert.strictEqual(s.status, 200);
+  const hit = s.json.results.find((x) => x.item.id === id);
+  assert.ok(hit, '补图后应能被图图检索命中');
+  assert.strictEqual(hit.score, 1, '图片向量应同源满分');
+
+  // 校验：非法 mime → 422
+  const bad = await req(PORT, `/api/items/${id}/image`, {
+    method: 'POST', token, body: { image: PNG_A, mimeType: 'image/gif' }
+  });
+  assert.strictEqual(bad.status, 422);
+
+  // 越权：他人不能补图
+  const tokenB = await register(PORT, 'p2_addphoto_b');
+  const other = await req(PORT, `/api/items/${id}/image`, {
+    method: 'POST', token: tokenB, body: { image: PNG_B, mimeType: 'image/png' }
+  });
+  assert.strictEqual(other.status, 404);
+});
+
 test('向量检索参数校验：图片与文字都没有/都有 → 422', async () => {
   const token = await login(PORT, 'p2_vec');
   const none = await req(PORT, '/api/items/search-image', { method: 'POST', token, body: {} });

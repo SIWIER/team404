@@ -386,6 +386,26 @@ Page({
     wx.navigateTo({ url: '/pages/layout/layout?highlight=' + encodeURIComponent(room) });
   },
 
+  // 纯文字物品补录照片（也可换图）：上传后用本地 Chinese-CLIP 立即重嵌，不经过 DS/视觉模型
+  async addPhoto(e) {
+    const id = Number(e.currentTarget.dataset.id);
+    let f;
+    try { f = await this.pickImage(); } catch (err) { if (err.message !== '已取消') toast(err.message); return; }
+    try {
+      const path = await this.compress(f.tempFilePath, f.size);
+      const image = await this.readBase64(path);
+      const mime = this.mimeOf(path);
+      const r = await api.request('/items/' + id + '/image', {
+        method: 'POST',
+        data: { image, mimeType: mime }
+      });
+      toast(r.embedded ? '照片已保存，向量已更新 ✓' : '照片已保存（向量服务未部署，稍后自动入库）');
+      if (this.data.mode === 'search') this.doSearch();
+    } catch (err) {
+      toast(err.message);
+    }
+  },
+
   async deleteItem(e) {
     const id = Number(e.currentTarget.dataset.id);
     if (!(await confirm('删除这件物品的记录（照片也会删除）？'))) return;

@@ -169,4 +169,4 @@ async function searchRaw(cfg, userId, vec, spaceId, topN, opts = {}) {
     .slice(0, topN || TOP_N);
 }
 
-module.exports = { ready, embedImage, embedText, cosine, parseVec, searchRaw, backfill, TOP_N, BACKFILL_CAP };
+module.exports = { ready, embedImage, embedText, cosine, parseVec, searchRaw, backfill, embedItem, TOP_N, BACKFILL_CAP };

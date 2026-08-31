@@ -145,6 +145,7 @@ find-my-glasses-pro/
 | 物品 | GET /api/items?q=&space_id= | 文字检索（LIKE 名称/描述/位置；返回 `spaceName` 与完整位置链 `locationFull`） |
 | 物品 | GET /api/items/stats | **存放统计**：总量/带照片/纯文字/目录分布/房间分布/收纳家具分布/近30天每日新增（小程序「存放统计」页数据源） |
 | 物品 | GET /api/items/:id/image · DELETE /api/items/:id | 图片 base64 回读（`{image, mimeType}` 拼 data URL）/ 删除（连图片文件） |
+| 物品 | POST /api/items/:id/image | **补录/替换照片**：纯文字物品随时补图；落盘后清空旧文字向量，并用**本地 Chinese-CLIP 立即重嵌**（不走 DS/视觉模型；CLIP 未部署时向量留空，由懒回填补齐），返回 `{item, embedded}` |
 | 物品 | GET /api/items/config | 能力探测 `{recognizeEnabled, clipEnabled}`（前端据此置灰按钮） |
 | 物品 | POST /api/items/recognize | **图文识别**：拍照 → 物品文字信息（名称/描述/建议位置；LLM_VISION；限流 5 次/分/IP；不落库） |
 | 物品 | POST /api/items/search-image | **图图/文图向量检索**：`{image,mimeType}` 或 `{text}` 二选一 → Chinese-CLIP 向量 + 暴力余弦 top10（503=未部署）；图图走**双路融合**：照片物品按图像向量比，纯文字物品按「视觉模型识别出的照片文字」比（响应带 `recognized`） |
@@ -322,6 +323,8 @@ scrypt（N=16384）密码 + 时间恒定比较；画像含**家庭布局**（≤
 
 **照片多端同步（团队决策③）**：照片以 base64 上传，落盘 `data/uploads/{userId}/{itemId}.{ext}`
 （mime 白名单校验），任何端都经 `GET /api/items/:id/image` 回读渲染；删除物品连带删文件。
+**纯文字物品可随时补图**（`POST /api/items/:id/image`）：补图即清空旧文字向量，
+由本地 CLIP 按图片立即重嵌（DS/视觉模型不介入）；CLIP 离线时向量留空等懒回填。
 
 **位置链**：目录(space) → 房间(room) → 收纳家具(furn) → 子位置(sub_pos)；列表接口返回
 `location`（末三级，P1 契约）与 `locationFull`（含目录名，如 `家→玄关→壁橱→一层`）；

@@ -79,7 +79,8 @@
 .ri-score { font-size: 22rpx; color: #22b07d; font-weight: 700; margin-left: 6rpx; }
 .ri-desc { color: #7b8794; font-size: 24rpx; margin-top: 6rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ri-loc { font-size: 24rpx; color: #3d5b9e; margin-top: 8rpx; font-weight: 600; }
-.ri-del { padding: 16rpx; font-size: 34rpx; opacity: 0.75; flex-shrink: 0; }
+.ri-photo { padding: 16rpx 6rpx; font-size: 30rpx; opacity: 0.8; flex-shrink: 0; }
+.ri-del { padding: 16rpx 6rpx; font-size: 34rpx; opacity: 0.75; flex-shrink: 0; }
 
 .save-row { margin: 8rpx 24rpx 40rpx; }
 .privacy-note { text-align: center; color: #7b8794; font-size: 22rpx; margin: 24rpx 48rpx; }
