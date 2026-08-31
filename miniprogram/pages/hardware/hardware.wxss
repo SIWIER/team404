@@ -4,6 +4,9 @@
 .dot.on { background: #22b07d; }
 .dot.off { background: #c3ccd6; }
 
+.notice-hw { background: #fff8ea; border: 1rpx solid #ffe0a8; }
+.notice-hw .notice-t { font-weight: 700; color: #8a5b16; font-size: 26rpx; line-height: 1.6; }
+
 .dev-card { padding: 28rpx 32rpx; }
 .dev-head { display: flex; gap: 20rpx; align-items: center; }
 .dev-ico { font-size: 56rpx; }

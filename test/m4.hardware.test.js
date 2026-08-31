@@ -76,6 +76,16 @@ test('注册设备成功 / 非法类型 422 / 重复 ID 422', async () => {
   assert.strictEqual(dup.status, 422);
 });
 
+test('注册 rfid_reader（UHF 手持机）类型设备（偏好声明 uhf_reader 的映射类型）', async () => {
+  const token = await loginAs('xiaoming');
+  const r = await req('/api/hardware/devices', { method: 'POST', token, body: { name: 'UHF 手持机', type: 'rfid_reader', room: '客厅' } });
+  assert.strictEqual(r.status, 200);
+  assert.strictEqual(r.json.device.type, 'rfid_reader');
+  assert.strictEqual(r.json.device.typeLabel, 'UHF 手持机');
+  // 清理，避免影响后续用例的设备计数
+  await req(`/api/hardware/devices/${r.json.device.id}`, { method: 'DELETE', token });
+});
+
 test('上行上报：更新设备状态并产生事件', async () => {
   const token = await loginAs('xiaoming');
   const r = await req('/api/hardware/devices/loc-01/report', {

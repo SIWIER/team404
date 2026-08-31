@@ -259,7 +259,10 @@ scrypt（N=16384）密码 + 时间恒定比较；画像含**家庭布局**（≤
 统计指标 + 自然语言洞察（高频地点/房间占比/时段/效率趋势）+ SVG 图表 + 户型热力 + 分页管理 + JSON 导入导出（≤200 条/次）。
 
 ### 5.4 hardware：硬件端口
-设备注册（locator/nfc/tag）、上下行双通道、事件日志、模拟器（8s 心跳）、`getLastHint()` 供推理联动。
+设备注册（locator/nfc/tag/**rfid_reader**）、上下行双通道、事件日志、模拟器（8s 心跳）、`getLastHint()` 供推理联动。
+**与画像声明同步**：画像 `hardware` 的声明与设备类型一一映射
+（`case_locator`→`locator`、`uhf_reader`→`rfid_reader`，常量 `OWNED_TYPE_MAP`/小程序 `utils/ui.js`）；
+小程序硬件页按声明过滤设备与事件流，注册对应类型设备时自动回写声明，偏好页展示同一份"已接入设备"清单。
 **UHF RFID 方向（无实物设计）**：眼镜本体贴 UHF 无源抗金属标签 + 手持读取机扫描找镜，
 眼镜盒保留有源定位器；设备类型/`rfid_detect` 事件契约与采购规格见 `docs/HARDWARE_RFID.md`（预留，待实物接入）。
 

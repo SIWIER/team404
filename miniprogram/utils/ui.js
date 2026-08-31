@@ -53,4 +53,9 @@ function tileBorderStyle(cells, ci, borderColor) {
     ';border-right:' + (same(1, 0) ? '0' : w) + ';border-bottom:' + (same(0, 1) ? '0' : w) + ';';
 }
 
-module.exports = { toast, confirm, dateTime, roomEmoji, roomColor, tileBorderStyle };
+// 画像「硬件声明」↔ 设备类型 映射（与后端 hardware.service.OWNED_TYPE_MAP 保持一致）：
+// 偏好设置勾选的"拥有哪类硬件"决定硬件页展示哪些类型的设备，两页共用此规则保证同步
+const HARDWARE_OWNED_TYPES = { case_locator: 'locator', uhf_reader: 'rfid_reader' };
+const HARDWARE_TYPE_LABELS = { locator: '定位器', nfc: '近场呼唤器', tag: '防丢标签', rfid_reader: 'UHF 手持机' };
+
+module.exports = { toast, confirm, dateTime, roomEmoji, roomColor, tileBorderStyle, HARDWARE_OWNED_TYPES, HARDWARE_TYPE_LABELS };

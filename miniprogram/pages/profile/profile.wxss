@@ -22,6 +22,14 @@
 }
 .hw-opt.on { border-color: #3d7bfd; background: #eef4ff; color: #3d7bfd; }
 
+/* 已接入设备清单（与硬件页同步） */
+.dev-chip-list { display: flex; flex-direction: column; gap: 10rpx; }
+.dev-chip {
+  border: 1rpx solid #e3e9f2; background: #fbfdff; border-radius: 12rpx;
+  padding: 14rpx 20rpx; font-size: 24rpx; color: #1f2b3a;
+}
+.dev-chip.on { border-color: #bfe6d2; background: #f0faf5; }
+
 /* 隐私说明 */
 .privacy-note {
   margin: 24rpx; padding: 20rpx 24rpx;

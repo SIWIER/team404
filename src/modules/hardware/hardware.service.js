@@ -5,7 +5,10 @@ const config = require('../../config');
 const logger = require('../../core/logger');
 const ws = require('../../core/ws');
 
-const DEVICE_TYPES = { locator: '定位器', nfc: '近场呼唤器', tag: '防丢标签' };
+const DEVICE_TYPES = { locator: '定位器', nfc: '近场呼唤器', tag: '防丢标签', rfid_reader: 'UHF 手持机' };
+// 画像「硬件声明」↔ 设备类型 映射（与小程序 utils/ui.js 保持一致）：
+//   case_locator（物品盒定位器）→ locator；uhf_reader（UHF 手持机）→ rfid_reader
+const OWNED_TYPE_MAP = { case_locator: 'locator', uhf_reader: 'rfid_reader' };
 const ROOMS = ['卧室', '卫生间', '客厅', '厨房/餐厅', '书房', '玄关', '走廊'];
 
 function now() { return new Date().toISOString(); }
@@ -46,7 +49,7 @@ function getDevice(id) {
 
 function registerDevice({ id, name, type, room }) {
   const db = getDb();
-  if (!DEVICE_TYPES[type]) return { error: '设备类型必须是 locator/nfc/tag 之一' };
+  if (!DEVICE_TYPES[type]) return { error: '设备类型必须是 locator/nfc/tag/rfid_reader 之一' };
   const devId = String(id || '').trim() || ('dev-' + Math.random().toString(36).slice(2, 8));
   if (!/^[\w-]{2,32}$/.test(devId)) return { error: '设备 ID 需 2-32 位（字母/数字/-/_）' };
   const exists = db.prepare('SELECT id FROM devices WHERE id = ?').get(devId);
@@ -213,7 +216,7 @@ function simulateTick() {
   const devices = listDevices().filter((d) => d.type !== 'tag' || Math.random() > 0.5);
   if (!devices.length) return null;
   const dev = devices[Math.floor(Math.random() * devices.length)];
-  const cmds = dev.type === 'locator' ? ['locate'] : dev.type === 'nfc' ? ['ping', 'beep'] : ['ping', 'beep'];
+  const cmds = dev.type === 'locator' || dev.type === 'rfid_reader' ? ['locate'] : dev.type === 'nfc' ? ['ping', 'beep'] : ['ping', 'beep'];
   const cmd = cmds[Math.floor(Math.random() * cmds.length)];
   const r = sendCommand(dev.id, cmd);
   logger.info(`[hardware][sim] ${dev.id} ${cmd} → ${r.ok ? 'ok' : r.error}`);
@@ -233,7 +236,7 @@ function startSimulator() {
 }
 
 module.exports = {
-  DEVICE_TYPES, ROOMS, seedDevices, listDevices, getDevice, registerDevice, removeDevice,
+  DEVICE_TYPES, OWNED_TYPE_MAP, ROOMS, seedDevices, listDevices, getDevice, registerDevice, removeDevice,
   applyReport, sendCommand, listEvents, getLastHint, getPendingCommand, ackCommand,
   simulateTick, startSimulator
 };
