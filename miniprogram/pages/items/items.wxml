@@ -171,4 +171,5 @@
 
 <view style="padding: 16rpx 32rpx 60rpx; text-align: center;">
   <button class="btn ghost" bindtap="goLayout">🏠 去户型图配置</button>
+  <button class="btn ghost" style="margin-top:16rpx;" bindtap="goHome">← 返回首页</button>
 </view>

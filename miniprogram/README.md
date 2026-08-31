@@ -27,12 +27,13 @@ miniprogram/
 │  ├─ furniture.js  # 房间内部搜查位置：配置家具优先、未配置回退常见清单（对应 Web home.view.js）
 │  └─ ui.js        # toast/confirm/emoji（对应 Web ui.js）
 └─ pages/
-   ├─ auth/       # 登录/注册 ✅
+   ├─ auth/       # 登录/注册 ✅（物品数字化存放系统口径 + 微信一键登录）
+   ├─ onboarding/ # 注册后引导 ✅（有无硬件设备，完成直达物品录入页）
    ├─ home/       # 首页菜单 + 画像卡 + 户型图 ✅
-   ├─ reason/     # 引导推理（问答→结果→闭环）✅
-   ├─ data/       # 统计可视化 🚧（接口已就绪，Canvas 图表开发中）
+   ├─ reason/     # 找物品引导 ✅（四策略入口：问答回忆/文字检索/拍照找同款/描述找物品 → 问答向导 → 结果闭环）
+   ├─ data/       # 存放统计 ✅（物品总量/照片覆盖/目录与房间分布/收纳家具 Top/户型存放热力/最近录入）
    ├─ hardware/   # 设备接入 ✅（卡片/指令/注册/WS 实时事件流）
-   ├─ profile/    # 画像/户型拖拽 ✅（表单 + movable-view 10×10 网格，房间按面积占多格）
+   ├─ profile/    # 我的存放偏好 ✅（收纳习惯/常用存放位置/硬件设备；户型拖拽在 layout 页）
    ├─ layout-scan/ # 拍照识别户型 ✅（选图→压缩→视觉识别→预览→应用）
    ├─ layout/     # 户型图配置 ✅（目录切换/房间拖拽/内部模块；支持 ?highlight=房间名 高亮）
    └─ items/      # 物品管理 ✅（拍照录入+自动识别名+四级位置选择；文字/拍照找同款/文字找物品检索→位置链列表→跳户型图高亮）
@@ -49,13 +50,7 @@ miniprogram/
 
 | 页面 | 状态 | 认领 |
 |---|---|---|
-| auth / home / reason | ✅ 已完成（可演示核心闭环） | — |
-| data（统计+Canvas 图表） | 🚧 | 成员 C |
-| hardware（设备+WS 实时） | ✅ 已完成 | 成员 D |
-| profile（画像+movable-view 户型拖拽） | ✅ 已完成 | 成员 A |
-| 微信一键登录（后端 /api/auth/wxlogin + 前端 wx.login） | 🚧 第二步 | 成员 B |
-| layout-scan（拍照识别户型 → 预览 → 应用） | ✅ 已完成 | 成员 E |
-| items（物品管理：录入/三种检索/位置链→户型高亮；后端 P1+P2） | ✅ 已完成 | — |
+| auth / home / reason / data / items / profile / layout / layout-scan / hardware / onboarding | ✅ 全部完成（物品数字化存放系统口径统一） | — |
 | items 图图/文图检索 | ⏳ 待部署 Chinese-CLIP 本地服务（scripts/clip-server/），未部署时自动降级 | — |
 
 ## 六、常见坑

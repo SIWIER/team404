@@ -55,8 +55,12 @@ Page({
   _spaces: [],                   // GET /api/spaces 全量（含每目录 layout，用于房间/家具选项）
   _resultsRaw: [],               // 最近一次检索的原始结果（删除后本地重渲染用）
 
-  onLoad() {
+  onLoad(options) {
     if (!store.getUser()) { wx.reLaunch({ url: '/pages/auth/auth' }); return; }
+    // 支持外部跳转：?mode=search&kind=kw|img|txt（找物品引导页的策略入口直达）
+    const mode = (options && options.mode) === 'search' ? 'search' : 'add';
+    const kind = ['kw', 'img', 'txt'].includes(options && options.kind) ? options.kind : 'kw';
+    this.setData({ mode, kind });
     this.init();
   },
 
@@ -71,6 +75,11 @@ Page({
       this.setData({ cfg: { checking: false, recognizeEnabled: !!d.recognizeEnabled, clipEnabled: !!d.clipEnabled } });
     } catch (e) {
       this.setData({ cfg: { checking: false, recognizeEnabled: false, clipEnabled: false } });
+    }
+    // 外部跳转带了图找物/文找物，但向量检索未部署 → 回退到文字检索并提示
+    if (this.data.kind !== 'kw' && !this.data.cfg.clipEnabled) {
+      this.setData({ kind: 'kw' });
+      toast('向量检索服务未部署，已切换到文字检索');
     }
     await this.refreshSpaces();
   },
@@ -393,5 +402,9 @@ Page({
 
   goLayout() {
     wx.navigateTo({ url: '/pages/layout/layout' });
+  },
+
+  goHome() {
+    wx.reLaunch({ url: '/pages/home/home' });
   }
 });

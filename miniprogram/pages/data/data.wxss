@@ -1,8 +1,8 @@
-/* pages/data/data.wxss — 数据统计与分析页样式（复用 app.wxss 的 card/btn/empty/hint） */
+/* pages/data/data.wxss — 物品存放统计页样式（复用 app.wxss 的 card/btn/empty/hint/tag） */
 .toolbar { display: flex; align-items: center; gap: 16rpx; margin: 0 32rpx 8rpx; }
 
 /* 顶部统计卡（2×2） */
-.stat-cards { display: flex; flex-wrap: wrap; gap: 20rpx; margin: 0 24rpx; }
+.stat-cards { display: flex; flex-wrap: wrap; gap: 20rpx; margin: 0 24rpx 8rpx; }
 .stat-card {
   flex: 1 1 40%; min-width: 0; box-sizing: border-box; background: #fff;
   border-radius: 24rpx; padding: 30rpx 20rpx; text-align: center;
@@ -13,22 +13,14 @@
 .stat-card .k { color: #7b8794; font-size: 24rpx; margin-top: 10rpx; }
 
 .chart-title { font-weight: 700; font-size: 30rpx; margin-bottom: 20rpx; }
+.empty-card { text-align: center; }
 
-/* 智能洞察 */
-.insight { display: flex; align-items: flex-start; gap: 16rpx; padding: 16rpx 0; border-bottom: 1rpx solid #eef1f6; }
-.insight:last-child { border-bottom: none; padding-bottom: 4rpx; }
-.insight-num {
-  flex: none; width: 40rpx; height: 40rpx; border-radius: 50%;
-  background: #eaf1ff; color: #3d7bfd; font-size: 24rpx; font-weight: 700;
-  display: flex; align-items: center; justify-content: center;
-}
-.insight-text { flex: 1; font-size: 28rpx; line-height: 1.7; }
-
-/* ECharts 图表容器（ec-canvas 填满容器，必须给定高度） */
-.chart-box { width: 100%; }
-.chart-box.h-bar { height: 460rpx; }
-.chart-box.h-donut { height: 520rpx; }
-.chart-box.h-col { height: 420rpx; }
+/* 条形分布（房间 / 收纳家具） */
+.bar-row { display: flex; align-items: center; gap: 16rpx; padding: 14rpx 0; }
+.bar-name { width: 140rpx; font-size: 26rpx; font-weight: 600; text-align: right; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.bar-track { flex: 1; height: 20rpx; border-radius: 999rpx; background: #eef1f6; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 999rpx; min-width: 12rpx; }
+.bar-count { width: 56rpx; text-align: right; font-size: 26rpx; font-weight: 700; color: #1f2b3a; }
 
 /* 户型热力网格 */
 .heat-floor { background: #fafcff; border: 1rpx dashed #d5ddeb; border-radius: 14rpx; padding: 12rpx; }
@@ -59,19 +51,11 @@
   display: flex; flex-direction: column; align-items: center;
 }
 
-/* 记录列表 */
+/* 最近录入列表 */
 .rec-row { display: flex; align-items: center; gap: 16rpx; padding: 22rpx 0; border-bottom: 1rpx solid #eef1f6; }
 .rec-row:last-child { border-bottom: none; padding-bottom: 4rpx; }
 .rec-main { flex: 1; min-width: 0; }
-.rec-time { font-size: 24rpx; color: #7b8794; }
-.rec-loc { font-size: 28rpx; font-weight: 700; margin-top: 6rpx; word-break: break-all; }
-.rec-room { font-weight: 400; color: #7b8794; font-size: 24rpx; }
-.rec-side { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 6rpx; }
-.pill { font-size: 22rpx; font-weight: 700; padding: 4rpx 18rpx; border-radius: 999rpx; }
-.pill.ok { background: #e3f7ef; color: #12855c; }
-.pill.no { background: #ffe9e4; color: #e85d5d; }
-.rec-meta { font-size: 22rpx; color: #7b8794; }
-.load-tip { text-align: center; color: #7b8794; font-size: 24rpx; padding: 20rpx 0 4rpx; }
-
-/* 导出报告图：离屏画布（display:none 无法绘制，用移出屏幕的方式） */
-.export-canvas { position: fixed; left: -10000px; top: 0; width: 750px; height: 2600px; }
+.rec-time { font-size: 22rpx; color: #b8c2cf; }
+.rec-name { font-size: 30rpx; font-weight: 700; margin-top: 4rpx; }
+.rec-loc { font-size: 24rpx; color: #3d5b9e; font-weight: 600; margin-top: 6rpx; word-break: break-all; }
+.rec-side { flex: none; }

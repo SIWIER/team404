@@ -36,7 +36,7 @@ const BATH_PLACE_BOOST = {
   '置物架/镜柜': { '浴室置物架/镜柜': 2.0, '洗手台边': 1.15 },
   '毛巾架': { '毛巾架': 2.0, '浴室置物架/镜柜': 1.15 }
 };
-const ON_PERSON_BOOST = { '头顶上': 3.5, '衣领/胸口口袋': 3.0, '外套口袋': 2.2 };
+const ON_PERSON_BOOST = { '随身小包/挎包': 3.5, '外套口袋': 2.5, '昨天衣服/裤子口袋': 2.5, '书包/背包里': 2.2 };
 
 // 房间名去编号：卧室2 → 卧室（复数同类型房间用编号区分，推理按类型归并）
 function roomTypeOf(room) {
@@ -157,7 +157,7 @@ function infer(facts, historyStats, profile) {
 
     // 3) 条件追问：口袋
     if (facts.pocket === '好像放口袋了') {
-      if (L.tags.includes('pocket')) { s *= W.pocketYes; reasons.push('你可能把眼镜放进了口袋（×' + W.pocketYes.toFixed(1) + '）'); }
+      if (L.tags.includes('pocket')) { s *= W.pocketYes; reasons.push('你可能把它放进了口袋或包里（×' + W.pocketYes.toFixed(1) + '）'); }
     } else if (facts.pocket === '没有') {
       if (L.tags.includes('pocket')) { s *= W.pocketNo; reasons.push('你记得没放口袋，口袋类位置概率降低'); }
     }
@@ -226,7 +226,7 @@ function infer(facts, historyStats, profile) {
         }
       } else if (roomMatches(L.room, facts.deviceHint.room)) {
         s *= W.deviceHint;
-        reasons.push(`📡 定位器最近报告：眼镜在「${facts.deviceHint.room}」方向（${dText}，×${W.deviceHint}）`);
+        reasons.push(`📡 定位器最近报告：物品在「${facts.deviceHint.room}」方向（${dText}，×${W.deviceHint}）`);
       }
     }
 
@@ -288,7 +288,7 @@ function buildSummary(top, ranked, activity, facts, hs, noHardware) {
   const timePart = facts.timeOfDay && TIME_HINTS[facts.timeOfDay] ? `（${facts.timeOfDay}：${TIME_HINTS[facts.timeOfDay]}）` : '';
   const topReasons = top.reasons.slice(0, 2).join('；');
   const noHwPart = noHardware ? '未接入硬件设备，本次推理已强化行为与历史证据权重。' : '';
-  return `${histPart}眼镜最可能在「${top.name}」（${top.room}），置信度约 ${top.probability}%。${timePart} ${checkedPart}${noHwPart}主要依据：${topReasons || '通用放置习惯'}。建议优先检查这里，再依次排查：${ranked.slice(1, 4).map((r) => r.name).join('、')}。`;
+  return `${histPart}物品最可能在「${top.name}」（${top.room}），置信度约 ${top.probability}%。${timePart} ${checkedPart}${noHwPart}主要依据：${topReasons || '通用放置习惯'}。建议优先检查这里，再依次排查：${ranked.slice(1, 4).map((r) => r.name).join('、')}。`;
 }
 
 module.exports = { infer, roomDist, roomPos, roomTypeOf, roomCells, areaFactor, roomDistMult, hintDistMult };

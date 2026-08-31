@@ -34,9 +34,9 @@ test('换衣服 + 好像放口袋 → 口袋类位置上升', () => {
   assert.ok(pocketNames.length >= 1);
 });
 
-test('还没检查身上 → 头顶上进入前三', () => {
+test('还没检查身上 → 随身小包/挎包进入前三', () => {
   const r = engine.infer({ activity: '玩手机/打电话', justTookOff: '否', onPerson: '还没检查，我去看看' }, noHistory, noProfile);
-  assert.ok(topNames(r, 3).includes('头顶上'));
+  assert.ok(topNames(r, 3).includes('随身小包/挎包'));
 });
 
 test('个人历史影响：床头柜高频 → 排名上升', () => {

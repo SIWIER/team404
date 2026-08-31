@@ -142,4 +142,36 @@ function deleteItem(userId, id) {
   return true;
 }
 
-module.exports = { addItem, listItems, getRow, imageBase64, deleteItem, toPublic, safeImagePath };
+// 物品存放统计（可视化页数据源）：总量/照片覆盖/目录分布/房间分布/收纳家具分布/近30天新增趋势
+function statsItems(userId) {
+  const db = getDb();
+  const since30 = new Date(Date.now() - 30 * 86400000).toISOString();
+  const total = db.prepare('SELECT COUNT(*) AS c FROM items WHERE user_id = ?').get(userId).c;
+  const withImage = db.prepare("SELECT COUNT(*) AS c FROM items WHERE user_id = ? AND image_path IS NOT NULL AND image_path != ''").get(userId).c;
+  const bySpace = db.prepare(
+    "SELECT COALESCE(s.name, '未分类') AS name, COUNT(*) AS c FROM items i LEFT JOIN spaces s ON s.id = i.space_id WHERE i.user_id = ? GROUP BY s.id ORDER BY c DESC"
+  ).all(userId);
+  const byRoom = db.prepare(
+    "SELECT room AS name, COUNT(*) AS c FROM items WHERE user_id = ? AND room IS NOT NULL AND room != '' GROUP BY room ORDER BY c DESC LIMIT 12"
+  ).all(userId);
+  const byFurn = db.prepare(
+    "SELECT furn AS name, COUNT(*) AS c FROM items WHERE user_id = ? AND furn IS NOT NULL AND furn != '' GROUP BY furn ORDER BY c DESC LIMIT 12"
+  ).all(userId);
+  const daily = db.prepare(
+    'SELECT substr(created_at, 1, 10) AS day, COUNT(*) AS c FROM items WHERE user_id = ? AND created_at >= ? GROUP BY day ORDER BY day'
+  ).all(userId, since30);
+  return {
+    total,
+    withImage,
+    textOnly: total - withImage,
+    spaceCount: bySpace.length,
+    roomCoverage: byRoom.length,
+    last30: daily.reduce((a, d) => a + d.c, 0),
+    bySpace,
+    byRoom,
+    byFurn,
+    daily
+  };
+}
+
+module.exports = { addItem, listItems, getRow, imageBase64, deleteItem, toPublic, safeImagePath, statsItems };

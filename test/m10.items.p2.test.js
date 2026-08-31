@@ -341,6 +341,21 @@ test('文图检索：文字描述返回按相似度降序的结果', async () =>
   }
 });
 
+test('物品存放统计：总量/照片覆盖/目录/房间/收纳家具分布正确', async () => {
+  const token = await login(PORT, 'p2_vec');
+  const s = await req(PORT, '/api/items/stats', { token });
+  assert.strictEqual(s.status, 200, JSON.stringify(s.json));
+  const st = s.json.stats;
+  assert.strictEqual(st.total, 2, 'p2_vec 应有 2 件物品');
+  assert.strictEqual(st.withImage, 2);
+  assert.strictEqual(st.textOnly, 0);
+  assert.ok(st.byRoom.some((x) => x.name === '玄关' && x.c === 1), '房间分布应含玄关 1 件');
+  assert.ok(st.byRoom.some((x) => x.name === '书房' && x.c === 1), '房间分布应含书房 1 件');
+  assert.ok(st.byFurn.some((x) => x.name === '壁橱'), '家具分布应含壁橱');
+  assert.ok(st.byFurn.some((x) => x.name === '书桌'), '家具分布应含书桌');
+  assert.ok(st.last30 >= 2, '近30天新增应计入');
+});
+
 test('纯文字物品（无照片）：文本编码懒回填后，文图/图图都能命中', async () => {
   const token = await register(PORT, 'p2_textonly');
   // 录入一件完全没有照片的物品

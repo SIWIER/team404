@@ -1,11 +1,11 @@
-// pages/reason/reason.js — 引导推理：问答向导 → 推理结果 → 找到/未找到闭环
+// pages/reason/reason.js — 找物品引导：四种策略入口（问答回忆/文字检索/拍照找同款/描述找物品）→ 问答向导 → 结果闭环
 const api = require('../../utils/api');
 const store = require('../../utils/store');
 const { toast } = require('../../utils/ui');
 
 Page({
   data: {
-    phase: 'loading',       // loading | questions | confirm | inferring | result | found | notfound
+    phase: 'hub',           // hub | loading | questions | confirm | inferring | result | found | notfound
     step: 0,
     progress: [],
     question: null,         // {id, q, type, opts:[{label, emoji, active}]}
@@ -31,9 +31,24 @@ Page({
 
   onLoad() {
     if (!store.getUser()) { wx.reLaunch({ url: '/pages/auth/auth' }); return; }
-    this.start();
+    // 默认展示策略入口；选择「问答回忆」才进入向导
   },
 
+  // 策略入口：跳到物品管理检索页对应模式
+  goSearch(e) {
+    const kind = e.currentTarget.dataset.kind || 'kw';
+    wx.navigateTo({ url: '/pages/items/items?mode=search&kind=' + kind });
+  },
+
+  backToHub() {
+    this.setData({ phase: 'hub', step: 0 });
+    this.flow = [];
+    this.answers = {};
+    this.conversation = [];
+    this.multiArr = [];
+  },
+
+  // 问答回忆：拉取问题清单进入向导
   async start() {
     this.flow = [];
     this.answers = {};
@@ -48,6 +63,7 @@ Page({
       this.renderStep();
     } catch (e) {
       toast(e.message);
+      this.setData({ phase: 'hub' });
     }
   },
 

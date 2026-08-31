@@ -1,5 +1,5 @@
-<view class="page-title">🧠 我的画像</view>
-<view class="page-sub">画像越准确，推理越贴合你的习惯；户型图请到「户型图配置」页管理</view>
+<view class="page-title">🧠 我的存放偏好</view>
+<view class="page-sub">偏好越准确，找物品的推理越贴合你的习惯；户型图请到「户型图配置」页管理</view>
 
 <!-- 户型图配置入口（已独立成页） -->
 <view class="card layout-link" bindtap="goLayout">
@@ -14,15 +14,15 @@
 <!-- 基础画像表单 -->
 <view class="card">
   <view class="field">
-    <label>智能体昵称</label>
-    <input class="input" value="{{agentName}}" data-k="agentName" bindinput="onInput" placeholder="例如：小明的物品助手" />
+    <label>助手昵称</label>
+    <input class="input" value="{{agentName}}" data-k="agentName" bindinput="onInput" placeholder="例如：我的收纳助手" />
   </view>
   <view class="field">
-    <label>智能体风格</label>
-    <input class="input" value="{{agentStyle}}" data-k="agentStyle" bindinput="onInput" placeholder="例如：温和、爱追问、擅长生活常识" />
+    <label>助手风格</label>
+    <input class="input" value="{{agentStyle}}" data-k="agentStyle" bindinput="onInput" placeholder="例如：温和、爱追问、擅长收纳常识" />
   </view>
   <view class="field">
-    <label>生活习惯（每行一条，最多 20 条）</label>
+    <label>收纳习惯（每行一条，最多 20 条）</label>
     <textarea class="input area" value="{{habitsText}}" data-k="habitsText" bindinput="onInput" placeholder="例如：睡前刷手机后常随手把物品放床头" />
   </view>
   <view class="field">
@@ -38,10 +38,10 @@
     <view class="hw-opt {{hwPicks.uhf_reader ? 'on' : ''}}" data-key="uhf_reader" bindtap="toggleHw">📡 UHF 手持机（RFID 读取器）{{hwPicks.uhf_reader ? ' ✓' : ''}}</view>
     <view class="hw-opt {{hwPicks.case_locator ? 'on' : ''}}" data-key="case_locator" bindtap="toggleHw">🎒 物品盒定位器{{hwPicks.case_locator ? ' ✓' : ''}}</view>
   </view>
-  <button class="btn btn-block" loading="{{saving}}" disabled="{{saving}}" bindtap="saveBasic">💾 保存画像</button>
+  <button class="btn btn-block" loading="{{saving}}" disabled="{{saving}}" bindtap="saveBasic">💾 保存偏好</button>
 </view>
 
-<view class="privacy-note">🔒 数据仅用于本地推理：你的画像、户型与找回记录只保存在你自己的账号下，不会公开或用于其他用途。</view>
+<view class="privacy-note">🔒 数据仅用于本地推理：你的偏好、户型与物品记录只保存在你自己的账号下，不会公开或用于其他用途。</view>
 
 <view style="padding: 16rpx 32rpx 60rpx; text-align: center;">
   <button class="btn ghost" bindtap="goHome">← 返回首页</button>

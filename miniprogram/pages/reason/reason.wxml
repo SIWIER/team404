@@ -1,3 +1,47 @@
+<!-- 策略入口：四种找物品方式 -->
+<block wx:if="{{phase === 'hub'}}">
+  <view class="page-title">🔍 找物品引导</view>
+  <view class="page-sub">四种方式，总有一种能帮你找到它</view>
+
+  <view class="strategy-card" bindtap="start">
+    <view class="s-ico">🗣️</view>
+    <view class="s-main">
+      <view class="s-t">问答回忆</view>
+      <view class="s-d">回答几个问题（最后在做什么、在哪个房间…），AI 结合你的习惯与户型推理最可能的位置</view>
+    </view>
+    <view class="s-go">›</view>
+  </view>
+
+  <view class="strategy-card" bindtap="goSearch" data-kind="kw">
+    <view class="s-ico">⌨️</view>
+    <view class="s-main">
+      <view class="s-t">文字检索</view>
+      <view class="s-d">按名称 / 描述 / 位置直接搜，例如「螺丝刀」或「书架」</view>
+    </view>
+    <view class="s-go">›</view>
+  </view>
+
+  <view class="strategy-card" bindtap="goSearch" data-kind="img">
+    <view class="s-ico">📷</view>
+    <view class="s-main">
+      <view class="s-t">拍照找同款</view>
+      <view class="s-d">拍张照片，在物品库里找相同 / 相似的物品（需本地部署 CLIP 服务）</view>
+    </view>
+    <view class="s-go">›</view>
+  </view>
+
+  <view class="strategy-card" bindtap="goSearch" data-kind="txt">
+    <view class="s-ico">✍️</view>
+    <view class="s-main">
+      <view class="s-t">描述找物品</view>
+      <view class="s-d">用一句话描述，语义匹配物品库（如「黑色折叠雨伞」）</view>
+    </view>
+    <view class="s-go">›</view>
+  </view>
+
+  <view class="strategy-hint">💡 小提示：找不到的物品若已录入，优先用「文字检索 / 拍照找同款」一步定位；还没录入的用「问答回忆」推理大概位置。</view>
+</block>
+
 <!-- 加载 -->
 <view wx:if="{{phase === 'loading' || phase === 'inferring'}}" class="card center" style="padding:80rpx 20rpx;">
   <view style="font-size:80rpx;">{{phase === 'loading' ? '📋' : '🤔'}}</view>
@@ -11,7 +55,7 @@
 
 <!-- 问答向导 -->
 <block wx:if="{{phase === 'questions'}}">
-  <view class="page-title">🔍 引导推理 · 找眼镜</view>
+  <view class="page-title">🗣️ 问答回忆 · 找物品</view>
   <view class="page-sub">第 {{step + 1}} 问，帮你回忆关键线索</view>
   <view class="progress">
     <view class="step {{item.cls}}" wx:for="{{progress}}" wx:key="index"></view>
@@ -39,7 +83,7 @@
 
     <!-- 文本 -->
     <block wx:elif="{{question.type === 'text'}}">
-      <textarea class="input" style="min-height:160rpx;" placeholder="例如：昨晚睡前还在刷手机…"
+      <textarea class="input" style="min-height:160rpx;" placeholder="例如：昨晚睡前还在用，可能随手放在床头…"
                 value="{{textAnswer}}" bindinput="onTextInput"></textarea>
     </block>
 
@@ -54,7 +98,7 @@
 
 <!-- 确认 -->
 <block wx:if="{{phase === 'confirm'}}">
-  <view class="page-title">🔍 引导推理 · 找眼镜</view>
+  <view class="page-title">🗣️ 问答回忆 · 找物品</view>
   <view class="page-sub">线索已收集，确认后开始推理</view>
   <view class="card">
     <view class="ans-row" wx:for="{{confirmList}}" wx:key="q">
@@ -123,6 +167,9 @@
       <view class="btn ghost" bindtap="restart">↺ 换个思路重新回答</view>
       <view class="btn warn" bindtap="saveNotFound">📝 记录本次未找到</view>
     </view>
+    <view class="btn-row" style="margin-top:12rpx;">
+      <view class="btn ghost sm" bindtap="backToHub">🔄 换种方式找</view>
+    </view>
   </view>
 </block>
 
@@ -130,8 +177,9 @@
 <view wx:if="{{phase === 'found'}}" class="card center" style="padding:80rpx 20rpx;">
   <view style="font-size:100rpx;">🎉</view>
   <view style="font-weight:800;font-size:40rpx;margin:24rpx 0 12rpx;">找到啦！就在「{{foundLoc}}」</view>
-  <view class="muted">本次找回用时约 {{durSec}} 秒，记录已保存，个人数据已更新。</view>
+  <view class="muted">本次查找用时约 {{durSec}} 秒，记录已保存，个人数据已更新。</view>
   <view class="btn-row" style="justify-content:center;">
+    <view class="btn ghost" bindtap="backToHub">↺ 换种方式</view>
     <view class="btn" bindtap="goHome">🏠 返回首页</view>
   </view>
 </view>
@@ -142,7 +190,7 @@
   <view style="font-weight:800;font-size:40rpx;margin:24rpx 0 12rpx;">别着急，这次没找到也没关系</view>
   <view class="muted">未找到的情况已记录，系统会持续学习你的习惯。</view>
   <view class="btn-row" style="justify-content:center;">
-    <view class="btn" bindtap="restart">↺ 换个思路再试</view>
+    <view class="btn" bindtap="backToHub">🔄 换种方式找</view>
     <view class="btn ghost" bindtap="goHome">🏠 返回首页</view>
   </view>
 </view>

@@ -27,8 +27,8 @@ Page({
     try {
       const d = await api.request('/auth/profile', { method: 'PUT', data: { hardware } });
       store.setUser(d.user);
-      toast('欢迎加入找眼镜助手 🎉');
-      wx.reLaunch({ url: '/pages/home/home' });
+      toast('欢迎加入物品数字化存放系统 🎉');
+      wx.reLaunch({ url: '/pages/items/items?mode=add' });
     } catch (e) {
       this.setData({ busy: false });
       toast(e.message);
@@ -36,7 +36,7 @@ Page({
   },
 
   skip() {
-    toast('没问题，问答推理不依赖硬件 👌');
-    wx.reLaunch({ url: '/pages/home/home' });
+    toast('没问题，问答找物品不依赖硬件 👌');
+    wx.reLaunch({ url: '/pages/items/items?mode=add' });
   }
 });

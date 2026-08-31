@@ -92,6 +92,12 @@ function registerRoutes(router) {
     ctx.res.ok({ items: svc.listItems(ctx.user.id, { q: ctx.query.q, spaceId: ctx.query.space_id }) });
   });
 
+  // 物品存放统计（可视化页数据源）：总量/照片覆盖/目录/房间/收纳家具分布/近30天新增
+  router.get('/api/items/stats', (ctx) => {
+    if (!requireUser(ctx)) return;
+    ctx.res.ok({ stats: svc.statsItems(ctx.user.id) });
+  });
+
   // 物品图片（base64 JSON，前端拼 data URL）
   router.get('/api/items/:id/image', (ctx) => {
     if (!requireUser(ctx)) return;

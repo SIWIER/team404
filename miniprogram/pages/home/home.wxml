@@ -59,16 +59,16 @@
       <view class="d">目录管理、房间拖拽布置与内部模块（书桌/书架/壁橱…）。</view>
     </view>
     <view class="menu-card" bindtap="go" data-url="reason">
-      <view class="badge">智能引导</view>
+      <view class="badge">找物品</view>
       <view class="ico">🔍</view>
       <view class="t">找物品引导</view>
-      <view class="d">一问一答，AI 结合画像、户型与历史数据推理物品位置。</view>
+      <view class="d">问答回忆 / 文字检索 / 拍照找同款 / 描述找物品，四种方式一步定位。</view>
     </view>
     <view class="menu-card" bindtap="go" data-url="data">
-      <view class="badge">物品数据</view>
+      <view class="badge">存放统计</view>
       <view class="ico">📊</view>
-      <view class="t">数据统计与分析</view>
-      <view class="d">存放记录、高频位置、房间热力、趋势图表与导入导出。</view>
+      <view class="t">存放统计</view>
+      <view class="d">物品总量、目录与房间分布、收纳家具 Top、户型存放热力。</view>
     </view>
     <view class="menu-card" bindtap="go" data-url="hardware">
       <view class="badge">硬件端口</view>
@@ -79,8 +79,8 @@
     <view class="menu-card" bindtap="go" data-url="profile">
       <view class="badge">个性化</view>
       <view class="ico">🧠</view>
-      <view class="t">我的画像</view>
-      <view class="d">生活习惯、常用位置、硬件设备与个人设置。</view>
+      <view class="t">我的存放偏好</view>
+      <view class="d">收纳习惯、常用存放位置、硬件设备与个人设置。</view>
     </view>
   </view>
 

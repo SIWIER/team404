@@ -1,7 +1,7 @@
 <view class="auth-wrap">
-  <view class="logo">👓</view>
-  <view class="title">找眼镜助手</view>
-  <view class="sub">在家里没戴眼镜，也能帮你把眼镜找回来</view>
+  <view class="logo">📦</view>
+  <view class="title">物品数字化存放系统</view>
+  <view class="sub">拍照记录每件物品的位置，想找时一步定位</view>
 
   <view class="card">
     <view class="tabs">

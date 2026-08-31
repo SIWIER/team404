@@ -22,20 +22,20 @@ function buildPrompt(facts, historyStats, profile) {
     ? '\n- 用户没有接入任何硬件定位设备：请更充分地利用行为线索、户型距离与历史记录推理，并给出更果断的结论（首选置信度可适当提高）。'
     : '';
 
-  const system = '你是一名帮人在家中找回丢失眼镜的生活常识与逻辑推理助手，熟悉居家生活常识。请基于用户本次描述与其历史找回记录，推理眼镜最可能的位置。';
+  const system = '你是一名帮人在家中找回丢失物品的生活常识与逻辑推理助手，熟悉居家收纳与生活常识。请基于用户本次描述与其历史找回记录，推理物品最可能的存放位置。';
   const user = `【可选位置词汇表（必须尽量从中选择）】${vocabText}
 
 【用户本次情况】
 - 最后做的事：${facts.activity || '不确定'}
 - 最后所在房间：${facts.room || '不确定'}
 - 大概时段：${facts.timeOfDay || '不确定'}
-- 是否刚摘下随手放：${facts.justTookOff || '不确定'}
+- 是否刚用完随手放：${facts.justTookOff || '不确定'}
 - 卫生间具体位置线索：${facts.bathPlace || '无'}
 - 是否可能放进口袋：${facts.pocket || '不确定'}
 - 是否已检查身上：${facts.onPerson || '未提及'}
 - 路过过的房间：${(Array.isArray(facts.passedRooms) && facts.passedRooms.length) ? facts.passedRooms.join('、') : '未提及'}（路过的房间也可能随手放下）
 - 已检查过的区域（在这些区域找过但没找到，推理时应排除其所在房间）：${(Array.isArray(facts.checkedRooms) && facts.checkedRooms.length) ? facts.checkedRooms.join('、') : '未提及'}
-- 硬件定位提示：${facts.deviceHint ? `定位器最近报告眼镜在「${facts.deviceHint.room}」${facts.deviceHint.distance_m != null ? `约 ${facts.deviceHint.distance_m} 米` : ''}（这是强证据，请优先考虑该房间及邻近房间）` : '无'}${noHardwareLine}
+- 硬件定位提示：${facts.deviceHint ? `定位器最近报告物品在「${facts.deviceHint.room}」${facts.deviceHint.distance_m != null ? `约 ${facts.deviceHint.distance_m} 米` : ''}（这是强证据，请优先考虑该房间及邻近房间）` : '无'}${noHardwareLine}
 - 补充描述：${facts.extra || '无'}
 
 【用户历史找回统计】
@@ -44,7 +44,7 @@ function buildPrompt(facts, historyStats, profile) {
 
 【用户个人画像】
 - 生活习惯：${habits}
-- 常用放眼镜地点：${favs}
+- 常用存放地点：${favs}
 - 家庭户型（含网格坐标，相邻格表示相邻房间，推理时请按距离远近考虑）：${layoutText}
 
 请严格只输出一个 JSON 对象（不要 markdown 代码块，不要多余文字），格式如下：
