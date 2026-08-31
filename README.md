@@ -1,120 +1,117 @@
-# 👓 找眼镜助手 · 正式版（FindMyGlasses Pro）
+# 📦 物品数字化存放系统 · ItemVault
 
-帮家中（寝室）无眼镜者找回丢失眼镜的 Web 应用。零外部依赖：Node.js 内置 `http` + `node:sqlite`，无需 `npm install`。
+<p align="center">
+  <b>拍照记录每件物品的位置 · 想找时四种方式一步定位</b>
+</p>
 
-## 启动
+<p align="center">
+  <img src="https://img.shields.io/badge/微信小程序-原生%20WXML-blue" alt="小程序">
+  <img src="https://img.shields.io/badge/Node.js-≥22.5%20零依赖-339933" alt="零依赖">
+  <img src="https://img.shields.io/badge/测试-138%20项全绿-brightgreen" alt="测试">
+  <img src="https://img.shields.io/badge/SQLite-WAL-4479A1" alt="SQLite">
+  <img src="https://img.shields.io/badge/Chinese--CLIP-本地向量检索-orange" alt="CLIP">
+</p>
 
-```bash
-node server.js      # 或双击 start.bat
-```
+> 从「找眼镜」出发，长成了通用的物品存放管家：**任意物品**拍照入库、按
+> 「目录 → 房间 → 收纳家具 → 子位置」归档，再用**文字 / 照片 / 描述 / 问答**四种方式找回。
+> 微信小程序 + Web 双端，同一套零依赖 Node.js 后端。
 
-打开 **http://localhost:8081**（端口可用 `.env` 的 `PORT` 修改；演示版占用 8080，互不影响）。
+---
 
-演示账号：`xiaoming / 123456`、`xiaohong / 123456`
+## ✨ 核心亮点
 
-## 模块进度
-
-| 模块 | 状态 |
+| 亮点 | 说明 |
 |---|---|
-| M0 架构与工程基础（分层/配置/日志/路由/迁移/ES 模块化前端） | ✅ 完成 |
-| M1 账户与个性化智能体（注册/登录/会话/画像/**家庭布局户型**） | ✅ 完成 |
-| M2 引导推理引擎（常识知识库/条件化问答/LLM+回退/找到与未找到闭环/**户型感知**） | ✅ 完成 |
-| M3 数据库与数据分析可视化（统计指标/智能洞察/图表/户型热力/分页管理/导入导出） | ✅ 完成 |
-| M4 硬件接入端口（设备注册/协议/REST 上下行/WebSocket 实时/模拟器/推理联动） | ✅ 完成 |
-| M5 集成测试与部署文档（全流程回归/限流/smoke 自检/Docker/SDD/演示脚本） | ✅ 完成（本迭代提交） |
+| 📸 **拍照录入 + AI 自动识别** | 拍一张照片，视觉大模型自动识别物品名称、外观描述与建议存放位置，回填表单确认即存 |
+| 🗺️ **五级位置链** | 目录（家/公司/宿舍…）→ 户型图房间 → 收纳家具 → 子位置（一层/抽屉…），每件物品都有精确的"地址" |
+| 🔍 **四种查找方式** | ⌨️ 文字检索 · 📷 拍照找同款 · ✍️ 描述找物品 · 🗣️ 问答回忆推理——总有办法一步定位 |
+| 🧠 **本地向量检索（Chinese-CLIP）** | 照片/描述编码为向量，SQLite 存储 + 暴力余弦；图图检索还带**双路融合**（照片先经视觉模型"翻译"成文字再匹配纯文字物品），准确率实测 0.33→0.92 |
+| 🏠 **户型图 + 存放热力** | 每个目录独立户型图（10×10 网格、房间按面积多格、内部家具模块），支持**拍照识别户型**与拖拽布置；统计页把物品数叠加到户型图上，哪里存了什么一眼看清 |
+| 📊 **存放统计** | 物品总量 / 照片覆盖 / 目录与房间分布 / 收纳家具 Top / 近 30 天趋势 / 最近录入 |
+| 📡 **硬件接入端口** | 定位器 / 近场呼唤器 / 防丢标签，REST 上下行 + 手写 WebSocket 实时推送；**无硬件也完整可用**（推理自动启用无硬件补偿） |
+| 🔒 **隐私优先** | 数据只属于账号本人；照片落盘本地 `data/uploads/`；图片路径防目录穿越；识别图片不进日志 |
 
-## 目录结构
+## 📱 小程序功能地图（亮点全览）
 
 ```
-find-my-glasses-pro/
-├─ server.js                 # 入口：装配 + 静态资源
-├─ start.bat                 # 一键启动
-├─ .env.example              # 环境变量模板（复制为 .env 使用）
-├─ src/
-│  ├─ config.js              # 配置中心（.env + 环境变量）
-│  ├─ core/                  # 通用基础设施
-│  │  ├─ db.js               # SQLite + 迁移机制
-│  │  ├─ http.js             # 路由/中间件/响应封装
-│  │  ├─ auth.js             # scrypt 密码 + HMAC 无状态令牌
-│  │  └─ logger.js           # 分级日志
-│  ├─ modules/accounts/      # M1 账户模块（service + routes 分层）
-│  └─ seed/seed.js           # 预置演示数据
-└─ public/                   # 前端（ES 模块，无构建）
-   ├─ index.html
-   ├─ css/style.css
-   └─ js/
-      ├─ main.js             # 入口
-      ├─ store.js / api.js / router.js / ui.js
-      └─ views/              # auth / home / profile / placeholder
+登录/注册 ──(注册引导：有无硬件设备)──► 首页（当前目录户型图 + 目录切换）
+   │
+   ├─ 📦 物品管理      拍照录入→自动识别名→四级位置选择 ｜ 检索页：文字/拍照找同款/文字找物品
+   │                   结果列表：缩略图 + 位置链「家→书房→书架→二层」→ 点开跳户型图高亮房间
+   ├─ 🔍 找物品引导     四策略入口：问答回忆 / 文字检索 / 拍照找同款 / 描述找物品
+   │                   问答向导按你的户型动态生成房间选项，推理结果带逐条依据
+   ├─ 🏠 户型图配置     目录管理（家/公司/宿舍…）、房间拖拽布置、房间内部模块（书桌/书架/壁橱…）
+   │                   📷 拍照识别户型：拍一张户型图自动生成房间网格，确认即应用
+   ├─ 📊 存放统计       物品总量/照片覆盖/目录与房间分布/收纳家具 Top/户型存放热力/最近录入
+   ├─ 📡 硬件设备       设备卡片/指令/注册/WS 实时事件流（无硬件用户自动隐藏模拟设备）
+   └─ 🧠 我的存放偏好   收纳习惯/常用存放位置/硬件设备
 ```
 
-## M1 API（REST）
+**演示账号**：`xiaoming / 123456`（登记眼镜盒定位器，硬件联动演示）、`xiaohong / 123456`（无设备，降级演示）
 
-| 方法 | 路径 | 说明 |
-|---|---|---|
-| POST | `/api/auth/register` | 注册（返回字段级校验错误 422） |
-| POST | `/api/auth/login` | 登录（`remember` 可选，返回 HMAC 令牌） |
-| POST | `/api/auth/logout` | 登出 |
-| GET | `/api/auth/me` | 当前用户（需 `Authorization: Bearer <token>`） |
-| PUT | `/api/auth/profile` | 更新个性化智能体画像（含 `homeLayout` 家庭布局：房间+描述+放置点） |
-
-家庭布局对推理的作用：① 流程中"最后在哪个房间/路过哪些房间"选项按你的户型生成；② 户型中没有的房间（如无玄关/走廊）其位置自动降权；③ 户型中自定义的放置点成为推理候选；④ 户型信息注入大模型提示词；⑤ **户型图拖曳编辑器**（房间网格坐标）按**距离远近**衰减权重、**路过房间**加权。支持房间：卧室/卫生间/客厅/厨房/餐厅/书房/玄关/**走廊**/阳台/衣帽间/储物间；同类房间可重复添加，自动编号区分（如 卧室、卧室2）。
-
-**无硬件设备场景**：全程可只靠引导推理使用；推理结果页的"设备协助"面板按实际接入的设备自适应（无设备时显示引导文案），设备页无设备时显示空态引导，所有硬件接口在无设备时优雅返回 404 而非报错。
-
-## M2 API（REST）
-
-| 方法 | 路径 | 说明 |
-|---|---|---|
-| GET | `/api/reason/flow` | 引导问答流程（声明式条件分支） |
-| POST | `/api/reason/infer` | 推理：`{facts}` → 排序候选 + 依据 + 摘要（LLM 优先，自动回退本地引擎） |
-| POST | `/api/reason/record` | 记录找回结果（成功/未找到，含对话转录） |
-
-推理引擎分层：`knowledge.js`（常识知识库，可扩充）→ `engine.js`（本地评分引擎）→ `llm.client.js`（大模型适配，超时/重试/JSON 容错/词汇表对齐）→ `reason.service.js`（编排 + 回退）。
-
-## M3 API（REST）
-
-| 方法 | 路径 | 说明 |
-|---|---|---|
-| GET | `/api/data/stats` | 个人统计（指标/分布/趋势/智能洞察）+ 全局统计 |
-| GET | `/api/data/records?limit=&offset=` | 记录分页列表 |
-| DELETE | `/api/data/records/:id` | 删除本人记录 |
-| GET | `/api/data/export` | 导出 JSON 数据快照 |
-| POST | `/api/data/import` | 导入记录（校验，单次 ≤200 条） |
-
-可视化（前端 SVG 零依赖）：高频地点条形图、房间分布环图、近 30 天趋势、时段分布、**户型房间热力图**；智能洞察由数据自动生成自然语言建议。
-
-## M4 API（硬件接入端口）
-
-| 方法 | 路径 | 说明 |
-|---|---|---|
-| GET | `/api/hardware/devices` | 设备列表 + 最近事件 |
-| POST | `/api/hardware/devices` | 注册设备 `{id?,name,type(locator/nfc/tag),room?}` |
-| DELETE | `/api/hardware/devices/:id` | 删除设备 |
-| POST | `/api/hardware/devices/:id/report` | **上行端口**：设备上报 `{room,distance_m,rssi_dbm,battery}` |
-| POST | `/api/hardware/devices/:id/command` | **下行端口**：下发指令 `{command: locate/ping/beep}` |
-| GET | `/api/hardware/events?limit=` | 事件日志 |
-| POST | `/api/hardware/simulate` | 演示：触发一次模拟事件 |
-| WS | `/ws?token=<token>` | 实时推送 `device_event` / `device_update`（RFC6455 手写实现，零依赖） |
-
-模拟器：`SIMULATOR_ENABLED=true` 时每 8 秒自动产生设备事件。定位器最近上报（10 分钟内）自动作为**强证据注入推理引擎与 LLM 提示词**。
-
-## 测试与自检
+## 🚀 快速开始
 
 ```bash
-node --test            # 全量回归（98 项：单元 + HTTP 端到端 + WebSocket 协议级 + 微信登录 + 户型识别）
-node scripts/smoke.js  # 演示前一键自检（9 项链路，含真实 LLM 验证）
+# 1) 主后端（零依赖，无需 npm install）
+node server.js            # 或双击 start.bat → http://localhost:8081
+
+# 2)（可选）Chinese-CLIP 本地服务——「拍照找同款/文字找物品」需要
+#    部署一次即可：scripts/clip-server/README.md（双击 start-clip.bat 启动，端口 8899）
+#    未部署时自动降级：向量检索接口返回 503，其余功能不受影响
+
+# 3) 微信小程序：微信开发者工具导入 miniprogram/ → 测试号 → 勾选"不校验合法域名" → 编译
 ```
 
-## 部署
+> 一键启动全部后端：双击根目录 `start-all.bat`（主服务 8081 + CLIP 8899）。
+> 视觉识别（图文/户型）走云端视觉大模型，在 `.env` 配 `LLM_VISION_*` 即可，未配置自动降级。
 
-- Windows：`start.bat` ｜ Linux/macOS：`./start.sh` ｜ 通用：`node server.js`
-- Docker：`docker build -t find-my-glasses . && docker run -p 8081:8081 -v fmg-data:/app/data find-my-glasses`
-- 环境变量见 `.env.example`（`TOKEN_SECRET` 生产必须修改；LLM Key 放 `.env`，已 gitignore）
-- 备份：停服后拷贝 `data/find_glasses.db`，或使用应用内 JSON 导入/导出
+## 🏗️ 技术栈
 
-## 文档
+- **后端**：Node.js ≥ 22.5 零第三方依赖——内置 `http` 路由、`node:sqlite`（WAL + 版本化迁移）、scrypt 密码 + HMAC 无状态令牌、手写 RFC6455 WebSocket、内存限流
+- **AI 能力**：云端视觉大模型（图文识别 / 户型识别，失败自动降级）+ 本地 Chinese-CLIP（图图/文图向量）+ 内置常识推理引擎（LLM 回退，完全离线可用）
+- **小程序**：原生 WXML 四件套页面 + movable-view 拖拽户型编辑器，后端完全复用同一套 REST 接口
+- **数据**：SQLite 单文件（`data/find_glasses.db`），照片本地落盘 `data/uploads/`
 
-- `docs/SDD.md`：完整软件设计说明书（架构/数据/接口/模块/安全/测试/部署/演进）
-- `docs/DEMO.md`：10 分钟演示脚本（含断网降级彩蛋）
-- `DEVELOPMENT.md`：**团队协作开发指南**（模块认领/分支流程/代码规范/新增模块模板/CI）
+## 🔌 接口速览（完整契约见 `docs/SDD.md` §4）
+
+| 模块 | 代表接口 |
+|---|---|
+| 账户/微信 | `POST /api/auth/register|login|wxlogin` · `PUT /api/auth/profile` |
+| 目录/户型 | `GET|POST /api/spaces` · `PUT /api/spaces/:id/layout|active` · `POST /api/layout/recognize` |
+| 物品管理 | `POST /api/items` · `GET /api/items?q=` · `GET /api/items/stats` · `POST /api/items/recognize` · `POST /api/items/search-image` |
+| 找物品引导 | `GET /api/reason/flow` · `POST /api/reason/infer` · `POST /api/reason/record` |
+| 硬件 | `GET|POST /api/hardware/devices` · `POST …/:id/report|command` · `WS /ws?token=` |
+
+## ✅ 测试与质量
+
+```bash
+node --test            # 138 项全绿：单元 + HTTP 端到端 + WebSocket 协议级 + 微信登录 + 户型识别 + 物品 P1/P2
+node scripts/smoke.js  # 演示前一键自检（含真实 LLM 验证）
+```
+
+CI：推送自动跑全部测试（`.github/workflows/test.yml`），红灯不合并。
+
+## 📚 文档
+
+| 文档 | 内容 |
+|---|---|
+| `docs/SDD.md` | 软件设计说明书：架构 / 数据 / 全部接口契约 / 模块设计 / 安全 / 测试 / 部署 |
+| `docs/PROJECT_PROGRESS.md` | 项目进度与团队交接（新成员先读它） |
+| `docs/DEMO.md` · `docs/VIDEO_SCRIPT.md` | 演示脚本与视频台词 |
+| `docs/HARDWARE_RFID.md` | UHF RFID 找物品硬件方向（无实物设计） |
+| `docs/SPATIALLM_ENV.md` | SpatialLM 房间实景扫描预研（视频→点云→结构化布局） |
+| `miniprogram/README.md` | 小程序开发与真机预览说明 |
+| `DEVELOPMENT.md` | 团队协作规范（分支/提交/模块边界） |
+
+## 🗺️ 演进路线
+
+- [x] 物品管理 P1+P2：录入 / 文字检索 / 图文识别 / 图图·文图向量检索（Chinese-CLIP 本地部署）
+- [x] 产品口径统一：登录 / 引导 / 找物品 / 存放统计 / 偏好页全面「物品存放」化
+- [x] 多目录（家/公司/宿舍）+ 每目录独立户型图 + 房间内部模块
+- [ ] SpatialLM 房间实景扫描 → 户型图自动建模（环境已就绪，阶段 0 验证中）
+- [ ] 演示数据 seed：预置带照片的示例物品
+- [ ] Web 端与小程序口径完全对齐
+
+---
+
+**团队仓库**：[github.com/SIWIER/team404](https://github.com/SIWIER/team404) · 分支 `main` 永远可运行可演示 · 提交信息 `feat(模块): 中文说明`
